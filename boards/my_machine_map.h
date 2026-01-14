@@ -31,7 +31,7 @@
  
 
 #define BOARD_NAME "IhorSPicoCNC"
-#define BOARD_URL "https://ibotz.info"
+#define BOARD_URL "https://github.com/iyalosovetsky/RP2040_pico2w"
 /*https://github.com/Expatria-Technologies/PicoBOB/blob/main/readme_images/default_pinout.png*/
 // 0 txd0 1 rxd0
 // 4 txd1 5 rxd1
@@ -43,15 +43,18 @@
 
 // Define stepper driver enable/disable output pin.
 #define ENABLE_PORT             GPIO_OUTPUT
-#define STEPPERS_ENABLE_PIN     9
+#define STEPPERS_ENABLE_PIN     8 // was 9
 
 // Define step direction output pins.
 #define DIRECTION_PORT        GPIO_OUTPUT
 #define DIRECTION_OUTMODE     GPIO_MAP
-#define X_DIRECTION_PIN       10
-#define Y_DIRECTION_PIN       11
-#define Z_DIRECTION_PIN       12
-
+#define X_DIRECTION_PIN        9 // was 10
+#define Y_DIRECTION_PIN       10 // was 11
+#define Z_DIRECTION_PIN       11 // was 12
+// 4pins connector - gpio14 gpio15 gnd gpio13 --STEP_PINS_BASE
+// 5pins connector - gpio8 gpio9 gnd gpio10 gpio11 -- ENA, DIR
+// 5pins connector - gpio18 gpio19 gpio20 gpio21 GND
+// gpios 26-27  aux usb
 
 // Define step pulse output pins.
 #define STEP_PORT             GPIO_PIO  // N_AXIS pin PIO SM
@@ -68,24 +71,29 @@
 #define X_LIMIT_PIN           21  
 #define Y_LIMIT_PIN           20 
 #define Z_LIMIT_PIN           19  
-#define PROBE_PIN             18 
+//#define PROBE_PORT            GPIO_INPUT
+//#define PROBE_PIN             18 
 // $5=7 $6=1 $14=70  - invert probe hold start
 
 // Define probe switch input pin.
-#define AUXINPUT0_PIN           28
+#define AUXINPUT0_PIN           18
+//#define AUXINPUT0_PIN           28
 #define AUXOUTPUT0_PORT         GPIO_OUTPUT
-#define AUXOUTPUT0_PIN          27
 #define AUXOUTPUT1_PORT         GPIO_OUTPUT
-#define AUXOUTPUT1_PIN          26
-#if MODBUS_ENABLE
-#define MODBUS_SERIAL_PORT          1
-//#define MPG_STREAM          1
-#endif
+#define AUXOUTPUT1_PORT         GPIO_OUTPUT
+//#define AUXOUTPUT0_PIN          27
+//#define AUXOUTPUT1_PIN          26
+#define AUXOUTPUT0_PIN          2
+#define AUXOUTPUT1_PIN          3
+//#define AUXOUTPUT2_PIN          28
+#define AUXOUTPUT2_PIN          4
 
 
 
 
-// 22  
+
+
+ 
 
 
 //#define RESET_PIN             16

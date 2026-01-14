@@ -203,22 +203,30 @@
 
 
 //ig added for MPG
+#define MPG_ENABLE           2 // Enable MPG interface. Requires serial port and one handshake pin unless
+                                // KEYPAD_ENABLE is set to 2 when mode switching is done by the CMD_MPG_MODE_TOGGLE (0x8B)
+                                // command character. Set both MPG_ENABLE and KEYPAD_ENABLE to 2 to use a handshake pin anyway.
+//#define MPG_MODE 2
+//#define MPG_MODE_PIN 22
 #define SERIAL1_PORT 1 
-#define MPG_MODE 2
+
 //igo comment #define KEYPAD_ENABLE        2 // Set to 1 for I2C keypad, 2 for other input such as serial data. If KEYPAD_ENABLE is set to 2 
                                  // and MPG_ENABLE is uncommented then the serial stream is shared with the MPG.
 #define VFD_ENABLE             0 // Set to 1 works or 2 for Huanyang VFD spindle. More here https://github.com/grblHAL/Plugins_spindle
 //#define VFD_ENABLE             1 // Set to 1 works or 2 for Huanyang VFD spindle. More here https://github.com/grblHAL/Plugins_spindle
+
 #if VFD_ENABLE > 0
 #define MODBUS_ENABLE          1 // Set to 1 for auto direction, 2 for direction signal on auxillary output pin.
-#define MODBUS_BAUDRATE 2 // 960
+#define MODBUS_BAUDRATE 2 // 9600
 #define SPINDLE0_ENABLE         SPINDLE_HUANYANG1
+//#define SPINDLE0_ENABLE         SPINDLE_HUANYANG2
+//#define SPINDLE0_ENABLE          SPINDLE_MODVFD
 #else // VFD_ENABLE == 0
 #define MODBUS_ENABLE          0
 #define SPINDLE_PORT                GPIO_OUTPUT
-#define SPINDLE_ENABLE_PIN          AUXOUTPUT1_PIN 
-#define SPINDLE_PWM_PIN             AUXOUTPUT0_PIN
-//ig #define SPINDLE_DIRECTION_PIN       AUXOUTPUT1_PIN
+#define SPINDLE_ENABLE_PIN          AUXOUTPUT0_PIN //2
+#define SPINDLE_PWM_PIN             AUXOUTPUT1_PIN //27
+#define SPINDLE_DIRECTION_PIN       AUXOUTPUT2_PIN
 #endif
 
 
