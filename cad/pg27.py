@@ -52,7 +52,7 @@ PARAMS = [
     ("shaft_d",     "7.98 mm", "output shaft (measured)"),
     ("shaft_l",     "18 mm",   "shaft length above the boss (measured)"),
     ("flat_l",      "15 mm",   "~ D-flat length (VXB listing)"),
-    ("flat_depth",  "0.5 mm",  "~ D-flat depth (7.5 across the flat) - measure"),
+    ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
     ("hole_pcd",    "28 mm",   "~ 4 mounting holes, 45/135/225/315 deg (photo)"),
     ("hole_d",      "2.5 mm",  "~ M3 tapped hole (thread unconfirmed)"),
     ("hole_depth",  "6 mm",    "~ thread depth - measure"),

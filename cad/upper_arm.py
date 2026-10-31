@@ -49,7 +49,7 @@ PARAMS = [
     ("j2_hub_r",   "11 mm",   "J2 D-hub radius (room for the M3 nut slot; turret lug gap is 12.5)"),
     ("j2_hub_out", "25.5 mm", "J2 hub outer end |y| (cheek inner face at 26)"),
     ("shaft_d",    "7.98 mm", "PG27 shaft"),
-    ("flat_depth", "0.5 mm",  "~ PG27 D-flat depth"),
+    ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
     ("d_clr",      "0.15 mm", "D-bore clearance"),
     ("grub_d",     "3.2 mm",  "M3 grub hole"),
     ("nut_w",      "5.7 mm",  "M3 nut across flats (trap)"),

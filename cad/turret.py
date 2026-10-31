@@ -65,7 +65,7 @@ PARAMS = [
     ("m3_head_d",  "6.5 mm",  "M3 head counterbore"),
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth"),
     ("shaft_d",    "7.98 mm", "PG27 shaft (pg27.FCStd)"),
-    ("flat_depth", "0.5 mm",  "~ PG27 D-flat depth (pg27.FCStd)"),
+    ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
     ("d_clr",      "0.15 mm", "D-bore clearance (snug: no grub screw reachable)"),
     ("face_off",   "0 mm",    "spare: move the J2/J3 faces outward"),
 ]
