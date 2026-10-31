@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: 3D viewport on the left, a workshop control rail on the right; rail stacks under the view on phones */
+/* Layout: 3D viewport on the left, a workshop control rail on the right; on phones the rail floats over the view's right side and can be hidden */
 :root {
   --bg: #eceff1; --panel: #f7f9fa; --line: #cfd7dd; --fg: #1a2228; --muted: #5a6670;
   --accent: #cf5428; --rod: #13866a; --ok: #1f9c74; --warn: #b97c0c; --bad: #c3302f;
@@ -64,9 +64,25 @@ ul.parts { margin: 0; padding: 0; list-style: none; display: flex; flex-directio
 ul.parts li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: baseline; }
 ul.parts i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; transform: translateY(1px); }
 ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
-/* phones: rail under the view, and a shorter view so there is page left to swipe on */
-@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); }
-  .view { height: clamp(300px, 58vh, 560px); height: clamp(300px, 58svh, 560px); } }
+.ax[hidden] { display: none; }
+#railbtn { display: none; }
+/* phones: the page is one screen, the view fills it and the rail floats over its right side */
+@media (max-width: 860px) {
+  body { display: flex; flex-direction: column; box-sizing: border-box; height: 100vh; height: 100svh; margin: 0; padding-block: 10px; }
+  header { margin-bottom: 8px; }
+  h1 { font-size: 21px; }
+  header p { display: none; }
+  .wrap { display: block; position: relative; flex: 1; min-height: 300px; }
+  .view { height: 100%; }
+  .views { right: 130px; }
+  .hint { display: none; }
+  #railbtn { display: block; position: absolute; top: 8px; right: 8px; z-index: 3; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25); }
+  .rail { position: absolute; top: 0; right: 0; bottom: 0; z-index: 2; width: min(300px, 78vw); overflow-y: auto;
+    overscroll-behavior: contain; padding: 46px 6px 6px; box-sizing: border-box; gap: 8px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); border-left: 1px solid var(--line); border-radius: 0 10px 10px 0; }
+  .rail .sec { padding: 10px 11px; gap: 8px; }
+  .wrap.shut .rail { display: none; }
+}
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 
@@ -89,9 +105,14 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     <div class="hint">Ліва кнопка: обертати · права: зсув · колесо: масштаб · наведи на деталь</div>
   </div>
 
-  <div class="rail">
+  <button id="railbtn" aria-controls="rail" aria-expanded="true">Сховати ✕</button>
+  <div class="rail" id="rail">
     <section class="sec" aria-labelledby="h-mot">
       <h2 id="h-mot">Двигуни</h2>
+      <div class="row">
+        <button id="demo">Демо-цикл</button>
+        <button id="home">Парковка</button>
+      </div>
       <div class="ax"><b>J1</b><label for="j1">Основа, поворот</label><output id="o1"></output>
         <input type="range" id="j1" min="-170" max="170" step="1" value="20"></div>
       <div class="ax"><b>J2</b><label for="j2">Плече, кут до горизонту</label><output id="o2"></output>
@@ -100,7 +121,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
         <input type="range" id="j3" min="-70" max="35" step="1" value="-30"></div>
       <div class="ax"><b>J4</b><label for="j4" id="j4l">Обертання інструмента</label><output id="o4"></output>
         <input type="range" id="j4" min="-180" max="180" step="1" value="0"></div>
-      <div class="ax"><b>S</b><label for="jg" id="jgl">Захват ST3215, розкриття</label><output id="og"></output>
+      <div class="ax" id="rowg"><b>S</b><label for="jg" id="jgl">Захват ST3215, розкриття</label><output id="og"></output>
         <input type="range" id="jg" min="0" max="100" step="1" value="70"></div>
       <div class="row" role="group" aria-label="Інструмент на фланці J4">
         <button data-tool="grip" class="on">Захват</button>
@@ -110,10 +131,6 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <div class="row" role="group" aria-label="Орієнтація J4">
         <button data-ax="z" class="on">J4 вертикально (Z)</button>
         <button data-ax="y">J4 поперек руки (Y), нахил</button>
-      </div>
-      <div class="row">
-        <button id="demo">Демо-цикл</button>
-        <button id="home">Парковка</button>
       </div>
     </section>
 
@@ -167,11 +184,24 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   // J4 axis and the clamp ring's outer radius (same numbers as tools/arm_ik.py)
   const ring = d => d / 2 + g.cl_wall;
   const TOOLS = {
-    grip:    { m: 0.15, s: 'Захват ST3215, розкриття', below: 90 },
-    m775:    { m: 0.45, s: 'Мотор 775, оберти', below: 121, y: { reach: 100, ro: ring(g.d775) } },
-    spindle: { m: 1.13, s: 'Шпиндель, оберти', below: 195, y: { reach: 139, ro: ring(g.d52) } },
+    grip:    { m: 0.15, below: 90 },
+    m775:    { m: 0.45, below: 121, y: { reach: 100, ro: ring(g.d775) } },
+    spindle: { m: 1.13, below: 195, y: { reach: 139, ro: ring(g.d52) } },
   };
   let tool = 'grip', j4axis = 'z';
+
+  // phones: the control rail floats over the view and can be hidden (set up before WebGL, so it works without it)
+  const wrap = document.querySelector('.wrap'), railbtn = document.getElementById('railbtn');
+  function setRail(open) {
+    wrap.classList.toggle('shut', !open);
+    railbtn.textContent = open ? 'Сховати ✕' : '☰ Керування';
+    railbtn.setAttribute('aria-expanded', open);
+    try { localStorage.setItem('roboruka.rail', open ? '1' : '0'); } catch (e) { /* storage blocked */ }
+  }
+  let railOpen = true;
+  try { railOpen = localStorage.getItem('roboruka.rail') !== '0'; } catch (e) { /* storage blocked */ }
+  setRail(railOpen);
+  railbtn.addEventListener('click', () => setRail(wrap.classList.contains('shut')));
 
   const view = document.getElementById('view'), cv = document.getElementById('cv');
   let renderer;
@@ -396,8 +426,8 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     if (h < 5) { sEl.textContent = 'Інструмент нижче столу'; sEl.style.color = 'var(--bad)'; }
     else if (atLimit) { sEl.textContent = 'Межа: кут між ланками 30…140°'; sEl.style.color = 'var(--warn)'; }
     else { sEl.textContent = 'OK'; sEl.style.color = 'var(--ok)'; }
-    const tcmd = tool === 'grip' ? (st.jg > 50 ? 'M102' : 'M103') : (st.jg > 0 ? `M3 S${Math.round(st.jg * 100)}` : 'M5');
-    el('gc').textContent = `G1 X${st.j1.toFixed(1)} Y${st.j2.toFixed(1)} Z${st.j3.toFixed(1)} A${st.j4.toFixed(1)} F900  ${tcmd}`;
+    const tcmd = tool === 'grip' ? (st.jg > 50 ? '  M102' : '  M103') : '';
+    el('gc').textContent = `G1 X${st.j1.toFixed(1)} Y${st.j2.toFixed(1)} Z${st.j3.toFixed(1)} A${st.j4.toFixed(1)} F900${tcmd}`;
     el('o1').textContent = st.j1.toFixed(0) + '°'; el('o2').textContent = st.j2.toFixed(0) + '°';
     el('o3').textContent = st.j3.toFixed(0) + '°'; el('o4').textContent = st.j4.toFixed(0) + '°';
     el('og').textContent = st.jg.toFixed(0) + '%';
@@ -411,7 +441,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
     tool = b.dataset.tool;
     document.querySelectorAll('[data-tool]').forEach(x => x.classList.toggle('on', x === b));
-    el('jgl').textContent = TOOLS[tool].s;
+    el('rowg').hidden = tool !== 'grip';   // only the gripper has the ST3215 servo
     placeJ4(); pose();
   }));
   document.querySelectorAll('[data-ax]').forEach(b => b.addEventListener('click', () => {
