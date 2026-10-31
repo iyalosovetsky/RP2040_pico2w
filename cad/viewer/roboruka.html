@@ -1,4 +1,7 @@
+<!doctype html>
+<html lang="uk">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Роборука PG27</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,11 +30,11 @@ header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; m
 h1 { font-size: 26px; font-weight: 600; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
 header p { margin: 0; color: var(--muted); }
 .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
-@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
 .view { position: relative; height: clamp(380px, 72vh, 760px); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--scene); }
 .view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .views { position: absolute; left: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
 .tip { position: absolute; pointer-events: none; padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--muted); }
 .hint { position: absolute; left: 10px; bottom: 8px; font-size: 12px; color: var(--muted); }
 button { font: 500 14px var(--font-ui); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px; cursor: pointer; }
 button:hover { border-color: var(--muted); }
@@ -61,6 +64,9 @@ ul.parts { margin: 0; padding: 0; list-style: none; display: flex; flex-directio
 ul.parts li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: baseline; }
 ul.parts i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; transform: translateY(1px); }
 ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
+/* phones: rail under the view, and a shorter view so there is page left to swipe on */
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); }
+  .view { height: clamp(300px, 58vh, 560px); height: clamp(300px, 58svh, 560px); } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 
@@ -133,7 +139,8 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <ul class="parts">
         <li><i style="background:#2b3137"></i><span>4× 17HS15-1684S-PG27<small>J1 в основі, J2 і J3 співвісно на турелі, J4 на кисті</small></span></li>
         <li><i style="background:#d9a441"></i><span>1× упорний 51211, 55×90×25<small>поворот основи</small></span></li>
-        <li><i style="background:#7f77dd"></i><span>5× 609Z, 9×24×7<small>лікоть ×2, кисть, 2 у запасі; плече з боку J3 ковзає по маточині кривошипа, шарніри тяг на осях M4</small></span></li>
+        <li><i style="background:#7f77dd"></i><span>3× 608ZZ, 8×22×7 (або 609Z із втулкою 8→9)<small>лікоть ×2, кисть; осі Ø8: лінійний вал або болт M8</small></span></li>
+        <li><i style="background:#7f77dd"></i><span>1× 6803, 17×26×5<small>плече з боку J3, на шийці кривошипа Ø17; до доставки друкована втулка</small></span></li>
         <li><i style="background:#cf5428"></i><span>Інтерфейс інструмента 50×50, 4×M3 на 40×40<small>фланець на валу J4; кронштейн Z (вертикально) або Y (нахил −60…130°)</small></span></li>
         <li><i style="background:#1e2226"></i><span>ST3215 / мотор 775 / шпиндель Ø52<small>змінні інструменти на фланці</small></span></li>
         <li><i style="background:#5b7c96"></i><span>Друковані ланки<small>плече, передпліччя, кривошип, тяги, пластини</small></span></li>
@@ -167,7 +174,12 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   let tool = 'grip', j4axis = 'z';
 
   const view = document.getElementById('view'), cv = document.getElementById('cv');
-  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true }); }
+  catch (e) {
+    view.insertAdjacentHTML('beforeend', '<p class="nogl">Цей браузер не дав WebGL, тому 3D-модель не показується.</p>');
+    return;
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   const scene = new THREE.Scene();
@@ -249,19 +261,19 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   lugPin.position.set(-LV, 21.5, 0); sh.add(tag(lugPin, 'Палець M4 нижньої тяги вирівнювання'));
 
   const upper = new THREE.Group(); sh.add(upper);
-  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): D-маточина на валу J2, гніздо 609Z'));
-  upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): гніздо 6803 на шийці кривошипа Ø17, гніздо 609Z ліктя'));
+  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): D-маточина на валу J2, гніздо 608ZZ'));
+  upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): гніздо 6803 на шийці кривошипа Ø17, гніздо 608ZZ ліктя'));
   upper.add(part('ua_spacers', M.print2, 'Розпірки плеча (друк), болти M4×35'));
   upper.add(part('ua_bush6803', M.b609, 'Підшипник 6803 (17×26×5) у щоці плеча J3; до його приїзду — друкована втулка того ж розміру'));
-  upper.add(part('b609_elbow', M.b609, '609Z ×2 — лікоть, у щоках плеча; у них крутиться вісь ліктя'));
+  upper.add(part('b609_elbow', M.b609, '608ZZ ×2 (8×22×7) — лікоть, у щоках плеча; у них крутиться вісь ліктя'));
   const crank = new THREE.Group(); sh.add(crank);
   crank.add(part('crank', M.crank, 'Кривошип J3 (друк): шийка Ø17 під 6803 щоки плеча, буртик притискає внутрішнє кільце'));
   crank.add(tag(at(cylY(2, 10, M.shaft), R, -21, 0), 'Палець M4: кривошип / тяга приводу'));
 
   const fore = new THREE.Group(); sh.add(fore);
   fore.add(part('forearm', M.print, 'Передпліччя L3 (друк), хвостик 40'));
-  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø8×45: лінійний вал 8 мм або болт M8×55; затиснута в передпліччі, крутиться в 609Z (з втулкою 8→9) або 608ZZ'));
-  fore.add(part('b609_wrist', M.b609, '609Z — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
+  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø8×45: лінійний вал 8 мм або болт M8×55; затиснута в передпліччі, крутиться в 608ZZ (або 609Z з втулкою 8→9)'));
+  fore.add(part('b609_wrist', M.b609, '608ZZ — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
   fore.add(tag(at(cylY(2, 14, M.shaft), -R, -12, 0), 'Палець M4: хвостик / тяга приводу'));
   const eplate = new THREE.Group(); sh.add(eplate);
   eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк): тримає орієнтацію'));
@@ -271,7 +283,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const fork = new THREE.Group(); sh.add(fork);
   fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн'));
-  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×34: лінійний вал 8 мм або болт M8×40; затиснута у вилці, крутиться в 609Z (з втулкою) або 608ZZ'));
+  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×34: лінійний вал 8 мм або болт M8×40; затиснута у вилці, крутиться в 608ZZ (або 609Z з втулкою)'));
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
   const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));
   const flZ = new THREE.Group(); flZ.position.x = g.zx; brZ.add(flZ);
