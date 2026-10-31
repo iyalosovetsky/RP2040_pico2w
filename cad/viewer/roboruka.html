@@ -134,7 +134,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
         <li><i style="background:#2b3137"></i><span>4× 17HS15-1684S-PG27<small>J1 в основі, J2 і J3 співвісно на турелі, J4 на кисті</small></span></li>
         <li><i style="background:#d9a441"></i><span>1× упорний 51211, 55×90×25<small>поворот основи</small></span></li>
         <li><i style="background:#7f77dd"></i><span>5× 609Z, 9×24×7<small>лікоть ×2, кисть, 2 у запасі; плече з боку J3 ковзає по маточині кривошипа, шарніри тяг на осях M4</small></span></li>
-        <li><i style="background:#cf5428"></i><span>Фланець інструмента Ø40, 4×M3 на Ø30<small>на валу J4; J4 ставиться вертикально або вздовж руки</small></span></li>
+        <li><i style="background:#cf5428"></i><span>Інтерфейс інструмента 50×50, 4×M3 на 40×40<small>фланець на валу J4; кронштейн Z (вертикально) або Y (нахил −60…130°)</small></span></li>
         <li><i style="background:#1e2226"></i><span>ST3215 / мотор 775 / шпиндель Ø52<small>змінні інструменти на фланці</small></span></li>
         <li><i style="background:#5b7c96"></i><span>Друковані ланки<small>плече, передпліччя, кривошип, тяги, пластини</small></span></li>
       </ul>
@@ -151,8 +151,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   // matches cad/base.FCStd + cad/turret.FCStd: roof 85, 51211 82..107, turret plate 104..122, shoulder 155
   const D1 = 155, L2 = 140, L3 = 140, R = 40;        // shoulder height, links, crank = forearm tail
   const V = [-30, 0], Wv = [0, 30];                  // levelling offsets: turret lug, elbow plate
-  const J4X = 36;                                    // J4 axis ahead of the wrist pivot
-  const FLANGE_Y = -20.7;                            // J4 shaft tip below the bracket top (Z mount) = tool flange origin
+  const J4X = 68;                                    // bracket Z: J4 axis ahead of the wrist axle (cad/tools.FCStd zx)
+  const BR_TOP = -24;                                // tool brackets bolt under the wrist fork bridge (bottom at -24)
+  const FLANGE_Y = BR_TOP - 20.7;                    // J4 shaft tip (Z mount) = tool flange origin
   const ZR = -18.5, ZC = -23, ZL1 = 19, ZPL = 23.5, ZL2 = 28;  // planes: drive rod, crank, levelling rods, elbow plate
   const MM = 0.51, LK = 0.0008, G = 9.81, LIM = 3;
   // tools on the universal flange (D40, 4x M3 on PCD 30): mass kg (with adapter),
@@ -317,7 +318,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   // end bracket at the wrist: keeps its orientation; two PG27 seats:
   //  - top plate, J4 axis vertical (Z): J4 turns the tool about the vertical (yaw), tool points down
   //  - side plate, J4 axis across the arm (Y, parallel to J2/J3): J4 tilts the tool in the arm's plane
-  const SIDE_X = 60, SIDE_Y = -36, SIDE_Z = 37;        // J4 axis position / seat face (lateral) for the side mount
+  const SIDE_X = 70, SIDE_Y = -80, SIDE_Z = 37;        // bracket Y: J4 axis (low, so tool ends pass under the fork) / seat face
   const endp = new THREE.Group(); sh.add(endp);
   endp.add(pin([0, 0], -14, ZL2 + 2, 4.5));
   const ep1 = link(0, 30, 10, 4, ZL2 - 4.5, M.print2); ep1.rotation.z = Math.PI / 2; endp.add(ep1);
@@ -326,10 +327,13 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   // two interchangeable printed brackets bolt to the wrist pivot plate:
   //  Z bracket - wide top plate carrying J4 vertically; Y bracket - narrow strip + side plate, the tool passes beside it
   const brZ = new THREE.Group(); endp.add(brZ);
-  const ep2 = box(SIDE_X + 40, 6, 52, M.print2); ep2.position.set((SIDE_X + 40) / 2 - 12, -3, 8); brZ.add(ep2);
+  // wrist fork (cad/forearm.FCStd): cheeks around the axle + bridge with 4 inserts underneath
+  const fkB = box(44, 6, 27, M.print2); fkB.position.set(22, -21, 0); endp.add(tag(fkB, 'Вилка кисті: площадка під кронштейн (4×M3)'));
+  [11, -11].forEach(z => { const c = box(44, 24, 5, M.print2); c.position.set(22, -12, z); endp.add(tag(c, 'Щока вилки кисті')); });
+  const ep2 = box(100, 6, 50, M.print2); ep2.position.set(48, BR_TOP - 3, 0); brZ.add(ep2);
   const brY = new THREE.Group(); endp.add(brY);
-  const ep2y = box(SIDE_X + 40, 6, 22, M.print2); ep2y.position.set((SIDE_X + 40) / 2 - 12, -3, 25); brY.add(ep2y);
-  const ep3 = box(56, 62, 6, M.print2); ep3.position.set(SIDE_X, -31, SIDE_Z - 3); brY.add(ep3);
+  const ep2y = box(46, 6, 50.5, M.print2); ep2y.position.set(21, BR_TOP - 3, 11.75); brY.add(ep2y);
+  const ep3 = box(100, 84, 6, M.print2); ep3.position.set(48, BR_TOP - 42, SIDE_Z - 3); brY.add(ep3);
   tag(brZ, 'Кронштейн кисті Z (друк): J4 вертикально');
   tag(brY, 'Кронштейн кисті Y (друк): J4 поперек руки, нахил інструмента');
   tag(ep1, 'Пластина шарніра кисті (друк), завжди горизонтальна');
@@ -337,12 +341,12 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const toolMount = new THREE.Group(); endp.add(toolMount);
   // Z mount: D-hub + D40 flange on the shaft end, tool hangs below, coaxial with J4
   const zAd = new THREE.Group(); toolMount.add(zAd);
-  const adHub = cylY(8, 12, M.crank); adHub.position.y = 6; zAd.add(tag(adHub, 'Адаптер на вал J4 (D-отвір)'));
-  const adFl = cylY(20, 5, M.crank); adFl.position.y = -2.5; zAd.add(tag(adFl, 'Фланець інструмента Ø40, 4×M3 на Ø30'));
+  const adHub = cylY(11, 14, M.crank); adHub.position.y = 7; zAd.add(tag(adHub, 'Фланець Z: D-маточина на валу J4'));
+  const adFl = box(50, 6, 50, M.crank); adFl.position.y = -3.5; zAd.add(tag(adFl, 'Інтерфейс інструмента 50×50, 4×M3 на 40×40'));
   // Y mount: D-hub on the shaft + side plate; the tool's clamp bolts to it, tool axis across the J4 axis
   const yAd = new THREE.Group(); toolMount.add(yAd);
-  const yHub = cylZ(8, 13.5, M.crank); yHub.position.z = 23; yAd.add(tag(yHub, 'Адаптер на вал J4 (D-отвір)'));
-  const yPl = box(34, 34, 6, M.crank); yPl.position.z = 13; yAd.add(tag(yPl, 'Бічний фланець інструмента, 4×M3 на Ø30'));
+  const yHub = cylZ(11, 14, M.crank); yHub.position.z = 23; yAd.add(tag(yHub, 'Фланець Y: D-маточина на валу J4'));
+  const yPl = box(50, 50, 6, M.crank); yPl.position.z = 12.8; yAd.add(tag(yPl, 'Інтерфейс інструмента 50×50, 4×M3 на 40×40'));
   const spin = new THREE.Group(); toolMount.add(spin);
   const tools = {};
   // gripper
@@ -366,23 +370,24 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   Object.values(tools).forEach(t => spin.add(t));
   // side mount: the J4 axis goes through the tool's centre of mass so J4 holds almost no moment.
   // at = that point's distance below the Z-mount flange, r = clamp half-width (tool sits beside the hub)
-  const CLAMP = { grip: { at: 27.5, r: 12.5 }, m775: { at: 48, r: 24.5 }, spindle: { at: 82, r: 31 } };
+  // (cad/tools.py: the spindle is clamped 25 mm above its CoG so its top end clears the fork at any tilt)
+  const CLAMP = { grip: { at: 27.5, r: 12.5 }, m775: { at: 48, r: 27.1 }, spindle: { at: 57, r: 32.1 } };
   let j4axis = 'z';
   function placeJ4() {
     const j4 = el('j4');
     if (j4axis === 'z') {          // flange face on the top plate, body up, shaft down, tool coaxial
-      m4.rotation.set(0, 0, 0); m4.position.set(J4X, 0, 0);
+      m4.rotation.set(0, 0, 0); m4.position.set(J4X, BR_TOP, 0);
       toolMount.position.set(J4X, FLANGE_Y, 0);
-      Object.values(tools).forEach(t => t.position.set(0, -5, 0));
+      Object.values(tools).forEach(t => t.position.set(0, -6.5, 0));
       c775.position.y = -12; csp.position.y = -22;   // clamps at the top, under the flange
       j4.min = -180; j4.max = 180; el('j4l').textContent = 'Обертання інструмента';
     } else {                       // flange face on the side plate, body outward like J2/J3, shaft toward the arm
       m4.rotation.set(Math.PI / 2, 0, 0); m4.position.set(SIDE_X, SIDE_Y, SIDE_Z);
       toolMount.position.set(SIDE_X, SIDE_Y, 0);
-      Object.entries(tools).forEach(([k, t]) => t.position.set(0, -5 + CLAMP[k].at, 10 - CLAMP[k].r));
+      Object.entries(tools).forEach(([k, t]) => t.position.set(0, -5 + CLAMP[k].at, 9.8 - CLAMP[k].r));
       c775.position.y = 5 - CLAMP.m775.at; csp.position.y = 5 - CLAMP.spindle.at;   // clamps on the J4 axis
-      j4.min = -45; j4.max = 120; el('j4l').textContent = 'Нахил інструмента (0° вниз, 90° вперед)';
-      st.j4 = Math.min(120, Math.max(-45, st.j4)); j4.value = Math.round(st.j4);
+      j4.min = -60; j4.max = 130; el('j4l').textContent = 'Нахил інструмента (0° вниз, 90° вперед)';
+      st.j4 = Math.min(130, Math.max(-60, st.j4)); j4.value = Math.round(st.j4);
     }
     zAd.visible = brZ.visible = j4axis === 'z'; yAd.visible = brY.visible = j4axis === 'y';
     Object.keys(tools).forEach(k => { tools[k].visible = k === tool; });
@@ -451,10 +456,8 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     });
     const s = el('state');
     const atLimit = st.j3 <= Math.max(-70, st.j2 - 150) + 0.5 || st.j3 >= Math.min(35, st.j2 - 40) - 0.5;
-    // Y mount: the tool's back end swings toward the wrist pivot when tilted forward
-    const backX = j4axis === 'y' ? SIDE_X - (CLAMP[tool].at - 5) * Math.sin(rad(st.j4)) : 99;
+    // bracket Y tilt range -60..130 deg is collision-checked in cad/tools.py for the 775 and the spindle
     if (h < 5) { s.textContent = 'Інструмент нижче столу'; s.style.color = 'var(--bad)'; }
-    else if (backX < 20) { s.textContent = 'Задній кінець інструмента зачіпає кисть: менший нахил'; s.style.color = 'var(--bad)'; }
     else if (atLimit) { s.textContent = 'Межа: кут між ланками 30…140°'; s.style.color = 'var(--warn)'; }
     else { s.textContent = 'OK'; s.style.color = 'var(--ok)'; }
     const tcmd = tool === 'grip' ? (st.jg > 50 ? 'M102' : 'M103') : (st.jg > 0 ? `M3 S${Math.round(st.jg * 100)}` : 'M5');
