@@ -54,7 +54,7 @@ PARAMS = [
     ("flat_l",      "15 mm",   "~ D-flat length (VXB listing)"),
     ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
     ("hole_pcd",    "28 mm",   "~ 4 mounting holes, 45/135/225/315 deg (photo)"),
-    ("hole_d",      "2.5 mm",  "~ M3 tapped hole (thread unconfirmed)"),
+    ("hole_d",      "2.5 mm",  "M3 tapped hole (confirmed with an M3 screw)"),
     ("hole_depth",  "6 mm",    "~ thread depth - measure"),
     ("cap_pcd",     "28 mm",   "~ gearbox clamp screws, 0/90/180/270 deg (photo)"),
     ("cap_d",       "5.5 mm",  "~ M3 socket head"),
