@@ -16,4 +16,13 @@ After changing any `cad/*.py` model, rebuild its `.FCStd` and then refresh the m
 <FreeCAD.AppImage> freecadcmd cad/viewer/export_parts.py
 ```
 
-The same page is published as a private artifact: https://claude.ai/artifact/T8ELjPK7bbDcdPbRnszxEH
+Hosted at **https://web.ibotz.space/roboruka/** (behind the usual *.ibotz.space Google login):
+zen4 runs a static nginx container (`web-static`, port 8091, serves `~/www`) and ibotz2's
+nginx proxies to it over the VPN - `web.ibotz.space.nginx` is that site's config. Publish a
+new version with:
+
+```bash
+cad/viewer/deploy_web.sh
+```
+
+The same page is also a private claude.ai artifact: https://claude.ai/artifact/T8ELjPK7bbDcdPbRnszxEH
