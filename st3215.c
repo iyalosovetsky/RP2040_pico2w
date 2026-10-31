@@ -21,11 +21,19 @@
 
   Usage:
     M101 [P<id>] [Q<angle>]
+    M102 [P<id>]   - open gripper  (ST3215_GRIPPER_ENABLE only, moves to $455)
+    M103 [P<id>]   - close gripper (ST3215_GRIPPER_ENABLE only, moves to $456)
 
   If Q is specified the servo with the given id is moved to <angle> degrees.
   If Q is omitted the servo status is reported instead:
     [ST3215:<id>|A:<angle deg>|L:<load %>|V:<voltage V>|T:<temperature C>]
   If P is omitted ST3215_ID_DEFAULT is used.
+
+  Moves (M101 Q, M102, M103) are synchronized with the motion planner: they
+  run only after all previously queued G-code motion has finished, so
+  "G1 X.. Y..  M103" closes the gripper once the arm has arrived. The servo
+  move itself is not waited for - follow with G4 P<seconds> if the next
+  motion must not start until the gripper has finished closing.
 
   The default id's angle is also appended to every "?" realtime status
   report as |ST3215:<angle>, e.g. <Idle|MPos:...|ST3215:120.40>. This value
@@ -37,6 +45,8 @@
     $450 - move speed, raw ST3215 steps/s (0 = max/uncontrolled speed).
     $451 - minimum allowed angle, degrees. M101 Q below this is rejected.
     $452 - maximum allowed angle, degrees. M101 Q above this is rejected.
+    $455 - gripper open angle, degrees (M102).   ST3215_GRIPPER_ENABLE only.
+    $456 - gripper close angle, degrees (M103).  ST3215_GRIPPER_ENABLE only.
   These are stored in NVS and reloaded on boot.
 
   The servo is driven over a dedicated hardware UART (ST3215_STREAM, default
@@ -81,6 +91,22 @@
 #define ST3215_SPEED_DEFAULT 200 // Default $450 value, raw steps/s. Conservative/slow.
 #endif
 
+#ifndef ST3215_GRIPPER_ENABLE
+#define ST3215_GRIPPER_ENABLE 0 // M102/M103 gripper open/close presets.
+#endif
+
+#if ST3215_GRIPPER_ENABLE && ROTARY_TABLE_ENABLE
+#error "ST3215_GRIPPER_ENABLE and ROTARY_TABLE_ENABLE both claim M102/M103"
+#endif
+
+#ifndef ST3215_GRIPPER_OPEN_DEFAULT
+#define ST3215_GRIPPER_OPEN_DEFAULT  180.0f // Default $455 value, degrees.
+#endif
+
+#ifndef ST3215_GRIPPER_CLOSE_DEFAULT
+#define ST3215_GRIPPER_CLOSE_DEFAULT 90.0f  // Default $456 value, degrees.
+#endif
+
 #ifndef ST3215_POLL_MS
 #define ST3215_POLL_MS 500 // Background poll interval for the "?" status report field.
 #endif
@@ -111,11 +137,19 @@ typedef struct {
 #define Setting_ST3215_Speed     Setting_UserDefined_0
 #define Setting_ST3215_AngleMin  Setting_UserDefined_1
 #define Setting_ST3215_AngleMax  Setting_UserDefined_2
+// $453/$454 are left to rotary_table.c, which can't be enabled together with the gripper anyway.
+#define Setting_ST3215_GripOpen  Setting_UserDefined_5
+#define Setting_ST3215_GripClose Setting_UserDefined_6
+
+#define Gripper_Open  UserMCode_Generic2 // M102
+#define Gripper_Close UserMCode_Generic3 // M103
 
 typedef struct {
     uint16_t speed;
     float angle_min;
     float angle_max;
+    float grip_open;
+    float grip_close;
 } st3215_settings_t;
 
 static io_stream_t st3215_uart;
@@ -286,9 +320,18 @@ static void st3215_poll (void *data)
     task_add_delayed(st3215_poll, NULL, ST3215_POLL_MS);
 }
 
+static inline bool is_gripper_mcode (user_mcode_t mcode)
+{
+#if ST3215_GRIPPER_ENABLE
+    return mcode == Gripper_Open || mcode == Gripper_Close;
+#else
+    return false;
+#endif
+}
+
 static user_mcode_type_t mcode_check (user_mcode_t mcode)
 {
-    return mcode == UserMCode_Generic1
+    return mcode == UserMCode_Generic1 || is_gripper_mcode(mcode)
                      ? UserMCode_Normal
                      : (user_mcode.check ? user_mcode.check(mcode) : UserMCode_Unsupported);
 }
@@ -306,7 +349,17 @@ static status_code_t mcode_validate (parser_block_t *gc_block)
             (gc_block->values.q < st3215_settings.angle_min || gc_block->values.q > st3215_settings.angle_max))
             state = Status_GcodeValueOutOfRange;
 
+        // Only moves wait for queued motion; a status query (no Q) answers immediately.
+        gc_block->user_mcode_sync = gc_block->words.q;
         gc_block->words.p = gc_block->words.q = Off;
+
+    } else if(is_gripper_mcode(gc_block->user_mcode)) {
+
+        if(gc_block->words.p && (!isintf(gc_block->values.p) || gc_block->values.p < 0.0f || gc_block->values.p > 253.0f))
+            state = Status_GcodeValueOutOfRange;
+
+        gc_block->user_mcode_sync = true;
+        gc_block->words.p = Off;
 
     } else
         state = Status_Unhandled;
@@ -343,6 +396,12 @@ static void mcode_execute (uint_fast16_t state, parser_block_t *gc_block)
             }
         }
 
+    } else if(is_gripper_mcode(gc_block->user_mcode)) {
+
+        uint8_t id = gc_block->words.p ? (uint8_t)gc_block->values.p : ST3215_ID_DEFAULT;
+
+        st3215_set_angle(id, gc_block->user_mcode == Gripper_Open ? st3215_settings.grip_open : st3215_settings.grip_close);
+
     } else if(user_mcode.execute)
         user_mcode.execute(state, gc_block);
 }
@@ -374,16 +433,43 @@ static float get_angle_limit (setting_id_t id)
     return id == Setting_ST3215_AngleMin ? st3215_settings.angle_min : st3215_settings.angle_max;
 }
 
+#if ST3215_GRIPPER_ENABLE
+
+static status_code_t set_grip_angle (setting_id_t id, float value)
+{
+    if(id == Setting_ST3215_GripOpen)
+        st3215_settings.grip_open = value;
+    else
+        st3215_settings.grip_close = value;
+
+    return Status_OK;
+}
+
+static float get_grip_angle (setting_id_t id)
+{
+    return id == Setting_ST3215_GripOpen ? st3215_settings.grip_open : st3215_settings.grip_close;
+}
+
+#endif
+
 static const setting_detail_t st3215_settings_detail[] = {
     { Setting_ST3215_Speed, Group_General, "ST3215 servo speed", "steps/s", Format_Int16, "####0", "0", "4095", Setting_IsExtendedFn, set_speed, get_speed, NULL },
     { Setting_ST3215_AngleMin, Group_General, "ST3215 minimum angle", "deg", Format_Decimal, "##0.0", "0", "360", Setting_IsExtendedFn, set_angle_limit, get_angle_limit, NULL },
-    { Setting_ST3215_AngleMax, Group_General, "ST3215 maximum angle", "deg", Format_Decimal, "##0.0", "0", "360", Setting_IsExtendedFn, set_angle_limit, get_angle_limit, NULL }
+    { Setting_ST3215_AngleMax, Group_General, "ST3215 maximum angle", "deg", Format_Decimal, "##0.0", "0", "360", Setting_IsExtendedFn, set_angle_limit, get_angle_limit, NULL },
+#if ST3215_GRIPPER_ENABLE
+    { Setting_ST3215_GripOpen, Group_General, "Gripper open angle", "deg", Format_Decimal, "##0.0", "0", "360", Setting_IsExtendedFn, set_grip_angle, get_grip_angle, NULL },
+    { Setting_ST3215_GripClose, Group_General, "Gripper close angle", "deg", Format_Decimal, "##0.0", "0", "360", Setting_IsExtendedFn, set_grip_angle, get_grip_angle, NULL },
+#endif
 };
 
 static const setting_descr_t st3215_settings_descr[] = {
     { Setting_ST3215_Speed, "Move speed for M101 Q<angle>, in raw ST3215 Goal Speed units (steps/s out of 4096 per revolution). 0 = maximum/uncontrolled speed." },
     { Setting_ST3215_AngleMin, "Minimum angle allowed for M101 Q<angle>. Moves requesting a lower angle are rejected." },
-    { Setting_ST3215_AngleMax, "Maximum angle allowed for M101 Q<angle>. Moves requesting a higher angle are rejected." }
+    { Setting_ST3215_AngleMax, "Maximum angle allowed for M101 Q<angle>. Moves requesting a higher angle are rejected." },
+#if ST3215_GRIPPER_ENABLE
+    { Setting_ST3215_GripOpen, "Servo angle M102 moves the gripper to (open)." },
+    { Setting_ST3215_GripClose, "Servo angle M103 moves the gripper to (closed)." },
+#endif
 };
 
 static void st3215_settings_save (void)
@@ -396,6 +482,8 @@ static void st3215_settings_restore (void)
     st3215_settings.speed = ST3215_SPEED_DEFAULT;
     st3215_settings.angle_min = 0.0f;
     st3215_settings.angle_max = ST3215_ANGLE_MAX;
+    st3215_settings.grip_open = ST3215_GRIPPER_OPEN_DEFAULT;
+    st3215_settings.grip_close = ST3215_GRIPPER_CLOSE_DEFAULT;
 
     st3215_settings_save();
 }
@@ -412,7 +500,9 @@ static void st3215_settings_load (void)
     valid = st3215_settings.speed <= ST3215_SPEED_MAX &&
             st3215_settings.angle_min >= 0.0f && st3215_settings.angle_min <= ST3215_ANGLE_MAX &&
             st3215_settings.angle_max >= 0.0f && st3215_settings.angle_max <= ST3215_ANGLE_MAX &&
-            st3215_settings.angle_min <= st3215_settings.angle_max;
+            st3215_settings.angle_min <= st3215_settings.angle_max &&
+            st3215_settings.grip_open >= 0.0f && st3215_settings.grip_open <= ST3215_ANGLE_MAX &&
+            st3215_settings.grip_close >= 0.0f && st3215_settings.grip_close <= ST3215_ANGLE_MAX;
 
     if(!valid)
         st3215_settings_restore();
@@ -436,7 +526,7 @@ static void onReportOptions (bool newopt)
     on_report_options(newopt);
 
     if(!newopt)
-        report_plugin("ST3215 servo", "0.03");
+        report_plugin("ST3215 servo", "0.04");
 }
 
 void st3215_init (void)

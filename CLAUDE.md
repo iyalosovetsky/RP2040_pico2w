@@ -58,6 +58,10 @@ Consequences of a motor living outside `N_AXIS`:
 - It's invisible to grbl's own Trinamic driver setup, which only configures the first `N_AXIS` TMC2209s. A motor added this way must be configured explicitly via `TMC2209_AddMotor()` (see `rotary_table_init()`) or it's left on power-on-reset defaults (wrong microstepping, wrong current) — this caused audibly rough/jerky motion until fixed.
 - Never call anything that writes to NVS flash (`settings_restore()`/`settings_save()`, or a plugin's own `.load()` handler with a fresh/corrupt NVS region) directly from `board_init()`. Doing so hung the board (reproduced by testing) — most likely `flash_range_erase()`/`flash_range_program()` isn't safe to call this early in boot. grbl's settings framework calls each registered plugin's `.load()` on its own at a safe point later; let it.
 
+## Robot arm build (`ROBOT_ARM`)
+
+`option(ROBOT_ARM ...)` in [CMakeLists.txt](CMakeLists.txt) (default ON on the `robot_arm` branch) turns the machine into a 4-joint arm: `N_AXIS=4`, joint defaults (steps/deg, rates, TMC current, idle lock 255) injected as `-D` flags for the reason above, `ROTARY_TABLE_ENABLE` off (its E0 driver is joint A) and `ST3215_GRIPPER_ENABLE` on, which reuses M102/M103 for gripper open/close (`$455`/`$456`). The two features claim the same M-codes, so `st3215.c` `#error`s if both are enabled. Kinematics are deliberately host-side ([tools/arm_ik.py](tools/arm_ik.py)); grbl only ever sees joint angles.
+
 ## Custom M-codes (this fork's own plugins)
 
 Both use `UserMCode_Generic1..4` (M101-M104), explicitly reserved in `grbl/gcode.h` for private/non-public use, and both reserve `Setting_UserDefined_0..9` (`$450`-`$459`, also explicitly reserved for private plugins) for their own persistent settings — see `grbl/settings.h` before picking new IDs.

@@ -18,6 +18,7 @@
 #       --mqtt              Enable ADD_MQTT
 #       --hpgl              Enable ADD_HPGL
 #       --my-plugin         Enable AddMyPlugin (build my_plugin.c)
+#       --cnc               Build the X/Y/Z CNC + rotary table variant (ROBOT_ARM=OFF)
 #   -h, --help              Show this help
 #
 set -euo pipefail
@@ -36,6 +37,7 @@ ADD_BLUETOOTH=OFF
 ADD_MDNS=OFF
 ADD_MQTT=OFF
 ADD_HPGL=OFF
+ROBOT_ARM=ON
 ADD_MY_PLUGIN=OFF
 
 usage() {
@@ -56,6 +58,7 @@ while [ $# -gt 0 ]; do
         --mqtt) ADD_MQTT=ON; shift ;;
         --hpgl) ADD_HPGL=ON; shift ;;
         --my-plugin) ADD_MY_PLUGIN=ON; shift ;;
+        --cnc) ROBOT_ARM=OFF; shift ;;
         -h|--help) usage 0 ;;
         *) echo "Unknown option: $1" >&2; usage 1 ;;
     esac
@@ -108,6 +111,7 @@ echo "  ADD_mDNS      : $ADD_MDNS"
 echo "  ADD_MQTT      : $ADD_MQTT"
 echo "  ADD_HPGL      : $ADD_HPGL"
 echo "  AddMyPlugin   : $ADD_MY_PLUGIN"
+echo "  ROBOT_ARM     : $ROBOT_ARM"
 
 cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" -G "$GENERATOR" \
     -DPICO_BOARD="$BOARD" \
@@ -117,7 +121,8 @@ cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" -G "$GENERATOR" \
     -DADD_mDNS="$ADD_MDNS" \
     -DADD_MQTT="$ADD_MQTT" \
     -DADD_HPGL="$ADD_HPGL" \
-    -DAddMyPlugin="$ADD_MY_PLUGIN"
+    -DAddMyPlugin="$ADD_MY_PLUGIN" \
+    -DROBOT_ARM="$ROBOT_ARM"
 
 ACTUAL_SDK_PATH="$(grep -m1 '^PICO_SDK_PATH:' "${BUILD_DIR}/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)"
 if [ -n "$ACTUAL_SDK_PATH" ] && [ "$ACTUAL_SDK_PATH" != "$SDK_PATH" ]; then

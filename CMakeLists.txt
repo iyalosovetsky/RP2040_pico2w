@@ -130,7 +130,30 @@ target_compile_definitions(grblHAL PUBLIC RP2040)
 # (adjacent to the including file) rather than my_machine.h/driver.h - a #define
 # in my_machine.h is invisible to them regardless of include order. Compile-time
 # config that grbl core itself reads (not just driver.c) must go here instead.
-target_compile_definitions(grblHAL PUBLIC DEFAULT_DIR_SIGNALS_INVERT_MASK=7) # Invert X/Y/Z direction (bits 0-2), read by grbl/settings.c to seed $3.
+option(ROBOT_ARM "4-joint robot arm (17HS15-1684S-PG27 joints on X/Y/Z/A + ST3215 gripper) instead of the X/Y/Z CNC + rotary table" ON)
+if(ROBOT_ARM)
+    # Joint-space machine: X = base, Y = shoulder, Z = elbow, A = wrist pitch, all in
+    # degrees ("mm" on X/Y/Z is read as degrees). Cartesian IK is done on the host
+    # (tools/arm_ik.py), grbl only sees joint angles.
+    target_compile_definitions(grblHAL PUBLIC ROBOT_ARM=1)
+    target_compile_definitions(grblHAL PUBLIC N_AXIS=4) # A uses the E0 driver, freed by dropping the rotary table.
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_DIR_SIGNALS_INVERT_MASK=0) # Set per joint with $3 once wired.
+    # 17HS15-1684S-PG27: 1.8 deg motor, 26+103/121:1 planetary gearbox, 16 microsteps (TMC2209 MRES)
+    # -> 200 * 16 * 26.8512 / 360 = 238.678 steps per output degree.
+    foreach(ax X Y Z A)
+        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_STEPS_PER_MM=238.678f)
+        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_MAX_RATE=1800.0f)    # deg/min (30 deg/s, ~134 rpm motor side, ~7.2 kHz step rate)
+        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_ACCELERATION=60.0f)  # deg/s^2, gentle for a loaded arm
+        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_MAX_TRAVEL=360.0f)   # deg, narrow per joint once homing/limits exist
+        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_CURRENT=1200.0f)     # mA RMS, motor rated 1.68 A
+        target_compile_definitions(grblHAL PUBLIC TMC_${ax}_HOLD_CURRENT_PCT=70)     # holding torque against gravity
+    endforeach()
+    # The PG27 gearbox is back-drivable: an unpowered arm falls. Keep the drivers
+    # enabled after every move (255 = never disable on idle).
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_STEPPER_IDLE_LOCK_TIME=255)
+else()
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_DIR_SIGNALS_INVERT_MASK=7) # Invert X/Y/Z direction (bits 0-2), read by grbl/settings.c to seed $3.
+endif()
 target_compile_definitions(grblHAL PUBLIC NEW_FATFS)
 #target_compile_definitions(grblHAL PUBLIC LITTLEFS_ENABLE=1)
 

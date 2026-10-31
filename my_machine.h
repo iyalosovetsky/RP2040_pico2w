@@ -49,11 +49,15 @@
 // (which actually reads it to seed $3) #includes grbl/config.h directly and never
 // reaches this file, so a #define here would only affect driver.c and be silently
 // ignored by grbl core - see the comment next to it in CMakeLists.txt.
+// ROBOT_ARM comes from CMakeLists.txt (option ROBOT_ARM): X/Y/Z/A are the arm's joints and the
+// E0 driver the rotary table used is now joint A, so the table is only built for the CNC config.
+#if !ROBOT_ARM
 #define ROTARY_TABLE_ENABLE     1 // M102/M103/M104 control of the rotary table stepper, driven independently of
                                    // grbl's motion planner (see rotary_table.c) so it can spin continuously while
                                    // X/Y/Z G-code keeps executing. Uses the board's E0/4th motor connector
                                    // (GPIO14/13/15) - NOT a grbl axis (N_AXIS stays 3; the table used to be axis A,
                                    // see git history, but that blocked X/Y/Z from running while it turned).
+#endif
 //#define BLUETOOTH_ENABLE        2 // Set to 2 for HC-05 module, enable in CMakeLists.txt if for Pico W Bluetooth.
 // Spindle selection:
 // Up to four specific spindle drivers can be instantiated at a time
@@ -100,6 +104,9 @@
 //#define PWM_SERVO_ENABLE        1 // Enable M280 PWM servo support, requires at least one PWM capable auxiliary output.
 //#define BLTOUCH_ENABLE          1 // Enable M401/M402 BLTouch support. Requires and claims one auxiliary PWM servo output.
 #define ST3215_ENABLE           1 // Enable M101 support for a Feetech/Waveshare ST3215 serial bus servo on a dedicated hardware UART (default: UART0, GPIO0/GPIO1). See st3215.c for wiring notes and ST3215_STREAM/ST3215_BAUDRATE/ST3215_ID_DEFAULT overrides.
+#if ROBOT_ARM
+#define ST3215_GRIPPER_ENABLE   1 // M102 open / M103 close the gripper (ST3215 id ST3215_ID_DEFAULT) to $455/$456.
+#endif
 //#define EVENTOUT_ENABLE         1 // Enable binding events (triggers) to control auxiliary outputs.
 //#define ESP_AT_ENABLE           1 // Enable support for Telnet communication via UART connected ESP32 running ESP-AT.
 //#define FEED_OVERRIDE_ENABLE    1 // Enable M200 feed override control.

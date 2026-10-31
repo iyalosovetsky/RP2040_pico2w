@@ -26,6 +26,35 @@ Configured for a **BTT SKR Pico 1.0** board (`BOARD_BTT_SKR_PICO_10` in [my_mach
 
 If you're working on this repo with [Claude Code](https://claude.com/claude-code), see [CLAUDE.md](CLAUDE.md) for this fork's architecture notes, and the `grblhal-driver-dev` skill (user-level, `~/.claude/skills/grblhal-driver-dev/`) for the general grblHAL extension patterns and gotchas this session's work uncovered — custom M-codes, `$`-settings, status report fields, and why some config has to live in `CMakeLists.txt` instead of `my_machine.h`.
 
+### Robot arm (robot_arm branch, `ROBOT_ARM` CMake option, default ON)
+
+The same board as a 4-joint arm: four **17HS15-1684S-PG27** NEMA17 steppers with a 26.85:1 planetary gearbox on the board's four TMC2209 drivers, plus the ST3215 servo as the gripper. Build the CNC + rotary table variant with `./build.sh --cnc` (`-DROBOT_ARM=OFF`).
+
+| Joint | grbl axis | Driver / connector | Limit input |
+|---|---|---|---|
+| Base yaw | X | X | X-STOP (GPIO4) |
+| Shoulder | Y | Y | Y-STOP (GPIO3) |
+| Elbow | Z | Z | Z-STOP (GPIO25) |
+| Wrist pitch | A | E0 (GPIO14/13/15, TMC addr 3) | E0-STOP (GPIO16) |
+| Gripper | - | ST3215 on UART0 (GPIO0/1), id 1 | - |
+
+The machine is **joint-space**: G-code X/Y/Z/A are joint angles in degrees (grbl reports X/Y/Z as "mm", read them as degrees). Cartesian moves are converted on the host by [tools/arm_ik.py](tools/arm_ik.py) — edit the `ARM` dict (link lengths `D1/R1/L2/L3/L4`, per-joint sign/offset/limits) to match the build, check poses with `arm_ik.py fk`, then `arm_ik.py ik <x> <y> <z> --pitch <deg> [--port /dev/ttyACM0]`. See [examples/arm_pick_place.gcode](examples/arm_pick_place.gcode).
+
+Defaults baked in via `CMakeLists.txt` (all overridable with `$`-settings after flashing):
+- `$100-$103` = **238.678 steps/deg** (200 × 16 microsteps × 26+103/121 / 360).
+- `$110-$113` = 1800 deg/min (30 °/s, ~7.2 kHz step rate), `$120-$123` = 60 °/s².
+- `$140-$143` TMC2209 current = 1200 mA RMS (motor rated 1.68 A), hold current 70 %.
+- `$1=255` — drivers stay enabled when idle. The PG27 gearbox back-drives; with the motors released the arm falls under its own weight.
+- `$3=0` direction invert — set per joint once wired; homing/soft limits are off until limit switches are fitted (`$22`, `$20`, `$130-$133`).
+
+Gripper (in [st3215.c](st3215.c), `ST3215_GRIPPER_ENABLE`):
+- `M102 [P<id>]` open to `$455`, `M103 [P<id>]` close to `$456` (degrees).
+- `M101 Q`, `M102` and `M103` are now **synchronized with motion**: they execute after all queued moves finish. They do not wait for the servo itself — add `G4 P<s>` before the next move.
+
+Gearbox backlash on the PG27 is around 1°, which at 300 mm reach is several millimetres at the tool; approach pick points from the same direction to keep it repeatable.
+
+> **Mechanics moved to a parallelogram (palletizer) layout** — J2 and J3 both on the turret, J3 driving the forearm through a crank and rod, two levelling rods keeping the wrist level, J4 turning or tilting an interchangeable tool. Parametric FreeCAD models, print-ready STLs and an offline 3D viewer (`cad/viewer/roboruka.html`) are in [cad/](cad/). In that layout the J3 angle is the forearm's absolute angle and there is no wrist pitch, so `tools/arm_ik.py` and the pick-and-place example above still describe the earlier serial layout and need updating.
+
 ### Command-line build
 
 [build.sh](build.sh) wraps the CMake/Ninja/Make flow used by the VS Code extension so the firmware can be built from a terminal:
