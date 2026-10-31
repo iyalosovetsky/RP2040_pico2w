@@ -49,7 +49,7 @@ PARAMS = [
     ("roof_top",   "85 mm",   "base roof top (base.FCStd body_h)"),
     ("seat_h",     "3 mm",    "bearing recess depth in the turret underside"),
     ("clr",        "0.3 mm",  "printing clearance"),
-    ("bear_fit",   "0.2 mm",  "51211 seat clearance (radius; fit test: 0.3 had play)"),
+    ("bear_fit",   "0.3 mm",  "51211 seat clearance (radius; fit test: 0.3 is right)"),
     ("plate_d",    "100 mm",  "turret plate (skirts the bearing)"),
     ("plate_t",    "18 mm",   "plate thickness incl. the recess"),
     ("axis_up",    "33 mm",   "shoulder axis above the plate top (PG27 flange corner r26)"),

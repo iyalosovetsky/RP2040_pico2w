@@ -38,7 +38,7 @@ PARAMS = [
     ("wash_t",      "7.5 mm",  "~ washer thickness (for the picture only)"),
     ("seat_h",      "3 mm",    "bearing seat depth in the roof"),
     ("clr",         "0.3 mm",  "printing clearance"),
-    ("bear_fit",   "0.2 mm",  "51211 seat clearance (radius; fit test: 0.3 had play)"),
+    ("bear_fit",   "0.3 mm",  "51211 seat clearance (radius; fit test: 0.3 is right)"),
     ("roof_t",      "8 mm",    "roof thickness under the bearing"),
     ("motor_drop",  "74 mm",   "PG27 below its face = gb_h + fl_t + motor_h (pg27.FCStd)"),
     ("floor_gap",   "3 mm",    "motor bottom above the table"),
