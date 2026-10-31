@@ -260,7 +260,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const fore = new THREE.Group(); sh.add(fore);
   fore.add(part('forearm', M.print, 'Передпліччя L3 (друк), хвостик 40'));
-  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø9×45 (сталь): затиснута в передпліччі, крутиться в 609Z'));
+  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø8×45: лінійний вал 8 мм або болт M8×55; затиснута в передпліччі, крутиться в 609Z (з втулкою 8→9) або 608ZZ'));
   fore.add(part('b609_wrist', M.b609, '609Z — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
   fore.add(tag(at(cylY(2, 14, M.shaft), -R, -12, 0), 'Палець M4: хвостик / тяга приводу'));
   const eplate = new THREE.Group(); sh.add(eplate);
@@ -271,7 +271,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const fork = new THREE.Group(); sh.add(fork);
   fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн'));
-  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø9×34 (сталь)'));
+  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×34: лінійний вал 8 мм або болт M8×40; затиснута у вилці, крутиться в 609Z (з втулкою) або 608ZZ'));
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
   const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));
   const flZ = new THREE.Group(); flZ.position.x = g.zx; brZ.add(flZ);

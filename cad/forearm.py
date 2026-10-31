@@ -11,8 +11,12 @@ Builds cad/forearm.FCStd plus print files laid flat:
   elbow_plate.stl   - triangle on the elbow axle (plain bushing), keeps its orientation
   wrist_fork.stl    - fork on the wrist axle, keeps its orientation; its bottom bridge
                       (4x M3 inserts) takes the Z or Y tool bracket
-Bought: elbow axle D9 x 45 and wrist axle D9 x 34 (steel rod / 9 mm drill blank),
-2x 609Z in the upper arm, 1x 609Z in the forearm tip, M4 pins with printed bushings.
+Bought: elbow axle D8 x 45 and wrist axle D8 x 34 - cut from an 8 mm linear rod, or M8 bolts
+with a plain shank (DIN 931: M8x55 elbow, M8x40 wrist, nyloc nuts).
+Bearings: 609Z (9 mm bore) with an 8->9 sleeve on the axle (brass tube 9x0.5, or the printed
+axle_sleeve_8x9.stl as a stop-gap), or 608ZZ (8x22x7) straight on the axle - the seats are
+the same 22x7 for both. 2 in the upper arm plates, 1 in the forearm tip. M4 pins with printed
+bushings for the rods.
 Needs upper_arm.FCStd (and the files it uses) in the same folder.
 
 Run headless:
@@ -61,7 +65,8 @@ PARAMS = [
     ("pl_t",       "4 mm",    "elbow plate thickness"),
     ("pl_hub_r",   "10 mm",   "elbow plate hub radius"),
     ("pl_arm_r",   "6 mm",    "elbow plate pin ends radius"),
-    ("axle_d",     "9 mm",    "elbow / wrist axle (609Z bore)"),
+    ("axle_d",     "8 mm",    "elbow / wrist axle: 8 mm linear rod or M8 bolt shank (DIN 931)"),
+    ("b_bore",     "9 mm",    "bearing bore: 9 = 609Z (needs the 8->9 sleeve), 8 = 608ZZ (no sleeve)"),
     ("axle_clr",   "0.1 mm",  "axle bore clearance where it is clamped"),
     ("bush_clr",   "0.2 mm",  "axle bore clearance where it turns (elbow plate)"),
     ("b609_d",     "22 mm",   "609Z OD"),
@@ -240,13 +245,19 @@ wrist_fork.Label = "Wrist fork (print), tool brackets bolt under it"
 # ------------------------------------------------------------- axles ---
 elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", "27 mm")
 wrist_axle = cyl_y("WristAxle", f"{P}axle_d / 2", "-20 mm", "14 mm")
-elbow_axle.Label, wrist_axle.Label = "Elbow axle D9x45 (steel)", "Wrist axle D9x34 (steel)"
+elbow_axle.Label, wrist_axle.Label = ("Elbow axle D8x45: 8 mm linear rod or M8x55 bolt shank",
+                                      "Wrist axle D8x34: 8 mm linear rod or M8x40 bolt shank")
+sl_o = cyl_y("Sleeve_O", f"{P}b_bore / 2 - 0.02 mm", "0 mm", f"{P}b609_w")
+sl_i = cyl_y("Sleeve_I", f"{P}axle_d / 2 + 0.05 mm", "-1 mm", f"{P}b609_w + 1 mm")
+sleeve = cut("AxleSleeve", sl_o, sl_i)
+sleeve.Label = "Axle sleeve 8->9 for a 609Z (print in PETG as a stop-gap; brass tube 9x0.5 is better)"
+sleeve.Visibility = False
 
 
 def b609(name, x, y0):
     """609Z (9x22x7), bought: shown so it's clear what the axles turn in."""
     o = cyl_y(name + "_O", f"{P}b609_d / 2", y0, f"{y0} + {P}b609_w", x=x)
-    i = cyl_y(name + "_I", f"{P}axle_d / 2", f"{y0} - 1 mm", f"{y0} + {P}b609_w + 1 mm", x=x)
+    i = cyl_y(name + "_I", f"{P}b_bore / 2", f"{y0} - 1 mm", f"{y0} + {P}b609_w + 1 mm", x=x)
     return cut(name, o, i)
 
 
@@ -345,6 +356,7 @@ export(rod_drive, "rod_drive", 90)
 export(rod_low, "rod_lev_low", 90)
 export(rod_up, "rod_lev_up", 90)
 export(elbow_plate, "elbow_plate", 90)
+export(sleeve, "axle_sleeve_8x9", 90)   # print 3 (only with 609Z)
 export(wrist_fork, "wrist_fork", 0)     # bridge on the bed, cheeks up (support under the clamp boss)
 
 for o in (forearm, rod_drive, rod_low, rod_up, elbow_plate, wrist_fork):
