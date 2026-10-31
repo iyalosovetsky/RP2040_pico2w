@@ -110,7 +110,7 @@ for s in seats:
 coupon_c = show(c, "C_Seats", "C: 22x7 and 26x5 bearing seats, 8 mm axle, M4 pin, M3 nut trap, M3 insert")
 
 # D: ring with the 51211 seat (base roof seat diameter), 3 mm tall
-seat_r = v("base", "bear_d") / 2 + v("base", "clr")
+seat_r = v("base", "bear_d") / 2 + v("base", "bear_fit")
 coupon_d = show(cyl(seat_r + 3, 3).cut(cyl(seat_r, 5, z=-1)), "D_Seat51211", "D: 51211 seat ring")
 
 doc.recompute()

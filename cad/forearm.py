@@ -71,7 +71,7 @@ PARAMS = [
     ("bush_clr",   "0.2 mm",  "axle bore clearance where it turns (elbow plate)"),
     ("b609_d",     "22 mm",   "609Z OD"),
     ("b609_w",     "7 mm",    "609Z width"),
-    ("b609_fit",   "0.1 mm",  "609Z seat radial clearance"),
+    ("b609_fit",   "0 mm",    "608/609 seat radial clearance; press fit, 0.1 went in freely"),
     ("lip_hole_d", "13 mm",   "hole through the lip behind the wrist 609Z"),
     ("fk_in",      "8.5 mm",  "wrist fork cheek inner face |y|"),
     ("fk_t",       "5 mm",    "wrist fork cheek thickness"),

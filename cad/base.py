@@ -38,6 +38,7 @@ PARAMS = [
     ("wash_t",      "7.5 mm",  "~ washer thickness (for the picture only)"),
     ("seat_h",      "3 mm",    "bearing seat depth in the roof"),
     ("clr",         "0.3 mm",  "printing clearance"),
+    ("bear_fit",   "0.2 mm",  "51211 seat clearance (radius; fit test: 0.3 had play)"),
     ("roof_t",      "8 mm",    "roof thickness under the bearing"),
     ("motor_drop",  "74 mm",   "PG27 below its face = gb_h + fl_t + motor_h (pg27.FCStd)"),
     ("floor_gap",   "3 mm",    "motor bottom above the table"),
@@ -138,7 +139,7 @@ expr(cone, "Radius1", f"{P}inner_d / 2")
 expr(cone, "Radius2", f"{P}cone_top_d / 2")
 expr(cone, "Height", f"({P}inner_d - {P}cone_top_d) / 2")
 place(cone, z=f"{P}face_z - ({P}inner_d - {P}cone_top_d) / 2")
-seat = cyl("BearingSeat", f"{P}bear_d / 2 + {P}clr", f"{P}seat_h + 1 mm", f"{P}body_h - {P}seat_h")
+seat = cyl("BearingSeat", f"{P}bear_d / 2 + {P}bear_fit", f"{P}seat_h + 1 mm", f"{P}body_h - {P}seat_h")
 screws = [cyl(f"TableScrew{k}", f"{P}screw_d / 2", f"{P}fl_t + 2 mm", "-1 mm",
               f"{P}screw_r * cos({45 + 90 * k} deg)", f"{P}screw_r * sin({45 + 90 * k} deg)")
           for k in range(4)]

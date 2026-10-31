@@ -61,6 +61,7 @@ PARAMS = [
     ("notch_d",     "7 mm",    "~ rim notch around each clamp screw head"),
     ("notch_h",     "3 mm",    "~ notch depth"),
     ("clr",         "0.3 mm",  "printing clearance used by the cut tools"),
+    ("boss_clr",    "0.225 mm", "boss recess clearance (radius; fit test: 0.3 was loose)"),
     ("mount_t",     "6 mm",    "plate thickness the MountCut tool is sized for"),
     ("m3_clear",    "3.4 mm",  "M3 clearance hole"),
     ("m3_head_d",   "6.5 mm",  "M3 socket head counterbore"),
@@ -173,7 +174,7 @@ for o in (motor, flange, gearbox, cap_heads, boss, clip, shaft):
 # ------------------------------------------------------- design helpers ---
 tools = [
     # boss recess and shaft clearance through the plate (and beyond)
-    cyl("MC_Boss", f"{P}boss_d / 2 + {P}clr", f"{P}boss_h + {P}clr", "-0.01 mm"),
+    cyl("MC_Boss", f"{P}boss_d / 2 + {P}boss_clr", f"{P}boss_h + {P}clr", "-0.01 mm"),
     cyl("MC_Shaft", f"{P}shaft_d / 2 + 3 mm",  # clears the circlip
         f"{P}mount_t + {P}shaft_l + 5 mm", "-0.01 mm"),
 ]

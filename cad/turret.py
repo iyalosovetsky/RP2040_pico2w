@@ -44,6 +44,7 @@ PARAMS = [
     ("roof_top",   "85 mm",   "base roof top (base.FCStd body_h)"),
     ("seat_h",     "3 mm",    "bearing recess depth in the turret underside"),
     ("clr",        "0.3 mm",  "printing clearance"),
+    ("bear_fit",   "0.2 mm",  "51211 seat clearance (radius; fit test: 0.3 had play)"),
     ("plate_d",    "100 mm",  "turret plate (skirts the bearing)"),
     ("plate_t",    "18 mm",   "plate thickness incl. the recess"),
     ("axis_up",    "33 mm",   "shoulder axis above the plate top (PG27 flange corner r26)"),
@@ -66,7 +67,7 @@ PARAMS = [
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth"),
     ("shaft_d",    "7.98 mm", "PG27 shaft (pg27.FCStd)"),
     ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
-    ("d_clr",      "0.15 mm", "D-bore clearance (snug: no grub screw reachable)"),
+    ("d_clr",      "0.05 mm", "D-bore clearance (snug: no grub screw reachable); fit test: 0.15 had play"),
     ("face_off",   "0 mm",    "spare: move the J2/J3 faces outward"),
 ]
 
@@ -172,7 +173,7 @@ lug_parts = [
 body_solid = fuse("TurretSolid", [plate] + cheek_parts + lug_parts)
 
 # underside: bearing recess; motor cut-outs from pg27.FCStd; lug pin; hub screws
-recess = cyl("BearingRecess", f"{P}bear_d / 2 + {P}clr", f"{P}seat_h + 0.01 mm", f"{P}plate_bot - 0.01 mm")
+recess = cyl("BearingRecess", f"{P}bear_d / 2 + {P}bear_fit", f"{P}seat_h + 0.01 mm", f"{P}plate_bot - 0.01 mm")
 mc_j2 = link("J2_MountCut", pg.getObject("PG27_MountCut"), X, 90, "0 mm", f"{P}face_y", f"{P}shoulder_z")
 mc_j3 = link("J3_MountCut", pg.getObject("PG27_MountCut"), X, -90, "0 mm", f"-{P}face_y", f"{P}shoulder_z")
 lug_pin = cyl("LugPin", f"{P}pin_d / 2", f"{P}lug_t + {P}cheek_t + 2 mm", f"{P}shoulder_z", f"{P}lev_x",

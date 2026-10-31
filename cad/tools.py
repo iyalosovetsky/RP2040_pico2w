@@ -63,7 +63,7 @@ PARAMS = [
     ("shaft_d",    "7.98 mm", "PG27 shaft"),
     ("shaft_reach", "20.7 mm", "PG27 shaft tip from the gearbox face (boss 2.7 + 18)"),
     ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
-    ("d_clr",      "0.15 mm", "D-bore clearance"),
+    ("d_clr",      "0.05 mm", "D-bore clearance; fit test: 0.15 had play"),
     ("hub_r",      "11 mm",   "flange D-hub radius (room for the M3 grub nut slot)"),
     ("hub_gap",    "1 mm",    "gap between the bracket and the flange hub"),
     ("tp",         "50 mm",   "tool interface plate square"),
