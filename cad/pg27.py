@@ -55,7 +55,7 @@ PARAMS = [
     ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
     ("hole_pcd",    "28 mm",   "~ 4 mounting holes, 45/135/225/315 deg (photo)"),
     ("hole_d",      "2.5 mm",  "M3 tapped hole (confirmed with an M3 screw)"),
-    ("hole_depth",  "6 mm",    "~ thread depth - measure"),
+    ("hole_depth",  "6.5 mm",  "thread depth (measured: the gearbox top ring, 6.5)"),
     ("cap_pcd",     "28 mm",   "~ gearbox clamp screws, 0/90/180/270 deg (photo)"),
     ("cap_d",       "5.5 mm",  "~ M3 socket head"),
     ("notch_d",     "7 mm",    "~ rim notch around each clamp screw head"),
