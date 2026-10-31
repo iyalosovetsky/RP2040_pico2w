@@ -58,12 +58,13 @@ LIMITS = {
 LINK_ANGLE = (30.0, 140.0)  # angle between upper arm and forearm = 180 + (J3 - J2)
 
 # Tools. mount z: "below" = tool point below the flange plate's underside, on the J4 axis.
-# mount y: "reach" = tool point from the J4 axis along the tool, "side" = tool axis offset
-# along y (the clamp sits beside the flange: plate face minus the clamp ring's radius).
+# mount y: "reach" = tool point from the J4 axis along the tool; the tool axis sits beside the
+# flange: flange plate face, minus the clamp's own plate, minus the clamp ring's radius.
+# The lengths match the tool shapes in cad/viewer/roboruka.html - measure your real tools.
 TOOLS = {
     "grip":    {"z": {"below": 90.0}},
-    "m775":    {"z": {"below": 150.0}, "y": {"reach": 92.0, "ring_r": 27.1}},
-    "spindle": {"z": {"below": 200.0}, "y": {"reach": 138.0, "ring_r": 32.1}},
+    "m775":    {"z": {"below": 121.0}, "y": {"reach": 100.0, "ring_r": 27.1}},
+    "spindle": {"z": {"below": 195.0}, "y": {"reach": 139.0, "ring_r": 32.1}},
 }
 
 # Per-joint calibration: machine = sign * kinematic + offset (set after homing).
@@ -102,7 +103,7 @@ def tool_offset(geom, tool, mount, j4):
         return geom["zx"], 0.0, -(flange_under + spec["below"])
     p = math.radians(j4)
     plate_face = geom["y_face"] - geom["shaft_reach"] - 0.5 - geom["tp_t"]
-    side = plate_face - spec["ring_r"]
+    side = plate_face - geom["tp_t"] - spec["ring_r"]
     return (geom["yx"] + spec["reach"] * math.sin(p), side,
             geom["yz"] - spec["reach"] * math.cos(p))
 

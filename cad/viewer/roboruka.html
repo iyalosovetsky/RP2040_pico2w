@@ -145,25 +145,26 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 <!-- three.js r128 is vendored next to this file so the page also opens offline from the repo -->
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
+<script src="parts.js"></script>
 <script>
 (function () {
-  // ---- geometry (mm), matching the agreed scheme C proposal ----
-  // matches cad/base.FCStd + cad/turret.FCStd: roof 85, 51211 82..107, turret plate 104..122, shoulder 155
-  const D1 = 155, L2 = 140, L3 = 140, R = 40;        // shoulder height, links, crank = forearm tail
-  const V = [-30, 0], Wv = [0, 30];                  // levelling offsets: turret lug, elbow plate
-  const J4X = 68;                                    // bracket Z: J4 axis ahead of the wrist axle (cad/tools.FCStd zx)
-  const BR_TOP = -24;                                // tool brackets bolt under the wrist fork bridge (bottom at -24)
-  const FLANGE_Y = BR_TOP - 20.7;                    // J4 shaft tip (Z mount) = tool flange origin
-  const ZR = -18.5, ZC = -23, ZL1 = 19, ZPL = 23.5, ZL2 = 28;  // planes: drive rod, crank, levelling rods, elbow plate
+  // Every part below is the CAD itself: cad/viewer/parts.js is exported from cad/*.FCStd by
+  // export_parts.py. The scene works in FreeCAD coordinates (X forward, Y across the arm with
+  // +Y on the J2 side, Z up) under a root rotated so FreeCAD's Z is three.js "up".
+  const CAD = window.ARM_CAD, g = CAD.geom;
+  const D1 = g.shoulder_z, L2 = g.L2, L3 = g.L3, R = g.R, LV = g.lev_v, LW = g.lev_w;
+  const FLANGE_UNDER = g.fk_drop + g.shaft_reach + 0.5 + g.tp_t;    // Z flange underside below the wrist axle
+  const PLATE_FACE = g.y_face - g.shaft_reach - 0.5 - g.tp_t;       // Y flange plate's -y face
   const MM = 0.51, LK = 0.0008, G = 9.81, LIM = 3;
-  // tools on the universal flange (D40, 4x M3 on PCD 30): mass kg (with adapter),
-  // tip = tool point distance from the J4 shaft tip along the tool axis, mm
+  // tools: mass kg; bracket Z: tool point below the flange underside; bracket Y: tool point from the
+  // J4 axis and the clamp ring's outer radius (same numbers as tools/arm_ik.py)
+  const ring = d => d / 2 + g.cl_wall;
   const TOOLS = {
-    grip:    { name: 'Захват ST3215', m: 0.15, tip: 96, s: 'Захват ST3215, розкриття', unit: '%' },
-    m775:    { name: 'Мотор 775 + патрон', m: 0.45, tip: 146, s: 'Мотор 775, оберти', unit: '%' },
-    spindle: { name: 'Шпиндель 52 мм', m: 1.13, tip: 194, s: 'Шпиндель, оберти', unit: '%' }
+    grip:    { m: 0.15, s: 'Захват ST3215, розкриття', below: 90 },
+    m775:    { m: 0.45, s: 'Мотор 775, оберти', below: 121, y: { reach: 100, ro: ring(g.d775) } },
+    spindle: { m: 1.13, s: 'Шпиндель, оберти', below: 195, y: { reach: 139, ro: ring(g.d52) } },
   };
-  let tool = 'grip';
+  let tool = 'grip', j4axis = 'z';
 
   const view = document.getElementById('view'), cv = document.getElementById('cv');
   const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
@@ -173,8 +174,6 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const camera = new THREE.PerspectiveCamera(32, 1, 5, 6000);
   const controls = new THREE.OrbitControls(camera, cv);
   controls.enableDamping = true; controls.dampingFactor = 0.12;
-  controls.target.set(90, 130, 0);
-
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a949c, 0.75));
   const sun = new THREE.DirectionalLight(0xffffff, 0.75);
   sun.position.set(300, 600, 250); sun.castShadow = true;
@@ -184,227 +183,139 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const mat = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6, metalness: 0.05 }, o || {}));
   const M = {
-    print: mat(0x5b7c96), print2: mat(0x7a97ad), base: mat(0x41566a), rod: mat(0x1d9e75), crank: mat(0xd85a30),
-    gear: mat(0xb9c0c6, { metalness: 0.6, roughness: 0.35 }), body: mat(0x2b3137, { metalness: 0.3, roughness: 0.5 }),
+    print: mat(0x5b7c96), print2: mat(0x9db3c4), base: mat(0x41566a), rod: mat(0x1d9e75), crank: mat(0xd85a30),
+    body: mat(0x2b3137, { metalness: 0.3, roughness: 0.5 }), gear: mat(0xb9c0c6, { metalness: 0.6, roughness: 0.35 }),
     shaft: mat(0xdde1e4, { metalness: 0.8, roughness: 0.25 }), b609: mat(0x7f77dd, { metalness: 0.4, roughness: 0.4 }),
-    thrust: mat(0xd9a441, { metalness: 0.5, roughness: 0.35 }), servo: mat(0x1e2226), finger: mat(0xcf5428)
+    thrust: mat(0xd9a441, { metalness: 0.5, roughness: 0.35 }), servo: mat(0x1e2226), finger: mat(0xcf5428),
+    toolBody: mat(0x3a4148, { metalness: 0.5, roughness: 0.4 }), spBody: mat(0xc8ccd0, { metalness: 0.7, roughness: 0.3 })
   };
-
-  function tag(obj, name) { obj.traverse(o => { if (o.isMesh) { o.userData.name = name; o.castShadow = true; o.receiveShadow = true; } }); return obj; }
-  function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); }
-  function cylY(r, h, m, seg) { return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 40), m); }
-  function cylZ(r, h, m) { const c = cylY(r, h, m); c.rotation.x = Math.PI / 2; return c; }
-  function ringY(rIn, rOut, h, m) {
-    const pts = [new THREE.Vector2(rIn, 0), new THREE.Vector2(rOut, 0), new THREE.Vector2(rOut, h), new THREE.Vector2(rIn, h), new THREE.Vector2(rIn, 0)];
-    return new THREE.Mesh(new THREE.LatheGeometry(pts, 48), m);
-  }
-  function ringZ(rIn, rOut, h, m) { const r = ringY(rIn, rOut, h, m); r.rotation.x = Math.PI / 2; r.position.z = h / 2; const g = new THREE.Group(); g.add(r); return g; }
-  // flat link in the x/y plane from x0 to x1, centred on z
-  function link(x0, x1, w, t, z, m) {
-    const g = new THREE.Group();
-    const b = box(x1 - x0, w, t, m); b.position.set((x0 + x1) / 2, 0, z); g.add(b);
-    [x0, x1].forEach(x => { const c = cylZ(w / 2, t, m); c.position.set(x, 0, z); g.add(c); });
-    return g;
-  }
-  // 17HS15-1684S-PG27 as measured: gearbox top face at origin, body along +y, shaft along -y.
-  // gearbox 30, adapter flange 40x40x5 with corners cut by a D52 circle, NEMA17 39,
-  // bearing boss D22x2.7 with a circlip, shaft D7.98x18. Gearbox diameter not measured yet (36 assumed).
-  const flangeShape = (() => {
-    const s = new THREE.Shape(), h = 20, c = Math.sqrt(26 * 26 - h * h), a = Math.atan2(c, h);
-    s.moveTo(h, -c); s.lineTo(h, c);
-    s.absarc(0, 0, 26, a, Math.PI / 2 - a, false); s.lineTo(-c, h);
-    s.absarc(0, 0, 26, Math.PI / 2 + a, Math.PI - a, false); s.lineTo(-h, -c);
-    s.absarc(0, 0, 26, Math.PI + a, 1.5 * Math.PI - a, false); s.lineTo(c, -h);
-    s.absarc(0, 0, 26, 1.5 * Math.PI + a, 2 * Math.PI - a, false);
-    return s;
-  })();
-  function pg27() {
-    const g = new THREE.Group();
-    const gb = cylY(18, 30, M.gear); gb.position.y = 15; g.add(gb);
-    const fl = new THREE.Mesh(new THREE.ExtrudeGeometry(flangeShape, { depth: 5, bevelEnabled: false }), M.gear);
-    fl.rotation.x = -Math.PI / 2; fl.position.y = 30; g.add(fl);
-    const bd = box(42.3, 39, 42.3, M.body); bd.position.y = 35 + 19.5; g.add(bd);
-    const boss = cylY(11, 2.7, M.gear); boss.position.y = -1.35; g.add(boss);
-    const clip = ringY(3.99, 6.5, 0.8, M.shaft); clip.position.y = -3.5; g.add(clip);
-    const sh = cylY(3.99, 18, M.shaft, 20); sh.position.y = -2.7 - 9; g.add(sh);
-    return g;
-  }
-  // a bar between two points in the x/y plane, rebuilt every frame by scaling a unit box
-  function bar(w, t, z, m) {
-    const g = new THREE.Group();
-    const b = box(1, w, t, m); g.add(b);
-    const c0 = cylZ(w / 2, t, m), c1 = cylZ(w / 2, t, m); g.add(c0, c1);
-    g.userData.set = (p, q) => {
-      const dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy);
-      b.scale.x = Math.max(L, 0.01); b.position.set((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, z);
-      b.rotation.z = Math.atan2(dy, dx);
-      c0.position.set(p[0], p[1], z); c1.position.set(q[0], q[1], z);
-    };
-    return g;
-  }
-  function pin(p, z0, z1, r, m) { const c = cylZ(r, Math.abs(z1 - z0), m || M.shaft); c.position.set(p[0], p[1], (z0 + z1) / 2); return c; }
-
-  // ---- static base: housing, J1 motor, 51211 ----
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0xffffff, { roughness: 1 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
   let grid = null;
 
-  const base = new THREE.Group();
-  const flange = cylY(80, 5, M.base); flange.position.y = 2.5; base.add(flange);
-  const housing = new THREE.Mesh(new THREE.CylinderGeometry(52, 52, 80, 48, 1, true), M.base); housing.position.y = 45; base.add(housing);
-  const roof = cylY(52, 8, M.base); roof.position.y = 81; base.add(roof);
-  scene.add(tag(base, 'Корпус основи Ø104 (друк, cad/base.FCStd)'));
-  const m1 = pg27(); m1.rotation.x = Math.PI; m1.position.y = 77; scene.add(tag(m1, 'J1 — 17HS15-1684S-PG27, поворот основи'));
-  const thr = new THREE.Group();
-  const w1 = ringY(28.5, 45, 7.5, M.thrust); w1.position.y = 82; thr.add(w1);
-  const w2 = ringY(27.5, 44.5, 7.5, M.thrust); w2.position.y = 99.5; thr.add(w2);
-  const balls = ringY(33.5, 39, 10, mat(0x9aa3aa, { metalness: 0.7, roughness: 0.3 })); balls.position.y = 89.5; thr.add(balls);
-  scene.add(tag(thr, 'Упорний підшипник 51211 (55×90×25)'));
+  // ---- CAD meshes ----
+  function decode(s, T) {
+    const bin = atob(s), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new T(u8.buffer);
+  }
+  const GEO = {};
+  function geo(name) {
+    if (!GEO[name]) {
+      const p = CAD.parts[name];
+      let gm = new THREE.BufferGeometry();
+      gm.setAttribute('position', new THREE.BufferAttribute(decode(p.p, Float32Array), 3));
+      gm.setIndex(new THREE.BufferAttribute(decode(p.i, Uint32Array), 1));
+      gm = gm.toNonIndexed(); gm.computeVertexNormals();
+      GEO[name] = gm;
+    }
+    return GEO[name];
+  }
+  function tag(o, label) { o.traverse(m => { if (m.isMesh) { m.userData.name = label; m.castShadow = m.receiveShadow = true; } }); return o; }
+  function part(name, material, label) { return tag(new THREE.Mesh(geo(name), material), label); }
+  function grp(...kids) { const g0 = new THREE.Group(); kids.forEach(k => g0.add(k)); return g0; }
+  function placed(obj, m16) { obj.applyMatrix4(new THREE.Matrix4().set(...m16)); return obj; }
+  function pg27(label, m16) {
+    return placed(tag(grp(new THREE.Mesh(geo('pg27_body'), M.body), new THREE.Mesh(geo('pg27_gear'), M.gear),
+                          new THREE.Mesh(geo('pg27_shaft'), M.shaft)), label), m16);
+  }
+  // simple bought-part shapes, axis along FreeCAD Y (three's cylinder axis = local Y)
+  function cylY(r, h, m) { return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), m); }
+  function cylZ(r, h, m) { const c = cylY(r, h, m); c.rotation.x = Math.PI / 2; return c; }
+  function ringY(rIn, rOut, h, m) {
+    const pts = [[rIn, -h / 2], [rOut, -h / 2], [rOut, h / 2], [rIn, h / 2], [rIn, -h / 2]].map(([a, b]) => new THREE.Vector2(a, b));
+    return new THREE.Mesh(new THREE.LatheGeometry(pts, 48), m);
+  }
+  function box(x, y, z, m) { return new THREE.Mesh(new THREE.BoxGeometry(x, y, z), m); }
+  function at(o, x, y, z) { o.position.set(x, y, z); return o; }
 
-  // ---- turret (rotates with J1) ----
-  const turret = new THREE.Group(); scene.add(turret);
-  const tp = cylY(50, 18, M.print2); tp.position.y = 113; turret.add(tag(tp, 'Турель (друк, cad/turret.FCStd)'));
-  const hub = new THREE.Group();
-  const hf = cylY(22, 6, M.crank); hf.position.y = 104; hub.add(hf);
-  const ht = cylY(10, 15, M.crank); ht.position.y = 93.5; hub.add(ht);
-  turret.add(tag(hub, 'D-маточина J1 (друк), 3×M3 у турель'));
-  [[26, 36], [-36, -26]].forEach(([z0, z1]) => {
-    const ch = new THREE.Group();
-    const b = box(56, D1 - 122, 10, M.print2); b.position.set(0, 122 + (D1 - 122) / 2, (z0 + z1) / 2); ch.add(b);
-    const c = cylZ(28, 10, M.print2); c.position.set(0, D1, (z0 + z1) / 2); ch.add(c);
-    turret.add(tag(ch, 'Щока турелі (друк)'));
-  });
-  const m2 = pg27(); m2.rotation.x = Math.PI / 2; m2.position.set(0, D1, 36); turret.add(tag(m2, 'J2 — 17HS15-1684S-PG27, плече'));
-  const m3 = pg27(); m3.rotation.x = -Math.PI / 2; m3.position.set(0, D1, -36); turret.add(tag(m3, 'J3 — 17HS15-1684S-PG27, передпліччя через кривошип'));
-  // levelling ground pin (cad/turret.FCStd): an ear of the J2 cheek reaching back to x = -30, plus a small
-  // boss around the pin on the inner side. Nothing covers the J2 screw heads around the shoulder axis.
-  const brk = new THREE.Group();
-  const ear = box(Math.abs(V[0]), 12, 10, M.print2); ear.position.set(V[0] / 2, D1, 31); brk.add(ear);
-  const earEnd = cylZ(6, 10, M.print2); earEnd.position.set(V[0], D1, 31); brk.add(earEnd);
-  const lugBoss = cylZ(6, 5, M.print2); lugBoss.position.set(V[0], D1, 23.5); brk.add(lugBoss);
-  const lugPin = cylZ(2, 12, M.shaft); lugPin.position.set(V[0], D1, 21); brk.add(lugPin);
-  turret.add(tag(brk, 'Вушко щоки J2 з пальцем нижньої тяги вирівнювання (нерухоме відносно турелі)'));
+  const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root);
+  root.add(part('base_housing', M.base, 'Корпус основи (друк, cad/base.FCStd)'));
+  root.add(part('bearing_51211', M.thrust, 'Упорний підшипник 51211 (55×90×25)'));
+  root.add(pg27('J1 — 17HS15-1684S-PG27, поворот основи', CAD.motors.J1));
 
-  // shoulder pivot frame
-  const sh = new THREE.Group(); sh.position.y = D1; turret.add(sh);
+  const turret = new THREE.Group(); root.add(turret);
+  turret.add(part('turret_body', M.print2, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
+  turret.add(part('j1_hub', M.crank, 'D-маточина J1 (друк), 3×M3 у турель'));
+  turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
+  turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
+  const lugPin = at(cylY(2, 14, M.shaft), -LV, 21, 0); // pin of the lower levelling rod (y 17..26)
+  const sh = new THREE.Group(); sh.position.z = D1; turret.add(sh);
+  lugPin.position.set(-LV, 21.5, 0); sh.add(tag(lugPin, 'Палець M4 нижньої тяги вирівнювання'));
+
   const upper = new THREE.Group(); sh.add(upper);
-  [12.5, -12.5].forEach(z => upper.add(link(0, L2, 36, 7, z, M.print)));
-  tag(upper, 'Плече L2 = 140 (друк, дві щоки)');
-  // shoulder supports (cad/upper_arm.FCStd): +y plate clamps the J2 shaft with a D-hub (r 11, |y| 16..25.5);
-  // -y plate has a bushing boss (r 13, |y| 16..20) that turns on the J3 crank hub (D18) - a plain bearing
-  const j2hub = cylZ(11, 9.5, M.print); j2hub.position.z = 20.75;
-  upper.add(tag(j2hub, 'D-маточина плеча на валу J2 (гвинт M3 на лиску)'));
-  const j3boss = cylZ(13, 4, M.print); j3boss.position.z = -18;
-  upper.add(tag(j3boss, 'Бобишка щоки плеча Ø26: ковзає по маточині кривошипа J3 (Ø18)'));
-  const j2shaft = cylZ(4, 20, M.shaft); j2shaft.position.z = 25; upper.add(tag(j2shaft, 'Вал J2 Ø8 з лискою'));
+  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): D-маточина на валу J2, гніздо 609Z'));
+  upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): ковзає по маточині кривошипа, гніздо 609Z'));
+  upper.add(part('ua_spacers', M.print2, 'Розпірки плеча (друк), болти M4×35'));
+  [12.5, -12.5].forEach(y => upper.add(tag(at(ringY(4.5, 11, 7, M.b609), L2, y, 0), '609Z — лікоть, у щоці плеча')));
   const crank = new THREE.Group(); sh.add(crank);
-  crank.add(link(0, R, 16, 4, ZC, M.crank));
-  const ch9 = cylZ(9, 15.5, M.crank); ch9.position.z = -17.75; crank.add(ch9);   // hub |y| 10..25.5: J3 shaft inside, the arm's boss outside
-  const ch12 = cylZ(12, 5, M.crank); ch12.position.z = -23; crank.add(ch12);   // root ring with the grub screw
-  const j3shaft = cylZ(4, 20, M.shaft); j3shaft.position.z = -25; crank.add(j3shaft);
-  tag(crank, 'Кривошип J3, 40 мм (друк); його маточина Ø18 — ковзна опора плеча');
-  const cb = pin([R, 0], ZC - 3, ZR + 3, 2); crank.add(tag(cb, 'Шарнір кривошип / тяга: вісь M4 у друкованій втулці'));
+  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): маточина Ø18 — ковзна опора щоки плеча'));
+  crank.add(tag(at(cylY(2, 10, M.shaft), R, -21, 0), 'Палець M4: кривошип / тяга приводу'));
 
-  // elbow, forearm and the parallelogram parts live in the turret frame at the shoulder
   const fore = new THREE.Group(); sh.add(fore);
-  fore.add(link(-R, L3, 24, 15, 0, M.print));
-  fore.add(pin([-R, 0], -8, ZR, 4.5));
-  tag(fore, 'Передпліччя L3 = 140 з хвостиком 40 (друк)');
-  [12.5, -12.5].forEach(z => { const b = ringZ(4.5, 11, 7, M.b609); b.position.set(0, 0, z - 3.5); fore.add(tag(b, '609Z — лікоть (у щоці плеча)')); });
-  // wrist 609Z sits in the forearm tip, seat open on the +y face (cad/forearm.FCStd: |y| 0.5..7.5)
-  const wb = ringZ(4.5, 11, 7, M.b609); wb.position.set(L3, 0, 0.5); fore.add(tag(wb, '609Z — кисть (у кінці передпліччя)'));
-  // elbow axle D9x45: clamped in the forearm hub (grub), turns in the two 609Z of the upper arm,
-  // carries the elbow levelling plate on a plain bushing at its +y end
-  const eAx = cylZ(4.5, 45, M.shaft); eAx.position.set(0, 0, 4.5); fore.add(tag(eAx, 'Вісь ліктя Ø9×45 (сталь): затиснута в передпліччі, крутиться в 609Z щік плеча'));
+  fore.add(part('forearm', M.print, 'Передпліччя L3 (друк), хвостик 40'));
+  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø9×45 (сталь): затиснута в передпліччі, крутиться в 609Z'));
+  fore.add(tag(at(ringY(4.5, 11, 7, M.b609), L3, 4, 0), '609Z — кисть, у кінці передпліччя'));
+  fore.add(tag(at(cylY(2, 14, M.shaft), -R, -12, 0), 'Палець M4: хвостик / тяга приводу'));
+  const eplate = new THREE.Group(); sh.add(eplate);
+  eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк): тримає орієнтацію'));
+  const rodD = part('rod_drive', M.rod, 'Тяга приводу J3 (друк)'); sh.add(rodD);
+  const rodL = part('rod_low', M.rod, 'Нижня тяга вирівнювання (друк)'); sh.add(rodL);
+  const rodU = part('rod_up', M.rod, 'Верхня тяга вирівнювання (друк)'); sh.add(rodU);
 
-  const plateShape = new THREE.Shape();
-  plateShape.moveTo(0, 0); plateShape.lineTo(V[0], V[1]); plateShape.lineTo(Wv[0], Wv[1]); plateShape.lineTo(0, 0);
-  const elbowPlate = new THREE.Group();
-  const pl = new THREE.Mesh(new THREE.ExtrudeGeometry(plateShape, { depth: 4, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 6, bevelSegments: 2 }), M.print2);
-  pl.position.z = ZPL - 2; elbowPlate.add(pl);
-  elbowPlate.add(pin([0, 0], 18, ZPL + 2, 4.5));
-  sh.add(tag(elbowPlate, 'Трикутна пластина ліктя (тримає орієнтацію)'));
+  const fork = new THREE.Group(); sh.add(fork);
+  fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн'));
+  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø9×34 (сталь)'));
+  // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
+  const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));
+  const flZ = new THREE.Group(); flZ.position.x = g.zx; brZ.add(flZ);
+  flZ.add(tag(at(new THREE.Mesh(geo('flange_z'), M.crank), -g.zx, 0, 0), 'Фланець Z (друк): D-маточина + плита 50×50'));
+  // bracket Y: J4 across the arm, the flange (and tool) tilts about the J4 axis
+  const brY = grp(part('bracket_y', M.print2, 'Кронштейн Y (друк): J4 поперек руки, нахил інструмента'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4y));
+  const flY = new THREE.Group(); flY.position.set(g.yx, 0, g.yz); brY.add(flY);
+  flY.add(tag(at(new THREE.Mesh(geo('flange_y'), M.crank), -g.yx, 0, -g.yz), 'Фланець Y (друк): D-маточина + плита 50×50'));
+  fork.add(brZ, brY);
 
-  const rodD = bar(9, 5, ZR, M.rod); sh.add(tag(rodD, 'Тяга приводу J3 (друк), довжина L2'));
-  const rodL = bar(8, 4, ZL1, M.rod); sh.add(tag(rodL, 'Нижня тяга вирівнювання (друк)'));
-  const rodU = bar(8, 4, ZL2, M.rod); sh.add(tag(rodU, 'Верхня тяга вирівнювання (друк)'));
+  // tools: clamps from the CAD, tool bodies as simple shapes (not in the CAD); clamp frame = tool axis Z
+  function toolBody775() {
+    return tag(grp(at(cylZ(21, 67, M.toolBody), 0, 0, 0), at(cylZ(11, 26, M.gear), 0, 0, -46.5),
+                   at(cylZ(1.5, 40, M.shaft), 0, 0, -79.5)), 'Мотор 775 Ø42 + патрон + фреза');
+  }
+  function toolBodySpindle(zc) {
+    return tag(grp(at(cylZ(26, 150, M.spBody), 0, 0, zc), at(cylZ(9, 14, M.shaft), 0, 0, zc - 82),
+                   at(cylZ(1.5, 25, M.shaft), 0, 0, zc - 101.5)), 'Шпиндель Ø52 (~1,1 кг) + цанга ER11');
+  }
+  const zClampZ = -FLANGE_UNDER - (g.cl_h / 2 + g.tp_t);
+  const ZT = {
+    grip: tag(grp(at(box(50, 50, 6, M.print2), 0, 0, -FLANGE_UNDER - 3), at(box(45, 25, 35, M.servo), 0, 0, -FLANGE_UNDER - 23.5),
+                  at(box(14, 46, 6, M.print2), 0, 0, -FLANGE_UNDER - 44)), 'Модуль захвату ST3215 (ще не змодельований у CAD)'),
+    m775: grp(at(new THREE.Mesh(geo('clamp_axial_775'), M.print), 0, 0, zClampZ), at(toolBody775(), 0, 0, zClampZ)),
+    spindle: grp(at(new THREE.Mesh(geo('clamp_axial_52'), M.print), 0, 0, zClampZ), at(toolBodySpindle(-60), 0, 0, zClampZ)),
+  };
+  const fL = box(10, 6, 44, M.finger), fR = box(10, 6, 44, M.finger);
+  ZT.grip.add(tag(fL, 'Палець захвату'), tag(fR, 'Палець захвату'));
+  tag(ZT.m775.children[0], 'Хомут осьовий 775 (друк)'); tag(ZT.spindle.children[0], 'Хомут осьовий Ø52 (друк)');
+  Object.values(ZT).forEach(t => flZ.add(t));
+  const yClamp = ro => PLATE_FACE - (ro + g.tp_t);
+  const YT = {
+    m775: at(grp(tag(new THREE.Mesh(geo('clamp_side_775'), M.print), 'Хомут бічний 775 (друк)'), toolBody775()), 0, yClamp(TOOLS.m775.y.ro), 0),
+    // clamped 25 mm above its centre of mass so its top end clears the fork at any tilt (cad/tools.py)
+    spindle: at(grp(tag(new THREE.Mesh(geo('clamp_side_52'), M.print), 'Хомут бічний Ø52 (друк)'), toolBodySpindle(-25)), 0, yClamp(TOOLS.spindle.y.ro), 0),
+  };
+  Object.values(YT).forEach(t => flY.add(t));
 
-  // end bracket at the wrist: keeps its orientation; two PG27 seats:
-  //  - top plate, J4 axis vertical (Z): J4 turns the tool about the vertical (yaw), tool points down
-  //  - side plate, J4 axis across the arm (Y, parallel to J2/J3): J4 tilts the tool in the arm's plane
-  const SIDE_X = 70, SIDE_Y = -80, SIDE_Z = 37;        // bracket Y: J4 axis (low, so tool ends pass under the fork) / seat face
-  const endp = new THREE.Group(); sh.add(endp);
-  endp.add(pin([0, 0], -14, ZL2 + 2, 4.5));
-  const ep1 = link(0, 30, 10, 4, ZL2 - 4.5, M.print2); ep1.rotation.z = Math.PI / 2; endp.add(ep1);
-  // wrist axle D9x34: clamped in the wrist fork, turns in the forearm-tip 609Z
-  const wAx = cylZ(4.5, 34, M.shaft); wAx.position.set(0, 0, -3); endp.add(tag(wAx, 'Вісь кисті Ø9×34 (сталь): затиснута у вилці кисті, крутиться в 609Z передпліччя'));
-  // two interchangeable printed brackets bolt to the wrist pivot plate:
-  //  Z bracket - wide top plate carrying J4 vertically; Y bracket - narrow strip + side plate, the tool passes beside it
-  const brZ = new THREE.Group(); endp.add(brZ);
-  // wrist fork (cad/forearm.FCStd): cheeks around the axle + bridge with 4 inserts underneath
-  const fkB = box(44, 6, 27, M.print2); fkB.position.set(22, -21, 0); endp.add(tag(fkB, 'Вилка кисті: площадка під кронштейн (4×M3)'));
-  [11, -11].forEach(z => { const c = box(44, 24, 5, M.print2); c.position.set(22, -12, z); endp.add(tag(c, 'Щока вилки кисті')); });
-  const ep2 = box(100, 6, 50, M.print2); ep2.position.set(48, BR_TOP - 3, 0); brZ.add(ep2);
-  const brY = new THREE.Group(); endp.add(brY);
-  const ep2y = box(46, 6, 50.5, M.print2); ep2y.position.set(21, BR_TOP - 3, 11.75); brY.add(ep2y);
-  const ep3 = box(100, 84, 6, M.print2); ep3.position.set(48, BR_TOP - 42, SIDE_Z - 3); brY.add(ep3);
-  tag(brZ, 'Кронштейн кисті Z (друк): J4 вертикально');
-  tag(brY, 'Кронштейн кисті Y (друк): J4 поперек руки, нахил інструмента');
-  tag(ep1, 'Пластина шарніра кисті (друк), завжди горизонтальна');
-  const m4 = pg27(); endp.add(tag(m4, 'J4 — 17HS15-1684S-PG27'));
-  const toolMount = new THREE.Group(); endp.add(toolMount);
-  // Z mount: D-hub + D40 flange on the shaft end, tool hangs below, coaxial with J4
-  const zAd = new THREE.Group(); toolMount.add(zAd);
-  const adHub = cylY(11, 14, M.crank); adHub.position.y = 7; zAd.add(tag(adHub, 'Фланець Z: D-маточина на валу J4'));
-  const adFl = box(50, 6, 50, M.crank); adFl.position.y = -3.5; zAd.add(tag(adFl, 'Інтерфейс інструмента 50×50, 4×M3 на 40×40'));
-  // Y mount: D-hub on the shaft + side plate; the tool's clamp bolts to it, tool axis across the J4 axis
-  const yAd = new THREE.Group(); toolMount.add(yAd);
-  const yHub = cylZ(11, 14, M.crank); yHub.position.z = 23; yAd.add(tag(yHub, 'Фланець Y: D-маточина на валу J4'));
-  const yPl = box(50, 50, 6, M.crank); yPl.position.z = 12.8; yAd.add(tag(yPl, 'Інтерфейс інструмента 50×50, 4×M3 на 40×40'));
-  const spin = new THREE.Group(); toolMount.add(spin);
-  const tools = {};
-  // gripper
-  tools.grip = new THREE.Group();
-  const sv = box(45, 35, 25, M.servo); sv.position.set(6, -22.5, 0); tools.grip.add(tag(sv, 'ST3215 — привід захвату'));
-  const fb = box(14, 6, 46, M.print2); fb.position.set(0, -43, 0); tools.grip.add(tag(fb, 'Напрямна пальців (друк)'));
-  const fL = box(10, 44, 6, M.finger), fR = box(10, 44, 6, M.finger);
-  tools.grip.add(tag(fL, 'Палець захвату (друк)')); tools.grip.add(tag(fR, 'Палець захвату (друк)'));
-  // 775 motor in a clamp ring, drill chuck and bit
-  tools.m775 = new THREE.Group();
-  const c775 = cylY(24.5, 14, M.print2); c775.position.y = -12; tools.m775.add(tag(c775, 'Затискач мотора 775 (друк)'));
-  const b775 = cylY(21, 67, M.body); b775.position.y = -38.5; tools.m775.add(tag(b775, 'Мотор 775 (Ø42×67)'));
-  const k775 = cylY(11, 26, M.gear); k775.position.y = -88; tools.m775.add(tag(k775, 'Патрон на валу 775'));
-  const bit775 = cylY(1.5, 40, M.shaft, 12); bit775.position.y = -121; tools.m775.add(tag(bit775, 'Фреза / свердло'));
-  // 52 mm spindle in a clamp
-  tools.spindle = new THREE.Group();
-  const csp = cylY(31, 22, M.print2); csp.position.y = -22; tools.spindle.add(tag(csp, 'Затискач шпинделя Ø52 (друк)'));
-  const bsp = cylY(26, 150, M.gear); bsp.position.y = -75; tools.spindle.add(tag(bsp, 'Шпиндель Ø52 (~1,1 кг)'));
-  const nsp = cylY(9, 14, M.shaft); nsp.position.y = -157; tools.spindle.add(tag(nsp, 'Цанга ER11'));
-  const bsp2 = cylY(1.5, 25, M.shaft, 12); bsp2.position.y = -176; tools.spindle.add(tag(bsp2, 'Фреза'));
-  Object.values(tools).forEach(t => spin.add(t));
-  // side mount: the J4 axis goes through the tool's centre of mass so J4 holds almost no moment.
-  // at = that point's distance below the Z-mount flange, r = clamp half-width (tool sits beside the hub)
-  // (cad/tools.py: the spindle is clamped 25 mm above its CoG so its top end clears the fork at any tilt)
-  const CLAMP = { grip: { at: 27.5, r: 12.5 }, m775: { at: 48, r: 27.1 }, spindle: { at: 57, r: 32.1 } };
-  let j4axis = 'z';
   function placeJ4() {
+    if (tool === 'grip' && j4axis === 'y') j4axis = 'z';   // the gripper module exists for bracket Z only
+    document.querySelectorAll('[data-ax]').forEach(x => x.classList.toggle('on', x.dataset.ax === j4axis));
     const j4 = el('j4');
-    if (j4axis === 'z') {          // flange face on the top plate, body up, shaft down, tool coaxial
-      m4.rotation.set(0, 0, 0); m4.position.set(J4X, BR_TOP, 0);
-      toolMount.position.set(J4X, FLANGE_Y, 0);
-      Object.values(tools).forEach(t => t.position.set(0, -6.5, 0));
-      c775.position.y = -12; csp.position.y = -22;   // clamps at the top, under the flange
-      j4.min = -180; j4.max = 180; el('j4l').textContent = 'Обертання інструмента';
-    } else {                       // flange face on the side plate, body outward like J2/J3, shaft toward the arm
-      m4.rotation.set(Math.PI / 2, 0, 0); m4.position.set(SIDE_X, SIDE_Y, SIDE_Z);
-      toolMount.position.set(SIDE_X, SIDE_Y, 0);
-      Object.entries(tools).forEach(([k, t]) => t.position.set(0, -5 + CLAMP[k].at, 9.8 - CLAMP[k].r));
-      c775.position.y = 5 - CLAMP.m775.at; csp.position.y = 5 - CLAMP.spindle.at;   // clamps on the J4 axis
+    if (j4axis === 'z') { j4.min = -180; j4.max = 180; el('j4l').textContent = 'Обертання інструмента'; }
+    else {
       j4.min = -60; j4.max = 130; el('j4l').textContent = 'Нахил інструмента (0° вниз, 90° вперед)';
       st.j4 = Math.min(130, Math.max(-60, st.j4)); j4.value = Math.round(st.j4);
     }
-    zAd.visible = brZ.visible = j4axis === 'z'; yAd.visible = brY.visible = j4axis === 'y';
-    Object.keys(tools).forEach(k => { tools[k].visible = k === tool; });
+    brZ.visible = j4axis === 'z'; brY.visible = j4axis === 'y';
+    Object.entries(ZT).forEach(([k, t]) => { t.visible = k === tool; });
+    Object.entries(YT).forEach(([k, t]) => { t.visible = k === tool; });
   }
 
   // ---- state + kinematics ----
@@ -420,45 +331,39 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     st.j3 = Math.min(hi, Math.max(lo, st.j3));
   }
 
-  function solve() {
-    const a2 = rad(st.j2), a3 = rad(st.j3);
-    const E = [L2 * Math.cos(a2), L2 * Math.sin(a2)];
-    const f = [Math.cos(a3), Math.sin(a3)];
-    const W = [E[0] + L3 * f[0], E[1] + L3 * f[1]];
-    return { E, f, W, a2, a3 };
-  }
-
   function pose() {
-    const { E, f, W, a2, a3 } = solve();
-    turret.rotation.y = rad(st.j1);
-    upper.rotation.z = a2;
-    crank.rotation.z = a3 + Math.PI;
-    fore.position.set(E[0], E[1], 0); fore.rotation.z = a3;
-    elbowPlate.position.set(E[0], E[1], 0);
-    endp.position.set(W[0], W[1], 0);
-    if (j4axis === 'z') { spin.rotation.y = rad(st.j4); toolMount.rotation.z = 0; }
-    else { spin.rotation.y = 0; toolMount.rotation.z = rad(st.j4); }
+    const a2 = rad(st.j2), a3 = rad(st.j3);
+    const f = [Math.cos(a3), Math.sin(a3)];
+    const E = [L2 * Math.cos(a2), L2 * Math.sin(a2)];
+    const W = [E[0] + L3 * f[0], E[1] + L3 * f[1]];
+    turret.rotation.z = rad(st.j1);
+    upper.rotation.y = -a2;
+    crank.rotation.y = -(a3 + Math.PI);
+    fore.position.set(E[0], 0, E[1]); fore.rotation.y = -a3;
+    eplate.position.set(E[0], 0, E[1]);
+    fork.position.set(W[0], 0, W[1]);
+    rodD.position.set(-R * f[0], 0, -R * f[1]); rodD.rotation.y = -a2;
+    rodL.position.set(-LV, 0, 0); rodL.rotation.y = -a2;
+    rodU.position.set(E[0], 0, E[1] + LW); rodU.rotation.y = -a3;
+    flZ.rotation.z = j4axis === 'z' ? rad(st.j4) : 0;
+    flY.rotation.y = j4axis === 'y' ? -rad(st.j4) : 0;
     const open = 4 + st.jg / 100 * 17;
-    fL.position.set(0, -69, open + 3); fR.position.set(0, -69, -open - 3);
-    const C1 = [-R * f[0], -R * f[1]], Fr = [E[0] - R * f[0], E[1] - R * f[1]];
-    rodD.userData.set(C1, Fr);
-    rodL.userData.set(V, [E[0] + V[0], E[1] + V[1]]);
-    rodU.userData.set([E[0] + Wv[0], E[1] + Wv[1]], [W[0] + Wv[0], W[1] + Wv[1]]);
+    fL.position.set(0, open + 3, -FLANGE_UNDER - 69); fR.position.set(0, -open - 3, -FLANGE_UNDER - 69);
 
-    // readouts
+    // readouts: tool point in the turret frame (forward r, sideways s, height h)
     const T = TOOLS[tool];
-    let r, h;
-    if (j4axis === 'z') { r = W[0] + J4X; h = D1 + W[1] + FLANGE_Y - T.tip; }
+    let r, s = 0, h;
+    if (j4axis === 'z') { r = W[0] + g.zx; h = D1 + W[1] - FLANGE_UNDER - T.below; }
     else {
-      const d = T.tip - CLAMP[tool].at, p = rad(st.j4);
-      r = W[0] + SIDE_X + d * Math.sin(p); h = D1 + W[1] + SIDE_Y - d * Math.cos(p);
+      const p = rad(st.j4);
+      r = W[0] + g.yx + T.y.reach * Math.sin(p); h = D1 + W[1] + g.yz - T.y.reach * Math.cos(p);
+      s = yClamp(T.y.ro);
     }
     const yaw = rad(st.j1);
-    el('tx').textContent = (r * Math.cos(yaw)).toFixed(0) + ' мм';
-    el('ty').textContent = (r * Math.sin(yaw)).toFixed(0) + ' мм';
+    el('tx').textContent = (r * Math.cos(yaw) - s * Math.sin(yaw)).toFixed(0) + ' мм';
+    el('ty').textContent = (r * Math.sin(yaw) + s * Math.cos(yaw)).toFixed(0) + ' мм';
     el('tz').textContent = h.toFixed(0) + ' мм';
-    const rel = 180 - (st.j2 - st.j3);
-    el('rel').textContent = rel.toFixed(0) + '°';
+    el('rel').textContent = (180 + st.j3 - st.j2).toFixed(0) + '°';
     const m2k = LK * L2, m3k = LK * L3 + 0.05;
     // the tool's offset from the wrist goes into the levelling rods; J2/J3 see its weight at the wrist
     const t2 = Math.abs(G * (m2k * L2 / 2 + (m3k + MM + T.m + 0.04) * L2) * Math.cos(a2) / 1000);
@@ -468,12 +373,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       i.style.background = v > LIM ? 'var(--bad)' : v > LIM * 0.8 ? 'var(--warn)' : 'var(--ok)';
       el(o).textContent = v.toFixed(2) + ' Н·м';
     });
-    const s = el('state');
+    const sEl = el('state');
     const atLimit = st.j3 <= Math.max(-70, st.j2 - 150) + 0.5 || st.j3 >= Math.min(35, st.j2 - 40) - 0.5;
-    // bracket Y tilt range -60..130 deg is collision-checked in cad/tools.py for the 775 and the spindle
-    if (h < 5) { s.textContent = 'Інструмент нижче столу'; s.style.color = 'var(--bad)'; }
-    else if (atLimit) { s.textContent = 'Межа: кут між ланками 30…140°'; s.style.color = 'var(--warn)'; }
-    else { s.textContent = 'OK'; s.style.color = 'var(--ok)'; }
+    if (h < 5) { sEl.textContent = 'Інструмент нижче столу'; sEl.style.color = 'var(--bad)'; }
+    else if (atLimit) { sEl.textContent = 'Межа: кут між ланками 30…140°'; sEl.style.color = 'var(--warn)'; }
+    else { sEl.textContent = 'OK'; sEl.style.color = 'var(--ok)'; }
     const tcmd = tool === 'grip' ? (st.jg > 50 ? 'M102' : 'M103') : (st.jg > 0 ? `M3 S${Math.round(st.jg * 100)}` : 'M5');
     el('gc').textContent = `G1 X${st.j1.toFixed(1)} Y${st.j2.toFixed(1)} Z${st.j3.toFixed(1)} A${st.j4.toFixed(1)} F900  ${tcmd}`;
     el('o1').textContent = st.j1.toFixed(0) + '°'; el('o2').textContent = st.j2.toFixed(0) + '°';
@@ -494,7 +398,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   }));
   document.querySelectorAll('[data-ax]').forEach(b => b.addEventListener('click', () => {
     j4axis = b.dataset.ax;
-    document.querySelectorAll('[data-ax]').forEach(x => x.classList.toggle('on', x === b));
+    if (j4axis === 'y' && tool === 'grip') document.querySelector('[data-tool="m775"]').click();
     placeJ4(); pose();
   }));
 
@@ -519,10 +423,10 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     syncInputs(); pose();
   }
 
-  // ---- views ----
+  // ---- views (three.js coordinates: y up, -z = FreeCAD +Y / J2 side) ----
   const VIEWS = {
-    iso: [[720, 560, 660], [90, 150, 0]], side: [[110, 170, 820], [110, 160, 0]],
-    front: [[820, 190, 0], [80, 140, 0]], top: [[110, 900, 1], [110, 0, 0]]
+    iso: [[700, 560, -640], [110, 150, 0]], side: [[120, 190, -860], [120, 160, 0]],
+    front: [[860, 200, 0], [90, 150, 0]], top: [[120, 940, -1], [120, 0, 0]]
   };
   let fly = null;
   function goView(k) {
@@ -539,7 +443,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     const r = cv.getBoundingClientRect();
     mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(mouse, camera);
-    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.name);
+    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.name && h.object.visible);
     if (hit) {
       tip.textContent = hit.object.userData.name; tip.hidden = false;
       const x = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 6);
@@ -548,7 +452,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   });
   cv.addEventListener('pointerleave', () => { tip.hidden = true; });
 
-  // ---- x-ray: see the bearings and axles inside the printed parts ----
+  // ---- x-ray: printed parts translucent, bought parts (motors, bearings, axles) solid ----
   const printed = [M.print, M.print2, M.base, M.rod, M.crank, M.finger, M.servo];
   el('xray').addEventListener('click', () => {
     const on = el('xray').getAttribute('aria-pressed') !== 'true';
