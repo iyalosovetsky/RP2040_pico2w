@@ -245,11 +245,12 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const upper = new THREE.Group(); sh.add(upper);
   upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): D-маточина на валу J2, гніздо 609Z'));
-  upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): ковзає по маточині кривошипа, гніздо 609Z'));
+  upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): гніздо 6803 на шийці кривошипа Ø17, гніздо 609Z ліктя'));
   upper.add(part('ua_spacers', M.print2, 'Розпірки плеча (друк), болти M4×35'));
+  upper.add(part('ua_bush6803', M.b609, 'Підшипник 6803 (17×26×5) у щоці плеча J3; до його приїзду — друкована втулка того ж розміру'));
   [12.5, -12.5].forEach(y => upper.add(tag(at(ringY(4.5, 11, 7, M.b609), L2, y, 0), '609Z — лікоть, у щоці плеча')));
   const crank = new THREE.Group(); sh.add(crank);
-  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): маточина Ø18 — ковзна опора щоки плеча'));
+  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): шийка Ø17 під 6803 щоки плеча, буртик притискає внутрішнє кільце'));
   crank.add(tag(at(cylY(2, 10, M.shaft), R, -21, 0), 'Палець M4: кривошип / тяга приводу'));
 
   const fore = new THREE.Group(); sh.add(fore);

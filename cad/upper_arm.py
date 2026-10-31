@@ -17,7 +17,8 @@ and shown at the pose set by pose_j2 / pose_j3 (kinematic angles, as in the view
 J2 = upper arm above horizontal, J3 = forearm above horizontal, crank points opposite).
 
 Lateral stack (|y|): plates 9..16 (forearm |y| < 7.5); +y: J2 hub 16..25.5 inside the turret lug's gap;
--y: bushing boss 16..20, crank arm 21..25.5, J3 drive rod 16.5..20.5 (outside the plate).
+-y: 6803 in the plate (16..11), crank collar 16..20.5, crank arm 21..25.5,
+J3 drive rod 16.5..20.5 (outside the plate).
 The crank-to-rod pin is an M4 in a printed bushing: a 609Z (7 mm wide) doesn't fit
 between the cheek, crank, rod and plate.
 """
@@ -53,10 +54,13 @@ PARAMS = [
     ("grub_d",     "3.2 mm",  "M3 grub hole"),
     ("nut_w",      "5.7 mm",  "M3 nut across flats (trap)"),
     ("nut_t",      "2.6 mm",  "M3 nut trap thickness"),
-    ("bush_r",     "9 mm",    "crank hub radius = plain bearing for the J3 plate"),
-    ("bush_clr",   "0.2 mm",  "plain bearing radial clearance"),
-    ("boss_r",     "13 mm",   "J3-plate bushing boss radius"),
-    ("boss_out",   "20 mm",   "J3-plate boss outer end |y| (drive rod starts at 16.5 further out)"),
+    ("b6803_d",    "26 mm",   "6803 OD - J3-side shoulder bearing (17x26x5)"),
+    ("b6803_bore", "17 mm",   "6803 bore = crank journal diameter"),
+    ("b6803_w",    "5 mm",    "6803 width"),
+    ("b6803_fit",  "0.1 mm",  "6803 seat radial clearance (also the temporary bushing's OD)"),
+    ("tmp_clr",    "0.25 mm", "temporary printed bushing: running clearance on the journal (radius)"),
+    ("lip_d3",     "20 mm",   "hole through the lip behind the 6803 (journal 17 passes)"),
+    ("collar_r",   "10.5 mm", "crank collar pressing the 6803 inner ring (outer ring starts at ~11.5)"),
     ("b609_d",     "22 mm",   "609Z OD"),
     ("b609_w",     "7 mm",    "609Z width"),
     ("b609_fit",   "0.1 mm",  "609Z seat clearance (radius)"),
@@ -208,10 +212,14 @@ plate_j2.Label = "Upper arm, J2 side (print)"
 
 # ------------------------------------------------------- upper arm, J3 side ---
 pj3 = plate("PlateJ3", f"-{P}pl_in - {P}pl_t", f"-{P}pl_in")
-boss3 = cyl_y("BossJ3", f"{P}boss_r", f"-{P}boss_out", f"-{P}pl_in - {P}pl_t + 0.01 mm")
 elb3 = cyl_y("ElbowBossJ3", f"{P}elb_boss_r", f"-{P}pl_in - {P}elb_t", f"-{P}pl_in", x=f"{P}len_l2")
-j3_solid = fuse("J3Solid", [pj3, boss3, elb3])
-j3_tools = [cyl_y("BushJ3", f"{P}bush_r + {P}bush_clr", f"-{P}boss_out - 1 mm", f"-{P}pl_in + 1 mm"),
+j3_solid = fuse("J3Solid", [pj3, elb3])
+# shoulder: 6803 sits inside the plate (outer face flush), a lip on the inner side holds it;
+# the crank's 17 mm journal runs through. Until the 6803 arrives, a printed bushing of the
+# same size goes in the same seat (temp_bushing_6803.stl).
+j3_tools = [cyl_y("Seat6803", f"{P}b6803_d / 2 + {P}b6803_fit", f"-{P}pl_in - {P}pl_t - 1 mm",
+                  f"-{P}pl_in - {P}pl_t + {P}b6803_w"),
+            cyl_y("Lip6803", f"{P}lip_d3 / 2", f"-{P}pl_in - {P}pl_t + {P}b6803_w - 0.01 mm", f"-{P}pl_in + 1 mm"),
             cyl_y("Seat609J3", f"{P}b609_d / 2 + {P}b609_fit", f"-{P}pl_in - {P}elb_t - 1 mm",
                   f"-{P}pl_in - {P}elb_t + {P}b609_w", x=f"{P}len_l2"),
             cyl_y("LipJ3", f"{P}lip_hole_d / 2", f"-{P}pl_in - {P}elb_t", f"-{P}pl_in + 1 mm", x=f"{P}len_l2")]
@@ -228,20 +236,32 @@ for k, x in enumerate((f"{P}sp_x1", f"{P}sp_x2")):
     s.Label = f"Spacer {k + 1} (print, M4x35)"
     spacers.append(s)
 
+tb_o = cyl_y("TmpBush_O", f"{P}b6803_d / 2", f"-{P}pl_in - {P}pl_t", f"-{P}pl_in - {P}pl_t + {P}b6803_w")
+tb_i = cyl_y("TmpBush_I", f"{P}b6803_bore / 2 + {P}tmp_clr", f"-{P}pl_in - {P}pl_t - 1 mm", f"-{P}pl_in - {P}pl_t + {P}b6803_w + 1 mm")
+temp_bush = cut("TempBushing6803", tb_o, tb_i)
+temp_bush.Label = "Temporary bushing in place of the 6803 (print, PETG)"
+b6_o = cyl_y("B6803_O", f"{P}b6803_d / 2", f"-{P}pl_in - {P}pl_t", f"-{P}pl_in - {P}pl_t + {P}b6803_w")
+b6_i = cyl_y("B6803_I", f"{P}b6803_bore / 2", f"-{P}pl_in - {P}pl_t - 1 mm", f"-{P}pl_in - {P}pl_t + {P}b6803_w + 1 mm")
+bearing6803 = cut("Bearing6803", b6_o, b6_i)
+bearing6803.Label = "6803 (17x26x5), bought"
+bearing6803.Visibility = False
+
 ua = doc.addObject("App::Part", "UpperArm")
 ua.Label = "Upper arm L2 (posed)"
-for o in (plate_j2, plate_j3, *spacers):
+for o in (plate_j2, plate_j3, *spacers, temp_bush, bearing6803):
     ua.addObject(o)
 ua.Placement.Rotation.Axis = App.Vector(0, 1, 0)
 expr(ua, ".Placement.Rotation.Angle", f"-{P}pose_j2")
 expr(ua, ".Placement.Base.z", f"{P}shoulder_z")
 
 # ------------------------------------------------------------- J3 crank ---
-cr_hub = cyl_y("CrankHub", f"{P}bush_r", f"-{P}cr_y0", f"-{P}pl_in")
+# journal for the 6803 inner ring, from the crank out to the plate's lip
+cr_hub = cyl_y("CrankHub", f"{P}b6803_bore / 2", f"-{P}cr_y0", f"-{P}pl_in - {P}pl_t + {P}b6803_w")
+cr_collar = cyl_y("CrankCollar", f"{P}collar_r", f"-{P}cr_y0", f"-{P}pl_in - {P}pl_t")
 cr_arm = box("CrankArm", f"{P}R", f"{P}cr_t", f"{P}cr_w", "0 mm", f"-{P}cr_y0", f"-{P}cr_w / 2")
 cr_tip = cyl_y("CrankTip", f"{P}cr_w / 2", f"-{P}cr_y0", f"-{P}cr_y0 + {P}cr_t", x=f"{P}R")
 cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
-cr_solid = fuse("CrankSolid", [cr_hub, cr_arm, cr_tip, cr_ring])
+cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring])
 cr_tools = [d_bore("BoreJ3", f"-{P}cr_y0 - 1 mm", f"-{P}pl_in - 2 mm", side=-1),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R")]
 # grub along -X (away from the arm) so it stays reachable between the cheek and the boss
@@ -285,8 +305,9 @@ export(plate_j2, "upper_arm_j2", 90)      # inner face (y = +pl_in) on the bed
 export(plate_j3, "upper_arm_j3", -90)     # inner face (y = -pl_in) on the bed
 export(spacers[0], "upper_arm_spacer", -90)
 export(crank, "j3_crank", 90)             # hub/arm outer face (y = -cr_y0) on the bed
+export(temp_bush, "temp_bushing_6803", 90)
 
-for o in (plate_j2, plate_j3, spacers[0], crank):
+for o in (plate_j2, plate_j3, spacers[0], crank, temp_bush):
     s = o.Shape
     print(f"{o.Name:12s} vol {s.Volume / 1000:6.2f} cm3 valid {s.isValid()} solids {len(s.Solids)}")
 
@@ -308,7 +329,7 @@ def posed(shape, ang_deg):
     return s
 
 
-arm_parts = {o.Name: o.Shape for o in (plate_j2, plate_j3, *spacers)}
+arm_parts = {o.Name: o.Shape for o in (plate_j2, plate_j3, *spacers, temp_bush)}
 worst = {}
 for j2 in (35, 60, 90, 120, 150):
     for j3 in (-70, -48, -26, -4, 18, 35):
