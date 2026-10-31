@@ -38,7 +38,7 @@ The same board as a 4-joint arm: four **17HS15-1684S-PG27** NEMA17 steppers with
 | Wrist pitch | A | E0 (GPIO14/13/15, TMC addr 3) | E0-STOP (GPIO16) |
 | Gripper | - | ST3215 on UART0 (GPIO0/1), id 1 | - |
 
-The machine is **joint-space**: G-code X/Y/Z/A are joint angles in degrees (grbl reports X/Y/Z as "mm", read them as degrees). Cartesian moves are converted on the host by [tools/arm_ik.py](tools/arm_ik.py) — edit the `ARM` dict (link lengths `D1/R1/L2/L3/L4`, per-joint sign/offset/limits) to match the build, check poses with `arm_ik.py fk`, then `arm_ik.py ik <x> <y> <z> --pitch <deg> [--port /dev/ttyACM0]`. See [examples/arm_pick_place.gcode](examples/arm_pick_place.gcode).
+The machine is **joint-space**: G-code X/Y/Z/A are joint angles in degrees (grbl reports X/Y/Z as "mm", read them as degrees) - X = J1 base yaw, Y = J2 upper arm above horizontal, Z = J3 forearm above horizontal (an *absolute* angle: the parallelogram drives it from the turret), A = J4 tool yaw (bracket Z) or tilt (bracket Y). Cartesian moves are converted on the host by [tools/arm_ik.py](tools/arm_ik.py), which reads the link lengths and bracket offsets straight from the `cad/*.FCStd` spreadsheets: `arm_ik.py ik <x> <y> <z> [--tool grip|m775|spindle] [--mount z|y] [--pitch <deg>] [--port /dev/ttyACM0]`, `arm_ik.py fk <X> <Y> <Z> <A>` to check a pose. It refuses targets outside the CAD-checked range (J2 35..150, J3 -70..35, 30..140 deg between the links, tilt -60..130 on bracket Y). Moves are interpolated in joint space, so a G1 between two poses is not a straight line at the tool - keep approach moves short. Set per-joint sign/offset in `CAL` after homing. See [examples/arm_pick_place.gcode](examples/arm_pick_place.gcode).
 
 Defaults baked in via `CMakeLists.txt` (all overridable with `$`-settings after flashing):
 - `$100-$103` = **238.678 steps/deg** (200 × 16 microsteps × 26+103/121 / 360).
@@ -53,7 +53,7 @@ Gripper (in [st3215.c](st3215.c), `ST3215_GRIPPER_ENABLE`):
 
 Gearbox backlash on the PG27 is around 1°, which at 300 mm reach is several millimetres at the tool; approach pick points from the same direction to keep it repeatable.
 
-> **Mechanics moved to a parallelogram (palletizer) layout** — J2 and J3 both on the turret, J3 driving the forearm through a crank and rod, two levelling rods keeping the wrist level, J4 turning or tilting an interchangeable tool. Parametric FreeCAD models, print-ready STLs and an offline 3D viewer (`cad/viewer/roboruka.html`) are in [cad/](cad/). In that layout the J3 angle is the forearm's absolute angle and there is no wrist pitch, so `tools/arm_ik.py` and the pick-and-place example above still describe the earlier serial layout and need updating.
+> **Mechanics:** parallelogram (palletizer) layout - J2 and J3 both on the turret, J3 driving the forearm through a crank and rod, two levelling rods keeping the wrist level, J4 turning or tilting an interchangeable tool. Parametric FreeCAD models, print-ready STLs and an offline 3D viewer (`cad/viewer/roboruka.html`) are in [cad/](cad/).
 
 ### Command-line build
 
