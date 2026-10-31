@@ -8,7 +8,7 @@ Builds cad/forearm.FCStd plus print files laid flat:
   rod_drive.stl     - J3 crank -> forearm tail, length L2, plane |y| 16.5..20.5 (-y)
   rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 17..21 (+y)
   rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 26..30 (+y)
-  elbow_plate.stl   - triangle on the elbow axle (plain bushing), keeps its orientation
+  elbow_plate.stl   - solid triangle on the elbow axle (plain bushing), keeps its orientation
   wrist_fork.stl    - fork on the wrist axle, keeps its orientation; its bottom bridge
                       (4x M3 inserts) takes the Z or Y tool bracket
 Bought: elbow axle D8 x 45 and wrist axle D8 x 34 - cut from an 8 mm linear rod, or M8 bolts
@@ -80,6 +80,7 @@ PARAMS = [
     ("fk_drop",    "24 mm",   "wrist fork bridge bottom below the axle"),
     ("fk_bridge_t", "6 mm",   "wrist fork bridge thickness"),
     ("fk_post_r",  "6 mm",    "wrist fork post radius (upper rod pin)"),
+    ("fk_gus_x",   "30 mm",   "wrist fork gusset: run along the cheek top, forward of the post"),
     ("ins_d",      "4.2 mm",  "M3 heat insert hole (tool bracket)"),
     ("grub_d",     "3.2 mm",  "M3 grub"),
     ("nut_w",      "5.7 mm",  "M3 nut across flats"),
@@ -167,6 +168,21 @@ def grub_up(name, x, y, z0, z1, face_y):
     return [hole, nut]
 
 
+def gusset(name, rot, base, leg_a, leg_b, t):
+    """Right-triangle plate: a Part::Wedge with its top edge collapsed. Wedge local frame:
+    legs along +x (leg_a) and +y (leg_b), thickness along +z; rot/base put it in place."""
+    o = doc.addObject("Part::Wedge", name)
+    for p in ("Xmin", "Ymin", "Zmin", "X2min", "X2max", "Z2min"):
+        setattr(o, p, 0)
+    expr(o, "Xmax", leg_a)
+    expr(o, "Ymax", leg_b)
+    expr(o, "Zmax", t)
+    expr(o, "Z2max", t)
+    o.Placement.Rotation = rot
+    place(o, *base)
+    return o
+
+
 def rod(name, length, y0):
     """Flat bar along +X from pin to pin, between y0 and y0 + rod_t."""
     y1 = f"{y0} + {P}rod_t"
@@ -211,6 +227,9 @@ ep = fuse("EP_Solid", [
     cyl_y("EP_W", f"{P}pl_arm_r", py0, py1, z=f"{P}lev_w"),
     box("EP_BarV", f"-{P}lev_v", "0 mm", py0, py1, f"-{P}pl_arm_r", f"{P}pl_arm_r"),
     box("EP_BarW", f"-{P}pl_arm_r", f"{P}pl_arm_r", py0, py1, "0 mm", f"{P}lev_w"),
+    # web between the arms: local x -> -X, local y -> +Z, local z -> +Y
+    gusset("EP_Web", App.Rotation(App.Vector(0, 1, 1), 180), (f"-{P}pl_arm_r", py0, f"{P}pl_arm_r"),
+           f"{P}lev_v - {P}pl_arm_r", f"{P}lev_w - {P}pl_arm_r", f"{P}pl_t"),
 ])
 elbow_plate = cut("ElbowPlate", ep, [
     cyl_y("EP_Bore", f"{P}axle_d / 2 + {P}bush_clr", f"{py0} - 1 mm", f"{py1} + 1 mm"),
@@ -229,6 +248,9 @@ fk_parts += [
         f"-{P}fk_drop", f"-{P}fk_drop + {P}fk_bridge_t"),
     box("FK_PostWeb", f"-{P}fk_post_r", f"{P}fk_post_r", f"{P}fk_in", f"{P}fk_in + {P}fk_t", "0 mm", f"{P}lev_w"),
     cyl_y("FK_Post", f"{P}fk_post_r", f"{P}fk_in", f"{P}up_y0 - 0.5 mm", z=f"{P}lev_w"),
+    # gusset cheek -> post: local x -> +X, local y -> +Z, local z -> -Y
+    gusset("FK_Gusset", App.Rotation(App.Vector(1, 0, 0), 90), (f"{P}fk_post_r", f"{P}fk_in + {P}fk_t", "0 mm"),
+           f"{P}fk_gus_x", f"{P}lev_w - {P}fk_post_r", f"{P}fk_t"),
     cyl_y("FK_ClampBoss", "11 mm", f"-{P}fk_in - {P}fk_t - 6 mm", f"-{P}fk_in - {P}fk_t + 0.01 mm"),
 ]
 fk_tools = [
