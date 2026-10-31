@@ -183,10 +183,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const mat = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6, metalness: 0.05 }, o || {}));
   const M = {
-    print: mat(0x5b7c96), print2: mat(0x9db3c4), base: mat(0x41566a), rod: mat(0x1d9e75), crank: mat(0xd85a30),
-    body: mat(0x2b3137, { metalness: 0.3, roughness: 0.5 }), gear: mat(0xb9c0c6, { metalness: 0.6, roughness: 0.35 }),
-    shaft: mat(0xdde1e4, { metalness: 0.8, roughness: 0.25 }), b609: mat(0x7f77dd, { metalness: 0.4, roughness: 0.4 }),
-    thrust: mat(0xd9a441, { metalness: 0.5, roughness: 0.35 }), servo: mat(0x1e2226), finger: mat(0xcf5428),
+    // same colours as in the .FCStd files
+    print: mat(0x5c7d96), print2: mat(0x99b3c7), turret: mat(0x7a96ad), base: mat(0x5c7d96), rod: mat(0x1c9e75),
+    crank: mat(0xd95c30), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
+    shaft: mat(0xdbdee0, { metalness: 0.6, roughness: 0.35 }), b609: mat(0x8078de, { metalness: 0.3, roughness: 0.45 }),
+    thrust: mat(0xd9a340, { metalness: 0.4, roughness: 0.4 }), servo: mat(0x1e2226), finger: mat(0xcf5428),
     toolBody: mat(0x3a4148, { metalness: 0.5, roughness: 0.4 }), spBody: mat(0xc8ccd0, { metalness: 0.7, roughness: 0.3 })
   };
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0xffffff, { roughness: 1 }));
@@ -211,13 +212,17 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     }
     return GEO[name];
   }
+  const EDGE = new THREE.LineBasicMaterial({ color: 0x15181b, transparent: true, opacity: 0.85 });
+  const EDGES = {};
+  function edges(name) { return EDGES[name] || (EDGES[name] = new THREE.EdgesGeometry(geo(name), 25)); }
+  function withEdges(mesh, name) { mesh.add(new THREE.LineSegments(edges(name), EDGE)); return mesh; }
   function tag(o, label) { o.traverse(m => { if (m.isMesh) { m.userData.name = label; m.castShadow = m.receiveShadow = true; } }); return o; }
-  function part(name, material, label) { return tag(new THREE.Mesh(geo(name), material), label); }
+  function part(name, material, label) { return tag(withEdges(new THREE.Mesh(geo(name), material), name), label); }
+  function cadMesh(name, material) { return withEdges(new THREE.Mesh(geo(name), material), name); }
   function grp(...kids) { const g0 = new THREE.Group(); kids.forEach(k => g0.add(k)); return g0; }
   function placed(obj, m16) { obj.applyMatrix4(new THREE.Matrix4().set(...m16)); return obj; }
   function pg27(label, m16) {
-    return placed(tag(grp(new THREE.Mesh(geo('pg27_body'), M.body), new THREE.Mesh(geo('pg27_gear'), M.gear),
-                          new THREE.Mesh(geo('pg27_shaft'), M.shaft)), label), m16);
+    return placed(tag(grp(cadMesh('pg27_body', M.body), cadMesh('pg27_gear', M.gear), cadMesh('pg27_shaft', M.shaft)), label), m16);
   }
   // simple bought-part shapes, axis along FreeCAD Y (three's cylinder axis = local Y)
   function cylY(r, h, m) { return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), m); }
@@ -235,7 +240,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   root.add(pg27('J1 — 17HS15-1684S-PG27, поворот основи', CAD.motors.J1));
 
   const turret = new THREE.Group(); root.add(turret);
-  turret.add(part('turret_body', M.print2, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
+  turret.add(part('turret_body', M.turret, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
   turret.add(part('j1_hub', M.crank, 'D-маточина J1 (друк), 3×M3 у турель'));
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
@@ -248,7 +253,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): гніздо 6803 на шийці кривошипа Ø17, гніздо 609Z ліктя'));
   upper.add(part('ua_spacers', M.print2, 'Розпірки плеча (друк), болти M4×35'));
   upper.add(part('ua_bush6803', M.b609, 'Підшипник 6803 (17×26×5) у щоці плеча J3; до його приїзду — друкована втулка того ж розміру'));
-  [12.5, -12.5].forEach(y => upper.add(tag(at(ringY(4.5, 11, 7, M.b609), L2, y, 0), '609Z — лікоть, у щоці плеча')));
+  upper.add(part('b609_elbow', M.b609, '609Z ×2 — лікоть, у щоках плеча; у них крутиться вісь ліктя'));
   const crank = new THREE.Group(); sh.add(crank);
   crank.add(part('crank', M.crank, 'Кривошип J3 (друк): шийка Ø17 під 6803 щоки плеча, буртик притискає внутрішнє кільце'));
   crank.add(tag(at(cylY(2, 10, M.shaft), R, -21, 0), 'Палець M4: кривошип / тяга приводу'));
@@ -256,7 +261,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const fore = new THREE.Group(); sh.add(fore);
   fore.add(part('forearm', M.print, 'Передпліччя L3 (друк), хвостик 40'));
   fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø9×45 (сталь): затиснута в передпліччі, крутиться в 609Z'));
-  fore.add(tag(at(ringY(4.5, 11, 7, M.b609), L3, 4, 0), '609Z — кисть, у кінці передпліччя'));
+  fore.add(part('b609_wrist', M.b609, '609Z — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
   fore.add(tag(at(cylY(2, 14, M.shaft), -R, -12, 0), 'Палець M4: хвостик / тяга приводу'));
   const eplate = new THREE.Group(); sh.add(eplate);
   eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк): тримає орієнтацію'));
@@ -270,11 +275,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
   const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));
   const flZ = new THREE.Group(); flZ.position.x = g.zx; brZ.add(flZ);
-  flZ.add(tag(at(new THREE.Mesh(geo('flange_z'), M.crank), -g.zx, 0, 0), 'Фланець Z (друк): D-маточина + плита 50×50'));
+  flZ.add(tag(at(cadMesh('flange_z', M.crank), -g.zx, 0, 0), 'Фланець Z (друк): D-маточина + плита 50×50'));
   // bracket Y: J4 across the arm, the flange (and tool) tilts about the J4 axis
   const brY = grp(part('bracket_y', M.print2, 'Кронштейн Y (друк): J4 поперек руки, нахил інструмента'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4y));
   const flY = new THREE.Group(); flY.position.set(g.yx, 0, g.yz); brY.add(flY);
-  flY.add(tag(at(new THREE.Mesh(geo('flange_y'), M.crank), -g.yx, 0, -g.yz), 'Фланець Y (друк): D-маточина + плита 50×50'));
+  flY.add(tag(at(cadMesh('flange_y', M.crank), -g.yx, 0, -g.yz), 'Фланець Y (друк): D-маточина + плита 50×50'));
   fork.add(brZ, brY);
 
   // tools: clamps from the CAD, tool bodies as simple shapes (not in the CAD); clamp frame = tool axis Z
@@ -290,8 +295,8 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const ZT = {
     grip: tag(grp(at(box(50, 50, 6, M.print2), 0, 0, -FLANGE_UNDER - 3), at(box(45, 25, 35, M.servo), 0, 0, -FLANGE_UNDER - 23.5),
                   at(box(14, 46, 6, M.print2), 0, 0, -FLANGE_UNDER - 44)), 'Модуль захвату ST3215 (ще не змодельований у CAD)'),
-    m775: grp(at(new THREE.Mesh(geo('clamp_axial_775'), M.print), 0, 0, zClampZ), at(toolBody775(), 0, 0, zClampZ)),
-    spindle: grp(at(new THREE.Mesh(geo('clamp_axial_52'), M.print), 0, 0, zClampZ), at(toolBodySpindle(-60), 0, 0, zClampZ)),
+    m775: grp(at(cadMesh('clamp_axial_775', M.print), 0, 0, zClampZ), at(toolBody775(), 0, 0, zClampZ)),
+    spindle: grp(at(cadMesh('clamp_axial_52', M.print), 0, 0, zClampZ), at(toolBodySpindle(-60), 0, 0, zClampZ)),
   };
   const fL = box(10, 6, 44, M.finger), fR = box(10, 6, 44, M.finger);
   ZT.grip.add(tag(fL, 'Палець захвату'), tag(fR, 'Палець захвату'));
@@ -299,9 +304,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   Object.values(ZT).forEach(t => flZ.add(t));
   const yClamp = ro => PLATE_FACE - (ro + g.tp_t);
   const YT = {
-    m775: at(grp(tag(new THREE.Mesh(geo('clamp_side_775'), M.print), 'Хомут бічний 775 (друк)'), toolBody775()), 0, yClamp(TOOLS.m775.y.ro), 0),
+    m775: at(grp(tag(cadMesh('clamp_side_775', M.print), 'Хомут бічний 775 (друк)'), toolBody775()), 0, yClamp(TOOLS.m775.y.ro), 0),
     // clamped 25 mm above its centre of mass so its top end clears the fork at any tilt (cad/tools.py)
-    spindle: at(grp(tag(new THREE.Mesh(geo('clamp_side_52'), M.print), 'Хомут бічний Ø52 (друк)'), toolBodySpindle(-25)), 0, yClamp(TOOLS.spindle.y.ro), 0),
+    spindle: at(grp(tag(cadMesh('clamp_side_52', M.print), 'Хомут бічний Ø52 (друк)'), toolBodySpindle(-25)), 0, yClamp(TOOLS.spindle.y.ro), 0),
   };
   Object.values(YT).forEach(t => flY.add(t));
 
@@ -454,7 +459,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   cv.addEventListener('pointerleave', () => { tip.hidden = true; });
 
   // ---- x-ray: printed parts translucent, bought parts (motors, bearings, axles) solid ----
-  const printed = [M.print, M.print2, M.base, M.rod, M.crank, M.finger, M.servo];
+  const printed = [M.print, M.print2, M.turret, M.base, M.rod, M.crank, M.finger, M.servo];
   el('xray').addEventListener('click', () => {
     const on = el('xray').getAttribute('aria-pressed') !== 'true';
     el('xray').setAttribute('aria-pressed', on);

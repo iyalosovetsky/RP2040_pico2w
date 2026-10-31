@@ -47,6 +47,12 @@ def mat(placement):
             m.A31, m.A32, m.A33, m.A34, m.A41, m.A42, m.A43, m.A44]
 
 
+def elbow_b609():
+    s = Part.makeCompound([shp("forearm", "B609_ElbowJ2"), shp("forearm", "B609_ElbowJ3")]).copy()
+    s.translate(App.Vector(D["forearm"].getObject("Params").len_l2.Value, 0, 0))
+    return s
+
+
 parts = {
     # world (static)
     "base_housing": shp("base", "BaseHousing"),
@@ -63,6 +69,9 @@ parts = {
     "ua_j3": shp("upper_arm", "UpperArmJ3"),
     "ua_spacers": compound("upper_arm", ["Spacer0", "Spacer1"]),
     "ua_bush6803": shp("upper_arm", "TempBushing6803"),   # 6803 (17x26x5) or its printed stand-in
+    # 609Z: elbow pair in the upper arm frame (the CAD draws them at the elbow origin), wrist in the forearm frame
+    "b609_elbow": elbow_b609(),
+    "b609_wrist": shp("forearm", "B609_Wrist"),
     # crank frame (origin on the shoulder axis, X along the crank)
     "crank": shp("upper_arm", "J3Crank"),
     # forearm frame (origin on the elbow axle)
