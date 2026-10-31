@@ -2,7 +2,7 @@
 turret.py - parametric FreeCAD model of the turret (J1 output, carries J2 + J3).
 
 Builds cad/turret.FCStd plus print files for its two printed parts:
-  turret_body.stl/.step  - plate + two motor cheeks + levelling lug.
+  turret_body.stl/.step  - plate + two motor cheeks + levelling lug + motor cradles.
                            Print plate-down (the bearing recess opens onto the bed).
   turret_j1hub.stl/.step - D-bore hub on the J1 shaft, screwed to the turret from
                            below (3x M3 into heat inserts). Print flange-down.
@@ -11,6 +11,11 @@ their mounting cut-outs and the base for context).
 
 Run headless:
     <FreeCAD.AppImage> freecadcmd cad/turret.py --pass cad/turret.FCStd
+
+The J2/J3 motors hang 74 mm out from the cheeks on 4x M3 into the gearbox, so each one
+also lies in a cradle that grows out of the plate: floor on the bed, two side walls fused
+into the cheek, a saddle under the gearbox and two pads under the motor body with slots
+for a cable tie over the motor (turn the motor so its connector faces up).
 
 Frame: as base.FCStd (table z = 0, J1 = Z). Shoulder axis along Y at z = D1,
 the arm's plane is X/Z. J2 bolts to the +Y cheek, J3 to the -Y cheek, both
@@ -69,6 +74,16 @@ PARAMS = [
     ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
     ("d_clr",      "0.05 mm", "D-bore clearance (snug: no grub screw reachable); fit test: 0.15 had play"),
     ("face_off",   "0 mm",    "spare: move the J2/J3 faces outward"),
+    ("motor_sq",   "42.3 mm", "NEMA17 body square (pg27.FCStd)"),
+    ("gb_d",       "35.9 mm", "PG27 gearbox OD (pg27.FCStd)"),
+    ("cr_in",      "21.5 mm", "motor cradle: wall inner face |x| (body half-width 21.15)"),
+    ("cr_wall",    "4 mm",    "motor cradle: wall thickness"),
+    ("cr_floor",   "6 mm",    "motor cradle: floor thickness (on the bed with the plate)"),
+    ("cr_len",     "66 mm",   "motor cradle: reach from the gearbox face (motor ends at 74)"),
+    ("cr_top_off", "10 mm",   "motor cradle: wall top below the shoulder axis (keeps the connector clear)"),
+    ("cr_gap",     "0.3 mm",  "motor cradle: gap under the gearbox and body - foam tape, no preload"),
+    ("cr_pad1",    "42 mm",   "motor cradle: 1st body pad centre from the gearbox face"),
+    ("cr_pad2",    "60 mm",   "motor cradle: 2nd body pad centre from the gearbox face"),
 ]
 
 ss = doc.addObject("Spreadsheet::Sheet", "Params")
@@ -170,7 +185,41 @@ lug_parts = [
     cyl("Lug_Pin", f"{P}lug_pin_r", f"{P}lug_t + 0.5 mm", f"{P}shoulder_z", f"{P}lev_x", lug_y, axis="y"),
 ]
 
-body_solid = fuse("TurretSolid", [plate] + cheek_parts + lug_parts)
+# motor cradles: U-channel under each J2/J3 motor, fused into the plate and the cheek
+cradle_parts, cradle_cuts = [], []
+for side, tag in ((1, "J2"), (-1, "J3")):
+    def yspan(a, b):
+        """(y origin, length) of the |y| range a..b on this side."""
+        return (f"{a}" if side > 0 else f"-({b})"), f"({b}) - ({a})"
+
+    end = f"{P}face_y + {P}cr_len"
+    wall_top = f"{P}shoulder_z - {P}cr_top_off"
+    pad_top = f"{P}shoulder_z - {P}motor_sq / 2 - {P}cr_gap"
+    y0, ly = yspan(f"{P}cheek_in", end)
+    cradle_parts.append(box(f"Cr{tag}_Floor", f"2 * ({P}cr_in + {P}cr_wall)", ly, f"{P}cr_floor",
+                            f"-{P}cr_in - {P}cr_wall", y0, f"{P}plate_bot"))
+    for sx, wt in ((1, "P"), (-1, "N")):
+        cradle_parts.append(box(f"Cr{tag}_Wall{wt}", f"{P}cr_wall", ly, f"{wall_top} - {P}plate_bot",
+                                f"{P}cr_in" if sx > 0 else f"-{P}cr_in - {P}cr_wall", y0, f"{P}plate_bot"))
+    # saddle under the gearbox, seat cut below
+    y0, ly = yspan(f"{P}face_y + 6 mm", f"{P}face_y + 26 mm")
+    cradle_parts.append(box(f"Cr{tag}_Saddle", f"2 * {P}cr_in + 1 mm", ly,
+                            f"{P}shoulder_z - 8 mm - {P}plate_bot - {P}cr_floor + 0.01 mm",
+                            f"-{P}cr_in - 0.5 mm", y0, f"{P}plate_bot + {P}cr_floor - 0.01 mm"))
+    cradle_cuts.append(cyl(f"Cr{tag}_Seat", f"{P}gb_d / 2 + {P}cr_gap", f"{P}cr_len",
+                           f"{P}shoulder_z", "0 mm", f"{P}face_y + 0.5 mm" if side > 0 else f"-{P}face_y - {P}cr_len - 0.5 mm",
+                           axis="y"))
+    # two pads under the motor body, each with a cable-tie slot through both walls
+    for k, c in ((1, f"{P}cr_pad1"), (2, f"{P}cr_pad2")):
+        y0, ly = yspan(f"{P}face_y + {c} - 4 mm", f"{P}face_y + {c} + 4 mm")
+        cradle_parts.append(box(f"Cr{tag}_Pad{k}", f"2 * {P}cr_in + 1 mm", ly,
+                                f"{pad_top} - {P}plate_bot - {P}cr_floor + 0.01 mm",
+                                f"-{P}cr_in - 0.5 mm", y0, f"{P}plate_bot + {P}cr_floor - 0.01 mm"))
+        y0, ly = yspan(f"{P}face_y + {c} - 2.5 mm", f"{P}face_y + {c} + 2.5 mm")
+        cradle_cuts.append(box(f"Cr{tag}_Tie{k}", f"2 * ({P}cr_in + {P}cr_wall) + 2 mm", ly, "2.5 mm",
+                               f"-{P}cr_in - {P}cr_wall - 1 mm", y0, f"{pad_top} - 6 mm"))
+
+body_solid = fuse("TurretSolid", [plate] + cheek_parts + lug_parts + cradle_parts)
 
 # underside: bearing recess; motor cut-outs from pg27.FCStd; lug pin; hub screws
 recess = cyl("BearingRecess", f"{P}bear_d / 2 + {P}bear_fit", f"{P}seat_h + 0.01 mm", f"{P}plate_bot - 0.01 mm")
@@ -181,7 +230,7 @@ lug_pin = cyl("LugPin", f"{P}pin_d / 2", f"{P}lug_t + {P}cheek_t + 2 mm", f"{P}s
 inserts = [cyl(f"HubInsert{k}", f"{P}insert_d / 2", f"{P}insert_h", f"{P}bear_top - 0.01 mm",
                f"{P}hub_scr_r * cos({90 + 120 * k} deg)", f"{P}hub_scr_r * sin({90 + 120 * k} deg)")
            for k in range(3)]
-tools = fuse("TurretTools", [recess, mc_j2, mc_j3, lug_pin] + inserts)
+tools = fuse("TurretTools", [recess, mc_j2, mc_j3, lug_pin] + inserts + cradle_cuts)
 turret = cut("TurretBody", body_solid, tools)
 turret.Label = "Turret body (print)"
 
