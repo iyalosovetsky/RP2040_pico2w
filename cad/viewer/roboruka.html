@@ -290,9 +290,18 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const upper = new THREE.Group(); sh.add(upper);
   [12.5, -12.5].forEach(z => upper.add(link(0, L2, 36, 7, z, M.print)));
   tag(upper, 'Плече L2 = 140 (друк, дві щоки)');
+  // shoulder supports (cad/upper_arm.FCStd): +y plate clamps the J2 shaft with a D-hub (r 11, |y| 16..25.5);
+  // -y plate has a bushing boss (r 13, |y| 16..20) that turns on the J3 crank hub (D18) - a plain bearing
+  const j2hub = cylZ(11, 9.5, M.print); j2hub.position.z = 20.75;
+  upper.add(tag(j2hub, 'D-маточина плеча на валу J2 (гвинт M3 на лиску)'));
+  const j3boss = cylZ(13, 4, M.print); j3boss.position.z = -18;
+  upper.add(tag(j3boss, 'Бобишка щоки плеча Ø26: ковзає по маточині кривошипа J3 (Ø18)'));
+  const j2shaft = cylZ(4, 20, M.shaft); j2shaft.position.z = 25; upper.add(tag(j2shaft, 'Вал J2 Ø8 з лискою'));
   const crank = new THREE.Group(); sh.add(crank);
   crank.add(link(0, R, 16, 4, ZC, M.crank));
-  const ch9 = cylZ(9, 15, M.crank); ch9.position.z = -17.5; crank.add(ch9);
+  const ch9 = cylZ(9, 15.5, M.crank); ch9.position.z = -17.75; crank.add(ch9);   // hub |y| 10..25.5: J3 shaft inside, the arm's boss outside
+  const ch12 = cylZ(12, 5, M.crank); ch12.position.z = -23; crank.add(ch12);   // root ring with the grub screw
+  const j3shaft = cylZ(4, 20, M.shaft); j3shaft.position.z = -25; crank.add(j3shaft);
   tag(crank, 'Кривошип J3, 40 мм (друк); його маточина Ø18 — ковзна опора плеча');
   const cb = pin([R, 0], ZC - 3, ZR + 3, 2); crank.add(tag(cb, 'Шарнір кривошип / тяга: вісь M4 у друкованій втулці'));
 
