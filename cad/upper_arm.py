@@ -78,7 +78,12 @@ PARAMS = [
     ("cr_y0",      "25.5 mm", "crank hub outer end |y|"),
     ("cr_t",       "4.5 mm",  "crank arm thickness (|y| 21..25.5)"),
     ("cr_w",       "16 mm",   "crank arm width"),
-    ("cr_boss_r",  "12 mm",   "crank root ring around the J3 shaft (grub + nut slot), |y| 20.5..25.5"),
+    ("cr_boss_r",  "12 mm",   "crank root ring around the J3 shaft (clamp), |y| 20.5..25.5"),
+    ("cl_slit",    "1 mm",    "clamp hub slit width"),
+    ("cl_reach",   "19 mm",   "clamp lugs: outer edge from the shaft axis"),
+    ("cl_lug_t",   "5.5 mm",  "clamp lugs: thickness each side of the slit"),
+    ("cl_bolt_d",  "3.4 mm",  "clamp pinch bolt M3"),
+    ("cl_head_d",  "6.2 mm",  "M3 head counterbore in the lug"),
     ("pin_d",      "4.2 mm",  "M4 pin hole (crank-rod, printed bushing)"),
     ("pose_j2",    "60 deg",  "display pose: upper arm above horizontal"),
     ("pose_j3",    "-30 deg", "display pose: forearm above horizontal"),
@@ -199,9 +204,25 @@ def bolt_tools(name, x, lo, hi, head_side):
 pj2 = plate("PlateJ2", f"{P}pl_in", f"{P}pl_in + {P}pl_t")
 hub2 = cyl_y("HubJ2", f"{P}j2_hub_r", f"{P}pl_in + {P}pl_t - 0.01 mm", f"{P}j2_hub_out")
 elb2 = cyl_y("ElbowBossJ2", f"{P}elb_boss_r", f"{P}pl_in", f"{P}pl_in + {P}elb_t", x=f"{P}len_l2")
-j2_solid = fuse("J2Solid", [pj2, hub2, elb2])
+# clamp lugs under the hub (arm frame -Z): the lower levelling rod always passes above the axis
+hy0, hy1 = f"{P}pl_in + {P}pl_t + 2 mm", f"{P}j2_hub_out"
+lug2 = box("ClampLugJ2", f"{P}cl_slit + 2 * {P}cl_lug_t", f"({hy1}) - ({hy0})", f"{P}cl_reach - {P}j2_hub_r + 3 mm",
+           f"-({P}cl_slit / 2 + {P}cl_lug_t)", hy0, f"-{P}cl_reach")
+j2_solid = fuse("J2Solid", [pj2, hub2, elb2, lug2])
 j2_tools = [d_bore("BoreJ2", f"{P}pl_in + 1 mm", f"{P}j2_hub_out + 1 mm")]
 j2_tools += grub("GrubJ2", f"({P}pl_in + {P}pl_t + {P}j2_hub_out) / 2", f"{P}j2_hub_r", 1, f"{P}j2_hub_out")
+yc2 = f"(({hy0}) + ({hy1})) / 2"
+zb2 = f"-({P}cl_reach + {P}j2_hub_r) / 2 - 1.5 mm"
+j2_tools += [
+    box("ClampSlitJ2", f"{P}cl_slit", f"({hy1}) - ({hy0}) + 1 mm", f"{P}cl_reach + 1 mm - {P}shaft_d / 2",
+        f"-{P}cl_slit / 2", hy0, f"-{P}cl_reach - 1 mm"),
+    box("ClampBoltJ2", f"2 * ({P}cl_slit + 2 * {P}cl_lug_t)", f"{P}cl_bolt_d", f"{P}cl_bolt_d",
+        f"-({P}cl_slit + 2 * {P}cl_lug_t)", f"{yc2} - {P}cl_bolt_d / 2", f"{zb2} - {P}cl_bolt_d / 2"),
+    box("ClampHeadJ2", "3 mm", f"{P}cl_head_d", f"{P}cl_head_d", f"{P}cl_slit / 2 + {P}cl_lug_t - 2 mm",
+        f"{yc2} - {P}cl_head_d / 2", f"{zb2} - {P}cl_head_d / 2"),
+    box("ClampNutJ2", "3 mm", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", f"-({P}cl_slit / 2 + {P}cl_lug_t) - 1 mm",
+        f"{yc2} - {P}nut_w / 2 - 0.2 mm", f"{zb2} - {P}nut_w / 2 - 0.2 mm"),
+]
 j2_tools += [cyl_y("Seat609J2", f"{P}b609_d / 2 + {P}b609_fit", f"{P}pl_in + {P}elb_t - {P}b609_w",
                    f"{P}pl_in + {P}elb_t + 1 mm", x=f"{P}len_l2"),
              cyl_y("LipJ2", f"{P}lip_hole_d / 2", f"{P}pl_in - 1 mm", f"{P}pl_in + {P}elb_t", x=f"{P}len_l2")]
@@ -261,11 +282,24 @@ cr_collar = cyl_y("CrankCollar", f"{P}collar_r", f"-{P}cr_y0", f"-{P}pl_in - {P}
 cr_arm = box("CrankArm", f"{P}R", f"{P}cr_t", f"{P}cr_w", "0 mm", f"-{P}cr_y0", f"-{P}cr_w / 2")
 cr_tip = cyl_y("CrankTip", f"{P}cr_w / 2", f"-{P}cr_y0", f"-{P}cr_y0 + {P}cr_t", x=f"{P}R")
 cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
-cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring])
+lug3 = box("ClampLugCrank", f"{P}cl_reach - {P}cr_boss_r + 3 mm", f"{P}cr_t + 0.5 mm", f"{P}cl_slit + 2 * {P}cl_lug_t",
+           f"-{P}cl_reach", f"-{P}cr_y0", f"-({P}cl_slit / 2 + {P}cl_lug_t)")
+cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, lug3])
 cr_tools = [d_bore("BoreJ3", f"-{P}cr_y0 - 1 mm", f"-{P}pl_in - 2 mm", side=-1),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R")]
-# grub along -X (away from the arm) so it stays reachable between the cheek and the boss
-g = grub("GrubCrank", f"-{P}cr_y0 + 2.5 mm", f"{P}cr_boss_r", -1, f"-{P}cr_y0")
+# clamp: slit along -X through the root ring and the collar (not the 6803 journal), M3 across
+xb3 = f"-({P}cl_reach + {P}cr_boss_r) / 2 - 1.5 mm"
+yc3 = f"-{P}cr_y0 + ({P}cr_t + 0.5 mm) / 2"
+g = [
+    box("ClampSlitCrank", f"{P}cl_reach + 1 mm - {P}shaft_d / 2", f"{P}cr_y0 - {P}pl_in - {P}pl_t + 1 mm", f"{P}cl_slit",
+        f"-{P}cl_reach - 1 mm", f"-{P}cr_y0 - 1 mm", f"-{P}cl_slit / 2"),
+    box("ClampBoltCrank", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"2 * ({P}cl_slit + 2 * {P}cl_lug_t)",
+        f"{xb3} - {P}cl_bolt_d / 2", f"{yc3} - {P}cl_bolt_d / 2", f"-({P}cl_slit + 2 * {P}cl_lug_t)"),
+    box("ClampHeadCrank", f"{P}cl_head_d", f"{P}cl_head_d", "3 mm", f"{xb3} - {P}cl_head_d / 2",
+        f"{yc3} - {P}cl_head_d / 2", f"{P}cl_slit / 2 + {P}cl_lug_t - 2 mm"),
+    box("ClampNutCrank", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", "3 mm", f"{xb3} - {P}nut_w / 2 - 0.2 mm",
+        f"{yc3} - {P}nut_w / 2 - 0.2 mm", f"-({P}cl_slit / 2 + {P}cl_lug_t) - 1 mm"),
+]
 crank = cut("J3Crank", cr_solid, cr_tools + g)
 crank.Label = "J3 crank (print)"
 cp = doc.addObject("App::Part", "Crank")

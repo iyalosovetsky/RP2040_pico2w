@@ -242,6 +242,22 @@ elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", "27 mm")
 wrist_axle = cyl_y("WristAxle", f"{P}axle_d / 2", "-20 mm", "14 mm")
 elbow_axle.Label, wrist_axle.Label = "Elbow axle D9x45 (steel)", "Wrist axle D9x34 (steel)"
 
+
+def b609(name, x, y0):
+    """609Z (9x22x7), bought: shown so it's clear what the axles turn in."""
+    o = cyl_y(name + "_O", f"{P}b609_d / 2", y0, f"{y0} + {P}b609_w", x=x)
+    i = cyl_y(name + "_I", f"{P}axle_d / 2", f"{y0} - 1 mm", f"{y0} + {P}b609_w + 1 mm", x=x)
+    return cut(name, o, i)
+
+
+# wrist: in the forearm tip's seat (forearm frame); elbow: in the two upper arm plates
+# (|y| 9..16, they turn with the upper arm - drawn in the forearm frame, it's a ring either way)
+b609_wrist = b609("B609_Wrist", f"{P}len_l3", f"{yt} - {P}b609_w")
+b609_e1 = b609("B609_ElbowJ2", "0 mm", "9 mm")
+b609_e2 = b609("B609_ElbowJ3", "0 mm", "-16 mm")
+b609_wrist.Label = "609Z wrist bearing (bought): the wrist axle turns in it"
+b609_e1.Label = b609_e2.Label = "609Z elbow bearing in the upper arm plate (bought)"
+
 doc.recompute()
 bad = [o.Name for o in doc.Objects if "Invalid" in o.State or "Error" in o.State]
 if bad:
@@ -281,6 +297,8 @@ def moving(j2, j3):
         "RodLevLow": posed(rod_low.Shape, j2, k["O"] + vv),
         "RodLevUp": posed(rod_up.Shape, j3, k["E"] + ww),
         "ElbowAxle": posed(elbow_axle.Shape, 0, k["E"]),
+        "B609_Wrist": posed(b609_wrist.Shape, j3, k["E"]),
+        "B609_Elbow": posed(b609_e1.Shape.fuse(b609_e2.Shape), j2, k["E"]),
         "WristAxle": posed(wrist_axle.Shape, 0, k["W"]),
         "UpperArmJ2": posed(uad.getObject("UpperArmJ2").Shape, j2, k["O"]),
         "UpperArmJ3": posed(uad.getObject("UpperArmJ3").Shape, j2, k["O"]),
@@ -292,11 +310,13 @@ def moving(j2, j3):
 
 asm = doc.addObject("App::DocumentObjectGroup", "Assembly_pose")
 for n, s in moving(ss.pose_j2.Value, ss.pose_j3.Value).items():
-    if n in ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle"):
+    if n in ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle",
+             "B609_Wrist", "B609_Elbow"):
         o = doc.addObject("Part::Feature", "Posed_" + n)
         o.Shape = s
         asm.addObject(o)
-for n in (forearm, rod_drive, rod_low, rod_up, elbow_plate, wrist_fork, elbow_axle, wrist_axle):
+for n in (forearm, rod_drive, rod_low, rod_up, elbow_plate, wrist_fork, elbow_axle, wrist_axle,
+          b609_wrist, b609_e1, b609_e2):
     n.Visibility = False
 ctx = doc.addObject("App::DocumentObjectGroup", "Context")
 for n in ("TurretBody", "J2_Motor", "J3_Motor", "Ctx_BaseHousing"):
@@ -339,10 +359,13 @@ for n in ("J2_Motor", "J3_Motor"):
     body = pgd.getObject("Motor_NEMA17").Shape.fuse([pgd.getObject(k).Shape for k in ("Flange", "Gearbox")])
     body.Placement = tur.getObject(n).Placement.multiply(body.Placement)
     static[n] = body
-new = ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle")
+new = ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle",
+       "B609_Wrist", "B609_Elbow")
 # parts that are meant to touch: axles in their bores
 ok_pairs = {("ElbowAxle", "Forearm"), ("ElbowAxle", "ElbowPlate"), ("ElbowAxle", "UpperArmJ2"),
-            ("ElbowAxle", "UpperArmJ3"), ("WristAxle", "Forearm"), ("WristAxle", "WristFork")}
+            ("ElbowAxle", "UpperArmJ3"), ("WristAxle", "Forearm"), ("WristAxle", "WristFork"),
+            ("B609_Wrist", "Forearm"), ("B609_Wrist", "WristAxle"), ("B609_Elbow", "ElbowAxle"),
+            ("B609_Elbow", "UpperArmJ2"), ("B609_Elbow", "UpperArmJ3")}
 worst = {}
 poses = 0
 for j2 in (35, 50, 70, 90, 110, 130, 150):
