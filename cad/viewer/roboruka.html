@@ -276,14 +276,14 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   });
   const m2 = pg27(); m2.rotation.x = Math.PI / 2; m2.position.set(0, D1, 36); turret.add(tag(m2, 'J2 — 17HS15-1684S-PG27, плече'));
   const m3 = pg27(); m3.rotation.x = -Math.PI / 2; m3.position.set(0, D1, -36); turret.add(tag(m3, 'J3 — 17HS15-1684S-PG27, передпліччя через кривошип'));
-  // levelling lug (cad/turret.FCStd): part of the J2 cheek, fixed to the turret. The J2 shaft and the upper
-  // arm's D-hub (r 11) turn inside its 25 mm hole; the lower levelling rod pins to its end, 30 mm behind the axis.
+  // levelling ground pin (cad/turret.FCStd): an ear of the J2 cheek reaching back to x = -30, plus a small
+  // boss around the pin on the inner side. Nothing covers the J2 screw heads around the shoulder axis.
   const brk = new THREE.Group();
-  const lugRing = ringZ(12.5, 17, 5, M.print2); lugRing.position.set(0, D1, 21); brk.add(lugRing);
-  const lugBar = box(Math.abs(V[0]) - 6, 12, 5, M.print2); lugBar.position.set(V[0] / 2 - 6, D1, 23.5); brk.add(lugBar);
-  const lugEnd = cylZ(6, 5, M.print2); lugEnd.position.set(V[0], D1, 23.5); brk.add(lugEnd);
-  const lugPin = cylZ(2, 10, M.shaft); lugPin.position.set(V[0], D1, 21); brk.add(lugPin);
-  turret.add(tag(brk, 'Кронштейн вирівнювання: частина щоки J2, нерухомий відносно турелі; крізь кільце проходить маточина J2, на кінці палець нижньої тяги'));
+  const ear = box(Math.abs(V[0]), 12, 10, M.print2); ear.position.set(V[0] / 2, D1, 31); brk.add(ear);
+  const earEnd = cylZ(6, 10, M.print2); earEnd.position.set(V[0], D1, 31); brk.add(earEnd);
+  const lugBoss = cylZ(6, 5, M.print2); lugBoss.position.set(V[0], D1, 23.5); brk.add(lugBoss);
+  const lugPin = cylZ(2, 12, M.shaft); lugPin.position.set(V[0], D1, 21); brk.add(lugPin);
+  turret.add(tag(brk, 'Вушко щоки J2 з пальцем нижньої тяги вирівнювання (нерухоме відносно турелі)'));
 
   // shoulder pivot frame
   const sh = new THREE.Group(); sh.position.y = D1; turret.add(sh);

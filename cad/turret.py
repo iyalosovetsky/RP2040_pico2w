@@ -16,7 +16,7 @@ Frame: as base.FCStd (table z = 0, J1 = Z). Shoulder axis along Y at z = D1,
 the arm's plane is X/Z. J2 bolts to the +Y cheek, J3 to the -Y cheek, both
 bodies outward. Lateral stack between the cheeks (|y|):
   0..8 forearm, 10..16 upper arm plates,
-  +y: 17..21 lower levelling rod, 21..26 levelling lug (on the cheek)
+  +y: 17..21 lower levelling rod, 21..26 pin boss on the J2 cheek's ear (x = lev_x)
   -y: 16.5..20.5 J3 drive rod, 21..25 J3 crank arm
 The upper arm's -Y plate turns on the J3 crank hub (D18) as a plain bearing:
 a 609Z can't go there because the J3 shaft has to pass through it.
@@ -52,10 +52,8 @@ PARAMS = [
     ("cheek_r",    "28 mm",   "cheek top radius around the shoulder axis"),
     ("lug_t",      "5 mm",    "levelling lug thickness (on the +Y cheek)"),
     ("lev_x",      "=-30 mm",  "levelling offset V: lug pin X from the shoulder axis"),
-    ("lug_r",      "17 mm",   "lug radius around the axis"),
-    ("lug_pin_r",  "6 mm",    "lug radius around its pin"),
+    ("lug_pin_r",  "6 mm",    "radius of the cheek ear / pin boss around the rod pin"),
     ("pin_d",      "4.2 mm",  "M4 pin hole"),
-    ("hub_gap_r",  "12.5 mm", "lug clearance around the upper arm's J2 hub (r 11)"),
     ("hub_d",      "20 mm",   "J1 hub OD (M3 heads on the roof sit at r >= 10.75)"),
     ("hub_bot",    "86 mm",   "J1 hub bottom (1 mm above the roof)"),
     ("hub_fl_d",   "44 mm",   "J1 hub flange (inside the bearing bore)"),
@@ -160,13 +158,15 @@ for side, tag in ((1, "J2"), (-1, "J3")):
                            f"{P}shoulder_z - {P}plate_top + 1 mm", f"-{P}cheek_r", y0, f"{P}plate_top - 1 mm"))
     cheek_parts.append(cyl(f"Cheek{tag}_Top", f"{P}cheek_r", f"{P}cheek_t", f"{P}shoulder_z", "0 mm", y0, axis="y"))
 
-# levelling lug on the J2 cheek: disc round the axis, disc round the pin, bar between
+# levelling ground pin: the J2 cheek grows an ear back to x = lev_x (full cheek thickness) and only
+# a small boss around the pin sticks inward. Nothing sits around the shoulder axis on the inner face,
+# so the J2 screw-head counterbores (r 14) stay open and reachable between the cheeks.
 lug_y = f"{P}cheek_in - {P}lug_t"
 lug_parts = [
-    cyl("Lug_Axis", f"{P}lug_r", f"{P}lug_t + 0.5 mm", f"{P}shoulder_z", "0 mm", lug_y, axis="y"),
+    box("Ear_Bar", f"-{P}lev_x", f"{P}cheek_t", f"2 * {P}lug_pin_r",
+        f"{P}lev_x", f"{P}cheek_in", f"{P}shoulder_z - {P}lug_pin_r"),
+    cyl("Ear_End", f"{P}lug_pin_r", f"{P}cheek_t", f"{P}shoulder_z", f"{P}lev_x", f"{P}cheek_in", axis="y"),
     cyl("Lug_Pin", f"{P}lug_pin_r", f"{P}lug_t + 0.5 mm", f"{P}shoulder_z", f"{P}lev_x", lug_y, axis="y"),
-    box("Lug_Bar", f"-{P}lev_x", f"{P}lug_t + 0.5 mm", f"2 * {P}lug_pin_r",
-        f"{P}lev_x", lug_y, f"{P}shoulder_z - {P}lug_pin_r"),
 ]
 
 body_solid = fuse("TurretSolid", [plate] + cheek_parts + lug_parts)
@@ -175,14 +175,12 @@ body_solid = fuse("TurretSolid", [plate] + cheek_parts + lug_parts)
 recess = cyl("BearingRecess", f"{P}bear_d / 2 + {P}clr", f"{P}seat_h + 0.01 mm", f"{P}plate_bot - 0.01 mm")
 mc_j2 = link("J2_MountCut", pg.getObject("PG27_MountCut"), X, 90, "0 mm", f"{P}face_y", f"{P}shoulder_z")
 mc_j3 = link("J3_MountCut", pg.getObject("PG27_MountCut"), X, -90, "0 mm", f"-{P}face_y", f"{P}shoulder_z")
-lug_pin = cyl("LugPin", f"{P}pin_d / 2", f"{P}lug_t + 2 mm", f"{P}shoulder_z", f"{P}lev_x",
+lug_pin = cyl("LugPin", f"{P}pin_d / 2", f"{P}lug_t + {P}cheek_t + 2 mm", f"{P}shoulder_z", f"{P}lev_x",
               f"{P}cheek_in - {P}lug_t - 1 mm", axis="y")
-lug_gap = cyl("LugHubGap", f"{P}hub_gap_r", f"{P}lug_t + 1 mm", f"{P}shoulder_z", "0 mm",
-              f"{P}cheek_in - {P}lug_t - 0.5 mm", axis="y")
 inserts = [cyl(f"HubInsert{k}", f"{P}insert_d / 2", f"{P}insert_h", f"{P}bear_top - 0.01 mm",
                f"{P}hub_scr_r * cos({90 + 120 * k} deg)", f"{P}hub_scr_r * sin({90 + 120 * k} deg)")
            for k in range(3)]
-tools = fuse("TurretTools", [recess, mc_j2, mc_j3, lug_pin, lug_gap] + inserts)
+tools = fuse("TurretTools", [recess, mc_j2, mc_j3, lug_pin] + inserts)
 turret = cut("TurretBody", body_solid, tools)
 turret.Label = "Turret body (print)"
 
