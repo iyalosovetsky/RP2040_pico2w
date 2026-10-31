@@ -1,0 +1,587 @@
+<meta charset="utf-8">
+<title>Роборука PG27</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 3D viewport on the left, a workshop control rail on the right; rail stacks under the view on phones */
+:root {
+  --bg: #eceff1; --panel: #f7f9fa; --line: #cfd7dd; --fg: #1a2228; --muted: #5a6670;
+  --accent: #cf5428; --rod: #13866a; --ok: #1f9c74; --warn: #b97c0c; --bad: #c3302f;
+  --scene: #dfe5e9; --grid: #b9c3ca; --track: #dde3e7;
+  --font-ui: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161a; --panel: #182026; --line: #2a343c; --fg: #e2e8ec; --muted: #94a2ac;
+  --accent: #ef7b4e; --rod: #3dc49b; --ok: #3dc49b; --warn: #e2a93a; --bad: #ee6a5f;
+  --scene: #151c21; --grid: #2c3840; --track: #242e35; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161a; --panel: #182026; --line: #2a343c; --fg: #e2e8ec; --muted: #94a2ac;
+  --accent: #ef7b4e; --rod: #3dc49b; --ok: #3dc49b; --warn: #e2a93a; --bad: #ee6a5f;
+  --scene: #151c21; --grid: #2c3840; --track: #242e35; color-scheme: dark }
+html, body { background: var(--bg); color: var(--fg); }
+body { font-family: var(--font-ui); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 28px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-bottom: 14px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+.view { position: relative; height: clamp(380px, 72vh, 760px); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--scene); }
+.view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.views { position: absolute; left: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.tip { position: absolute; pointer-events: none; padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+.hint { position: absolute; left: 10px; bottom: 8px; font-size: 12px; color: var(--muted); }
+button { font: 500 14px var(--font-ui); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.sec { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.sec h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+.ax { display: grid; grid-template-columns: 30px minmax(0, 1fr) 62px; align-items: center; gap: 2px 8px; }
+.ax b { font-family: var(--font-mono); font-weight: 500; font-size: 13px; color: var(--accent); }
+.ax label { font-size: 14px; }
+.ax output { font-family: var(--font-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.ax input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 14px; }
+.kv span:nth-child(odd) { color: var(--muted); }
+.kv span:nth-child(even) { font-family: var(--font-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.pill { align-self: flex-start; font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.tq { display: grid; grid-template-columns: 34px minmax(0, 1fr) 70px; align-items: center; gap: 8px; font-size: 13px; }
+.tq .bar { position: relative; height: 10px; border-radius: 3px; background: var(--track); }
+.tq .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ok); }
+.tq .bar em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--bad); left: 75%; }
+.tq output { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.small { font-size: 12.5px; color: var(--muted); margin: 0; }
+code.g { display: block; font-family: var(--font-mono); font-size: 13px; padding: 7px 9px; border-radius: 6px; background: var(--track); overflow-x: auto; white-space: nowrap; }
+ul.parts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 14px; }
+ul.parts li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+ul.parts i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; transform: translateY(1px); }
+ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<header>
+  <h1>Роборука PG27, схема C</h1>
+  <p>Паралелограм: J2 і J3 на турелі, кронштейн кисті завжди горизонтальний, J4 обертає змінний інструмент.</p>
+</header>
+
+<div class="wrap">
+  <div class="view" id="view">
+    <canvas id="cv" aria-label="3D-модель роборуки"></canvas>
+    <div class="views" role="group" aria-label="Ракурс">
+      <button data-v="iso">Ізометрія</button>
+      <button data-v="side">Збоку</button>
+      <button data-v="front">Спереду</button>
+      <button data-v="top">Зверху</button>
+      <button id="xray" aria-pressed="false">Рентген: підшипники й осі</button>
+    </div>
+    <div class="tip" id="tip" hidden></div>
+    <div class="hint">Ліва кнопка: обертати · права: зсув · колесо: масштаб · наведи на деталь</div>
+  </div>
+
+  <div class="rail">
+    <section class="sec" aria-labelledby="h-mot">
+      <h2 id="h-mot">Двигуни</h2>
+      <div class="ax"><b>J1</b><label for="j1">Основа, поворот</label><output id="o1"></output>
+        <input type="range" id="j1" min="-170" max="170" step="1" value="20"></div>
+      <div class="ax"><b>J2</b><label for="j2">Плече, кут до горизонту</label><output id="o2"></output>
+        <input type="range" id="j2" min="35" max="150" step="1" value="78"></div>
+      <div class="ax"><b>J3</b><label for="j3">Передпліччя, кут до горизонту</label><output id="o3"></output>
+        <input type="range" id="j3" min="-70" max="35" step="1" value="-30"></div>
+      <div class="ax"><b>J4</b><label for="j4" id="j4l">Обертання інструмента</label><output id="o4"></output>
+        <input type="range" id="j4" min="-180" max="180" step="1" value="0"></div>
+      <div class="ax"><b>S</b><label for="jg" id="jgl">Захват ST3215, розкриття</label><output id="og"></output>
+        <input type="range" id="jg" min="0" max="100" step="1" value="70"></div>
+      <div class="row" role="group" aria-label="Інструмент на фланці J4">
+        <button data-tool="grip" class="on">Захват</button>
+        <button data-tool="m775">Мотор 775</button>
+        <button data-tool="spindle">Шпиндель 52</button>
+      </div>
+      <div class="row" role="group" aria-label="Орієнтація J4">
+        <button data-ax="z" class="on">J4 вертикально (Z)</button>
+        <button data-ax="y">J4 поперек руки (Y), нахил</button>
+      </div>
+      <div class="row">
+        <button id="demo">Демо-цикл</button>
+        <button id="home">Парковка</button>
+      </div>
+    </section>
+
+    <section class="sec" aria-labelledby="h-st">
+      <h2 id="h-st">Стан</h2>
+      <span class="pill" id="state">OK</span>
+      <div class="kv">
+        <span>Інструмент X</span><span id="tx"></span>
+        <span>Інструмент Y</span><span id="ty"></span>
+        <span>Інструмент Z (від столу)</span><span id="tz"></span>
+        <span>Кут між ланками</span><span id="rel"></span>
+      </div>
+      <div class="tq"><span>J2</span><div class="bar"><i id="b2"></i><em></em></div><output id="t2"></output></div>
+      <div class="tq"><span>J3</span><div class="bar"><i id="b3"></i><em></em></div><output id="t3"></output></div>
+      <p class="small">Статичний момент, Н·м. Червона риска: 3 Н·м, межа редуктора PG27.</p>
+      <code class="g" id="gc"></code>
+      <div class="row"><button id="copy">Копіювати G-code</button></div>
+      <p class="small">X = J1, Y = J2, Z = J3 (абсолютний кут), A = J4, у градусах. M102 / M103 відкривають і закривають захват.</p>
+    </section>
+
+    <section class="sec" aria-labelledby="h-parts">
+      <h2 id="h-parts">Запчастини</h2>
+      <ul class="parts">
+        <li><i style="background:#2b3137"></i><span>4× 17HS15-1684S-PG27<small>J1 в основі, J2 і J3 співвісно на турелі, J4 на кисті</small></span></li>
+        <li><i style="background:#d9a441"></i><span>1× упорний 51211, 55×90×25<small>поворот основи</small></span></li>
+        <li><i style="background:#7f77dd"></i><span>5× 609Z, 9×24×7<small>лікоть ×2, кисть, 2 у запасі; плече з боку J3 ковзає по маточині кривошипа, шарніри тяг на осях M4</small></span></li>
+        <li><i style="background:#cf5428"></i><span>Фланець інструмента Ø40, 4×M3 на Ø30<small>на валу J4; J4 ставиться вертикально або вздовж руки</small></span></li>
+        <li><i style="background:#1e2226"></i><span>ST3215 / мотор 775 / шпиндель Ø52<small>змінні інструменти на фланці</small></span></li>
+        <li><i style="background:#5b7c96"></i><span>Друковані ланки<small>плече, передпліччя, кривошип, тяги, пластини</small></span></li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<!-- three.js r128 is vendored next to this file so the page also opens offline from the repo -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script>
+(function () {
+  // ---- geometry (mm), matching the agreed scheme C proposal ----
+  // matches cad/base.FCStd + cad/turret.FCStd: roof 85, 51211 82..107, turret plate 104..122, shoulder 155
+  const D1 = 155, L2 = 140, L3 = 140, R = 40;        // shoulder height, links, crank = forearm tail
+  const V = [-30, 0], Wv = [0, 30];                  // levelling offsets: turret lug, elbow plate
+  const J4X = 36;                                    // J4 axis ahead of the wrist pivot
+  const FLANGE_Y = -20.7;                            // J4 shaft tip below the bracket top (Z mount) = tool flange origin
+  const ZR = -18.5, ZC = -23, ZL1 = 19, ZPL = 23.5, ZL2 = 28;  // planes: drive rod, crank, levelling rods, elbow plate
+  const MM = 0.51, LK = 0.0008, G = 9.81, LIM = 3;
+  // tools on the universal flange (D40, 4x M3 on PCD 30): mass kg (with adapter),
+  // tip = tool point distance from the J4 shaft tip along the tool axis, mm
+  const TOOLS = {
+    grip:    { name: 'Захват ST3215', m: 0.15, tip: 96, s: 'Захват ST3215, розкриття', unit: '%' },
+    m775:    { name: 'Мотор 775 + патрон', m: 0.45, tip: 146, s: 'Мотор 775, оберти', unit: '%' },
+    spindle: { name: 'Шпиндель 52 мм', m: 1.13, tip: 194, s: 'Шпиндель, оберти', unit: '%' }
+  };
+  let tool = 'grip';
+
+  const view = document.getElementById('view'), cv = document.getElementById('cv');
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1, 5, 6000);
+  const controls = new THREE.OrbitControls(camera, cv);
+  controls.enableDamping = true; controls.dampingFactor = 0.12;
+  controls.target.set(90, 130, 0);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a949c, 0.75));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+  sun.position.set(300, 600, 250); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -400, right: 400, top: 400, bottom: -400, near: 10, far: 1500 });
+  scene.add(sun);
+
+  const mat = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6, metalness: 0.05 }, o || {}));
+  const M = {
+    print: mat(0x5b7c96), print2: mat(0x7a97ad), base: mat(0x41566a), rod: mat(0x1d9e75), crank: mat(0xd85a30),
+    gear: mat(0xb9c0c6, { metalness: 0.6, roughness: 0.35 }), body: mat(0x2b3137, { metalness: 0.3, roughness: 0.5 }),
+    shaft: mat(0xdde1e4, { metalness: 0.8, roughness: 0.25 }), b609: mat(0x7f77dd, { metalness: 0.4, roughness: 0.4 }),
+    thrust: mat(0xd9a441, { metalness: 0.5, roughness: 0.35 }), servo: mat(0x1e2226), finger: mat(0xcf5428)
+  };
+
+  function tag(obj, name) { obj.traverse(o => { if (o.isMesh) { o.userData.name = name; o.castShadow = true; o.receiveShadow = true; } }); return obj; }
+  function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); }
+  function cylY(r, h, m, seg) { return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 40), m); }
+  function cylZ(r, h, m) { const c = cylY(r, h, m); c.rotation.x = Math.PI / 2; return c; }
+  function ringY(rIn, rOut, h, m) {
+    const pts = [new THREE.Vector2(rIn, 0), new THREE.Vector2(rOut, 0), new THREE.Vector2(rOut, h), new THREE.Vector2(rIn, h), new THREE.Vector2(rIn, 0)];
+    return new THREE.Mesh(new THREE.LatheGeometry(pts, 48), m);
+  }
+  function ringZ(rIn, rOut, h, m) { const r = ringY(rIn, rOut, h, m); r.rotation.x = Math.PI / 2; r.position.z = h / 2; const g = new THREE.Group(); g.add(r); return g; }
+  // flat link in the x/y plane from x0 to x1, centred on z
+  function link(x0, x1, w, t, z, m) {
+    const g = new THREE.Group();
+    const b = box(x1 - x0, w, t, m); b.position.set((x0 + x1) / 2, 0, z); g.add(b);
+    [x0, x1].forEach(x => { const c = cylZ(w / 2, t, m); c.position.set(x, 0, z); g.add(c); });
+    return g;
+  }
+  // 17HS15-1684S-PG27 as measured: gearbox top face at origin, body along +y, shaft along -y.
+  // gearbox 30, adapter flange 40x40x5 with corners cut by a D52 circle, NEMA17 39,
+  // bearing boss D22x2.7 with a circlip, shaft D7.98x18. Gearbox diameter not measured yet (36 assumed).
+  const flangeShape = (() => {
+    const s = new THREE.Shape(), h = 20, c = Math.sqrt(26 * 26 - h * h), a = Math.atan2(c, h);
+    s.moveTo(h, -c); s.lineTo(h, c);
+    s.absarc(0, 0, 26, a, Math.PI / 2 - a, false); s.lineTo(-c, h);
+    s.absarc(0, 0, 26, Math.PI / 2 + a, Math.PI - a, false); s.lineTo(-h, -c);
+    s.absarc(0, 0, 26, Math.PI + a, 1.5 * Math.PI - a, false); s.lineTo(c, -h);
+    s.absarc(0, 0, 26, 1.5 * Math.PI + a, 2 * Math.PI - a, false);
+    return s;
+  })();
+  function pg27() {
+    const g = new THREE.Group();
+    const gb = cylY(18, 30, M.gear); gb.position.y = 15; g.add(gb);
+    const fl = new THREE.Mesh(new THREE.ExtrudeGeometry(flangeShape, { depth: 5, bevelEnabled: false }), M.gear);
+    fl.rotation.x = -Math.PI / 2; fl.position.y = 30; g.add(fl);
+    const bd = box(42.3, 39, 42.3, M.body); bd.position.y = 35 + 19.5; g.add(bd);
+    const boss = cylY(11, 2.7, M.gear); boss.position.y = -1.35; g.add(boss);
+    const clip = ringY(3.99, 6.5, 0.8, M.shaft); clip.position.y = -3.5; g.add(clip);
+    const sh = cylY(3.99, 18, M.shaft, 20); sh.position.y = -2.7 - 9; g.add(sh);
+    return g;
+  }
+  // a bar between two points in the x/y plane, rebuilt every frame by scaling a unit box
+  function bar(w, t, z, m) {
+    const g = new THREE.Group();
+    const b = box(1, w, t, m); g.add(b);
+    const c0 = cylZ(w / 2, t, m), c1 = cylZ(w / 2, t, m); g.add(c0, c1);
+    g.userData.set = (p, q) => {
+      const dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy);
+      b.scale.x = Math.max(L, 0.01); b.position.set((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, z);
+      b.rotation.z = Math.atan2(dy, dx);
+      c0.position.set(p[0], p[1], z); c1.position.set(q[0], q[1], z);
+    };
+    return g;
+  }
+  function pin(p, z0, z1, r, m) { const c = cylZ(r, Math.abs(z1 - z0), m || M.shaft); c.position.set(p[0], p[1], (z0 + z1) / 2); return c; }
+
+  // ---- static base: housing, J1 motor, 51211 ----
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat(0xffffff, { roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  let grid = null;
+
+  const base = new THREE.Group();
+  const flange = cylY(80, 5, M.base); flange.position.y = 2.5; base.add(flange);
+  const housing = new THREE.Mesh(new THREE.CylinderGeometry(52, 52, 80, 48, 1, true), M.base); housing.position.y = 45; base.add(housing);
+  const roof = cylY(52, 8, M.base); roof.position.y = 81; base.add(roof);
+  scene.add(tag(base, 'Корпус основи Ø104 (друк, cad/base.FCStd)'));
+  const m1 = pg27(); m1.rotation.x = Math.PI; m1.position.y = 77; scene.add(tag(m1, 'J1 — 17HS15-1684S-PG27, поворот основи'));
+  const thr = new THREE.Group();
+  const w1 = ringY(28.5, 45, 7.5, M.thrust); w1.position.y = 82; thr.add(w1);
+  const w2 = ringY(27.5, 44.5, 7.5, M.thrust); w2.position.y = 99.5; thr.add(w2);
+  const balls = ringY(33.5, 39, 10, mat(0x9aa3aa, { metalness: 0.7, roughness: 0.3 })); balls.position.y = 89.5; thr.add(balls);
+  scene.add(tag(thr, 'Упорний підшипник 51211 (55×90×25)'));
+
+  // ---- turret (rotates with J1) ----
+  const turret = new THREE.Group(); scene.add(turret);
+  const tp = cylY(50, 18, M.print2); tp.position.y = 113; turret.add(tag(tp, 'Турель (друк, cad/turret.FCStd)'));
+  const hub = new THREE.Group();
+  const hf = cylY(22, 6, M.crank); hf.position.y = 104; hub.add(hf);
+  const ht = cylY(10, 15, M.crank); ht.position.y = 93.5; hub.add(ht);
+  turret.add(tag(hub, 'D-маточина J1 (друк), 3×M3 у турель'));
+  [[26, 36], [-36, -26]].forEach(([z0, z1]) => {
+    const ch = new THREE.Group();
+    const b = box(56, D1 - 122, 10, M.print2); b.position.set(0, 122 + (D1 - 122) / 2, (z0 + z1) / 2); ch.add(b);
+    const c = cylZ(28, 10, M.print2); c.position.set(0, D1, (z0 + z1) / 2); ch.add(c);
+    turret.add(tag(ch, 'Щока турелі (друк)'));
+  });
+  const m2 = pg27(); m2.rotation.x = Math.PI / 2; m2.position.set(0, D1, 36); turret.add(tag(m2, 'J2 — 17HS15-1684S-PG27, плече'));
+  const m3 = pg27(); m3.rotation.x = -Math.PI / 2; m3.position.set(0, D1, -36); turret.add(tag(m3, 'J3 — 17HS15-1684S-PG27, передпліччя через кривошип'));
+  const brk = new THREE.Group();
+  brk.add(link(V[0], 0, 12, 5, 23.5, M.print2));
+  turret.add(tag(brk, 'Кронштейн вирівнювання (виступ на щоці J2)'));
+
+  // shoulder pivot frame
+  const sh = new THREE.Group(); sh.position.y = D1; turret.add(sh);
+  const upper = new THREE.Group(); sh.add(upper);
+  [12.5, -12.5].forEach(z => upper.add(link(0, L2, 36, 7, z, M.print)));
+  tag(upper, 'Плече L2 = 140 (друк, дві щоки)');
+  const crank = new THREE.Group(); sh.add(crank);
+  crank.add(link(0, R, 16, 4, ZC, M.crank));
+  const ch9 = cylZ(9, 15, M.crank); ch9.position.z = -17.5; crank.add(ch9);
+  tag(crank, 'Кривошип J3, 40 мм (друк); його маточина Ø18 — ковзна опора плеча');
+  const cb = pin([R, 0], ZC - 3, ZR + 3, 2); crank.add(tag(cb, 'Шарнір кривошип / тяга: вісь M4 у друкованій втулці'));
+
+  // elbow, forearm and the parallelogram parts live in the turret frame at the shoulder
+  const fore = new THREE.Group(); sh.add(fore);
+  fore.add(link(-R, L3, 24, 15, 0, M.print));
+  fore.add(pin([-R, 0], -8, ZR, 4.5));
+  tag(fore, 'Передпліччя L3 = 140 з хвостиком 40 (друк)');
+  [12.5, -12.5].forEach(z => { const b = ringZ(4.5, 11, 7, M.b609); b.position.set(0, 0, z - 3.5); fore.add(tag(b, '609Z — лікоть (у щоці плеча)')); });
+  // wrist 609Z sits in the forearm tip, seat open on the +y face (cad/forearm.FCStd: |y| 0.5..7.5)
+  const wb = ringZ(4.5, 11, 7, M.b609); wb.position.set(L3, 0, 0.5); fore.add(tag(wb, '609Z — кисть (у кінці передпліччя)'));
+  // elbow axle D9x45: clamped in the forearm hub (grub), turns in the two 609Z of the upper arm,
+  // carries the elbow levelling plate on a plain bushing at its +y end
+  const eAx = cylZ(4.5, 45, M.shaft); eAx.position.set(0, 0, 4.5); fore.add(tag(eAx, 'Вісь ліктя Ø9×45 (сталь): затиснута в передпліччі, крутиться в 609Z щік плеча'));
+
+  const plateShape = new THREE.Shape();
+  plateShape.moveTo(0, 0); plateShape.lineTo(V[0], V[1]); plateShape.lineTo(Wv[0], Wv[1]); plateShape.lineTo(0, 0);
+  const elbowPlate = new THREE.Group();
+  const pl = new THREE.Mesh(new THREE.ExtrudeGeometry(plateShape, { depth: 4, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 6, bevelSegments: 2 }), M.print2);
+  pl.position.z = ZPL - 2; elbowPlate.add(pl);
+  elbowPlate.add(pin([0, 0], 18, ZPL + 2, 4.5));
+  sh.add(tag(elbowPlate, 'Трикутна пластина ліктя (тримає орієнтацію)'));
+
+  const rodD = bar(9, 5, ZR, M.rod); sh.add(tag(rodD, 'Тяга приводу J3 (друк), довжина L2'));
+  const rodL = bar(8, 4, ZL1, M.rod); sh.add(tag(rodL, 'Нижня тяга вирівнювання (друк)'));
+  const rodU = bar(8, 4, ZL2, M.rod); sh.add(tag(rodU, 'Верхня тяга вирівнювання (друк)'));
+
+  // end bracket at the wrist: keeps its orientation; two PG27 seats:
+  //  - top plate, J4 axis vertical (Z): J4 turns the tool about the vertical (yaw), tool points down
+  //  - side plate, J4 axis across the arm (Y, parallel to J2/J3): J4 tilts the tool in the arm's plane
+  const SIDE_X = 60, SIDE_Y = -36, SIDE_Z = 37;        // J4 axis position / seat face (lateral) for the side mount
+  const endp = new THREE.Group(); sh.add(endp);
+  endp.add(pin([0, 0], -14, ZL2 + 2, 4.5));
+  const ep1 = link(0, 30, 10, 4, ZL2 - 4.5, M.print2); ep1.rotation.z = Math.PI / 2; endp.add(ep1);
+  // wrist axle D9x34: clamped in the wrist fork, turns in the forearm-tip 609Z
+  const wAx = cylZ(4.5, 34, M.shaft); wAx.position.set(0, 0, -3); endp.add(tag(wAx, 'Вісь кисті Ø9×34 (сталь): затиснута у вилці кисті, крутиться в 609Z передпліччя'));
+  // two interchangeable printed brackets bolt to the wrist pivot plate:
+  //  Z bracket - wide top plate carrying J4 vertically; Y bracket - narrow strip + side plate, the tool passes beside it
+  const brZ = new THREE.Group(); endp.add(brZ);
+  const ep2 = box(SIDE_X + 40, 6, 52, M.print2); ep2.position.set((SIDE_X + 40) / 2 - 12, -3, 8); brZ.add(ep2);
+  const brY = new THREE.Group(); endp.add(brY);
+  const ep2y = box(SIDE_X + 40, 6, 22, M.print2); ep2y.position.set((SIDE_X + 40) / 2 - 12, -3, 25); brY.add(ep2y);
+  const ep3 = box(56, 62, 6, M.print2); ep3.position.set(SIDE_X, -31, SIDE_Z - 3); brY.add(ep3);
+  tag(brZ, 'Кронштейн кисті Z (друк): J4 вертикально');
+  tag(brY, 'Кронштейн кисті Y (друк): J4 поперек руки, нахил інструмента');
+  tag(ep1, 'Пластина шарніра кисті (друк), завжди горизонтальна');
+  const m4 = pg27(); endp.add(tag(m4, 'J4 — 17HS15-1684S-PG27'));
+  const toolMount = new THREE.Group(); endp.add(toolMount);
+  // Z mount: D-hub + D40 flange on the shaft end, tool hangs below, coaxial with J4
+  const zAd = new THREE.Group(); toolMount.add(zAd);
+  const adHub = cylY(8, 12, M.crank); adHub.position.y = 6; zAd.add(tag(adHub, 'Адаптер на вал J4 (D-отвір)'));
+  const adFl = cylY(20, 5, M.crank); adFl.position.y = -2.5; zAd.add(tag(adFl, 'Фланець інструмента Ø40, 4×M3 на Ø30'));
+  // Y mount: D-hub on the shaft + side plate; the tool's clamp bolts to it, tool axis across the J4 axis
+  const yAd = new THREE.Group(); toolMount.add(yAd);
+  const yHub = cylZ(8, 13.5, M.crank); yHub.position.z = 23; yAd.add(tag(yHub, 'Адаптер на вал J4 (D-отвір)'));
+  const yPl = box(34, 34, 6, M.crank); yPl.position.z = 13; yAd.add(tag(yPl, 'Бічний фланець інструмента, 4×M3 на Ø30'));
+  const spin = new THREE.Group(); toolMount.add(spin);
+  const tools = {};
+  // gripper
+  tools.grip = new THREE.Group();
+  const sv = box(45, 35, 25, M.servo); sv.position.set(6, -22.5, 0); tools.grip.add(tag(sv, 'ST3215 — привід захвату'));
+  const fb = box(14, 6, 46, M.print2); fb.position.set(0, -43, 0); tools.grip.add(tag(fb, 'Напрямна пальців (друк)'));
+  const fL = box(10, 44, 6, M.finger), fR = box(10, 44, 6, M.finger);
+  tools.grip.add(tag(fL, 'Палець захвату (друк)')); tools.grip.add(tag(fR, 'Палець захвату (друк)'));
+  // 775 motor in a clamp ring, drill chuck and bit
+  tools.m775 = new THREE.Group();
+  const c775 = cylY(24.5, 14, M.print2); c775.position.y = -12; tools.m775.add(tag(c775, 'Затискач мотора 775 (друк)'));
+  const b775 = cylY(21, 67, M.body); b775.position.y = -38.5; tools.m775.add(tag(b775, 'Мотор 775 (Ø42×67)'));
+  const k775 = cylY(11, 26, M.gear); k775.position.y = -88; tools.m775.add(tag(k775, 'Патрон на валу 775'));
+  const bit775 = cylY(1.5, 40, M.shaft, 12); bit775.position.y = -121; tools.m775.add(tag(bit775, 'Фреза / свердло'));
+  // 52 mm spindle in a clamp
+  tools.spindle = new THREE.Group();
+  const csp = cylY(31, 22, M.print2); csp.position.y = -22; tools.spindle.add(tag(csp, 'Затискач шпинделя Ø52 (друк)'));
+  const bsp = cylY(26, 150, M.gear); bsp.position.y = -75; tools.spindle.add(tag(bsp, 'Шпиндель Ø52 (~1,1 кг)'));
+  const nsp = cylY(9, 14, M.shaft); nsp.position.y = -157; tools.spindle.add(tag(nsp, 'Цанга ER11'));
+  const bsp2 = cylY(1.5, 25, M.shaft, 12); bsp2.position.y = -176; tools.spindle.add(tag(bsp2, 'Фреза'));
+  Object.values(tools).forEach(t => spin.add(t));
+  // side mount: the J4 axis goes through the tool's centre of mass so J4 holds almost no moment.
+  // at = that point's distance below the Z-mount flange, r = clamp half-width (tool sits beside the hub)
+  const CLAMP = { grip: { at: 27.5, r: 12.5 }, m775: { at: 48, r: 24.5 }, spindle: { at: 82, r: 31 } };
+  let j4axis = 'z';
+  function placeJ4() {
+    const j4 = el('j4');
+    if (j4axis === 'z') {          // flange face on the top plate, body up, shaft down, tool coaxial
+      m4.rotation.set(0, 0, 0); m4.position.set(J4X, 0, 0);
+      toolMount.position.set(J4X, FLANGE_Y, 0);
+      Object.values(tools).forEach(t => t.position.set(0, -5, 0));
+      c775.position.y = -12; csp.position.y = -22;   // clamps at the top, under the flange
+      j4.min = -180; j4.max = 180; el('j4l').textContent = 'Обертання інструмента';
+    } else {                       // flange face on the side plate, body outward like J2/J3, shaft toward the arm
+      m4.rotation.set(Math.PI / 2, 0, 0); m4.position.set(SIDE_X, SIDE_Y, SIDE_Z);
+      toolMount.position.set(SIDE_X, SIDE_Y, 0);
+      Object.entries(tools).forEach(([k, t]) => t.position.set(0, -5 + CLAMP[k].at, 10 - CLAMP[k].r));
+      c775.position.y = 5 - CLAMP.m775.at; csp.position.y = 5 - CLAMP.spindle.at;   // clamps on the J4 axis
+      j4.min = -45; j4.max = 120; el('j4l').textContent = 'Нахил інструмента (0° вниз, 90° вперед)';
+      st.j4 = Math.min(120, Math.max(-45, st.j4)); j4.value = Math.round(st.j4);
+    }
+    zAd.visible = brZ.visible = j4axis === 'z'; yAd.visible = brY.visible = j4axis === 'y';
+    Object.keys(tools).forEach(k => { tools[k].visible = k === tool; });
+  }
+
+  // ---- state + kinematics ----
+  const ids = ['j1', 'j2', 'j3', 'j4', 'jg'];
+  const el = id => document.getElementById(id);
+  const st = { j1: 20, j2: 78, j3: -30, j4: 0, jg: 70 };
+  ids.forEach(id => st[id] = +el(id).value);
+  const rad = d => d * Math.PI / 180;
+
+  function clampJ3() {
+    // angle between the links = 180 + (J3 - J2), kept within 30..140 deg
+    const lo = Math.max(-70, st.j2 - 150), hi = Math.min(35, st.j2 - 40);
+    st.j3 = Math.min(hi, Math.max(lo, st.j3));
+  }
+
+  function solve() {
+    const a2 = rad(st.j2), a3 = rad(st.j3);
+    const E = [L2 * Math.cos(a2), L2 * Math.sin(a2)];
+    const f = [Math.cos(a3), Math.sin(a3)];
+    const W = [E[0] + L3 * f[0], E[1] + L3 * f[1]];
+    return { E, f, W, a2, a3 };
+  }
+
+  function pose() {
+    const { E, f, W, a2, a3 } = solve();
+    turret.rotation.y = rad(st.j1);
+    upper.rotation.z = a2;
+    crank.rotation.z = a3 + Math.PI;
+    fore.position.set(E[0], E[1], 0); fore.rotation.z = a3;
+    elbowPlate.position.set(E[0], E[1], 0);
+    endp.position.set(W[0], W[1], 0);
+    if (j4axis === 'z') { spin.rotation.y = rad(st.j4); toolMount.rotation.z = 0; }
+    else { spin.rotation.y = 0; toolMount.rotation.z = rad(st.j4); }
+    const open = 4 + st.jg / 100 * 17;
+    fL.position.set(0, -69, open + 3); fR.position.set(0, -69, -open - 3);
+    const C1 = [-R * f[0], -R * f[1]], Fr = [E[0] - R * f[0], E[1] - R * f[1]];
+    rodD.userData.set(C1, Fr);
+    rodL.userData.set(V, [E[0] + V[0], E[1] + V[1]]);
+    rodU.userData.set([E[0] + Wv[0], E[1] + Wv[1]], [W[0] + Wv[0], W[1] + Wv[1]]);
+
+    // readouts
+    const T = TOOLS[tool];
+    let r, h;
+    if (j4axis === 'z') { r = W[0] + J4X; h = D1 + W[1] + FLANGE_Y - T.tip; }
+    else {
+      const d = T.tip - CLAMP[tool].at, p = rad(st.j4);
+      r = W[0] + SIDE_X + d * Math.sin(p); h = D1 + W[1] + SIDE_Y - d * Math.cos(p);
+    }
+    const yaw = rad(st.j1);
+    el('tx').textContent = (r * Math.cos(yaw)).toFixed(0) + ' мм';
+    el('ty').textContent = (r * Math.sin(yaw)).toFixed(0) + ' мм';
+    el('tz').textContent = h.toFixed(0) + ' мм';
+    const rel = 180 - (st.j2 - st.j3);
+    el('rel').textContent = rel.toFixed(0) + '°';
+    const m2k = LK * L2, m3k = LK * L3 + 0.05;
+    // the tool's offset from the wrist goes into the levelling rods; J2/J3 see its weight at the wrist
+    const t2 = Math.abs(G * (m2k * L2 / 2 + (m3k + MM + T.m + 0.04) * L2) * Math.cos(a2) / 1000);
+    const t3 = Math.abs(G * (m3k * L3 / 2 + (MM + T.m) * L3) * Math.cos(a3) / 1000);
+    [['b2', 't2', t2], ['b3', 't3', t3]].forEach(([b, o, v]) => {
+      const i = el(b); i.style.width = Math.min(100, v / 4 * 100) + '%';
+      i.style.background = v > LIM ? 'var(--bad)' : v > LIM * 0.8 ? 'var(--warn)' : 'var(--ok)';
+      el(o).textContent = v.toFixed(2) + ' Н·м';
+    });
+    const s = el('state');
+    const atLimit = st.j3 <= Math.max(-70, st.j2 - 150) + 0.5 || st.j3 >= Math.min(35, st.j2 - 40) - 0.5;
+    // Y mount: the tool's back end swings toward the wrist pivot when tilted forward
+    const backX = j4axis === 'y' ? SIDE_X - (CLAMP[tool].at - 5) * Math.sin(rad(st.j4)) : 99;
+    if (h < 5) { s.textContent = 'Інструмент нижче столу'; s.style.color = 'var(--bad)'; }
+    else if (backX < 20) { s.textContent = 'Задній кінець інструмента зачіпає кисть: менший нахил'; s.style.color = 'var(--bad)'; }
+    else if (atLimit) { s.textContent = 'Межа: кут між ланками 30…140°'; s.style.color = 'var(--warn)'; }
+    else { s.textContent = 'OK'; s.style.color = 'var(--ok)'; }
+    const tcmd = tool === 'grip' ? (st.jg > 50 ? 'M102' : 'M103') : (st.jg > 0 ? `M3 S${Math.round(st.jg * 100)}` : 'M5');
+    el('gc').textContent = `G1 X${st.j1.toFixed(1)} Y${st.j2.toFixed(1)} Z${st.j3.toFixed(1)} A${st.j4.toFixed(1)} F900  ${tcmd}`;
+    el('o1').textContent = st.j1.toFixed(0) + '°'; el('o2').textContent = st.j2.toFixed(0) + '°';
+    el('o3').textContent = st.j3.toFixed(0) + '°'; el('o4').textContent = st.j4.toFixed(0) + '°';
+    el('og').textContent = st.jg.toFixed(0) + '%';
+  }
+
+  function syncInputs() { ids.forEach(id => { el(id).value = Math.round(st[id]); }); }
+
+  ids.forEach(id => el(id).addEventListener('input', () => {
+    stopDemo(); st[id] = +el(id).value; clampJ3(); syncInputs(); pose();
+  }));
+  document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
+    tool = b.dataset.tool;
+    document.querySelectorAll('[data-tool]').forEach(x => x.classList.toggle('on', x === b));
+    el('jgl').textContent = TOOLS[tool].s;
+    placeJ4(); pose();
+  }));
+  document.querySelectorAll('[data-ax]').forEach(b => b.addEventListener('click', () => {
+    j4axis = b.dataset.ax;
+    document.querySelectorAll('[data-ax]').forEach(x => x.classList.toggle('on', x === b));
+    placeJ4(); pose();
+  }));
+
+  // ---- demo: pick on the right, place on the left ----
+  const KF = [
+    [0, 100, -20, 0, 80], [25, 72, -38, 0, 80], [25, 58, -62, 0, 80], [25, 58, -62, 0, 8],
+    [25, 92, -28, 0, 8], [-40, 92, -28, 90, 8], [-40, 60, -60, 90, 8], [-40, 60, -60, 90, 80],
+    [-40, 96, -22, 90, 80], [0, 100, -20, 0, 80]
+  ];
+  let demo = false, t0 = 0;
+  const SEG = 1400;
+  function stopDemo() { if (demo) { demo = false; el('demo').classList.remove('on'); el('demo').textContent = 'Демо-цикл'; } }
+  el('demo').addEventListener('click', () => {
+    if (demo) { stopDemo(); return; }
+    demo = true; t0 = performance.now(); el('demo').classList.add('on'); el('demo').textContent = 'Зупинити';
+  });
+  el('home').addEventListener('click', () => { stopDemo(); Object.assign(st, { j1: 0, j2: 100, j3: -20, j4: 0, jg: 70 }); syncInputs(); pose(); });
+  function stepDemo(now) {
+    // rAF's frame time can be a little earlier than performance.now() taken in the click handler
+    const n = KF.length - 1, tt = (Math.max(0, now - t0) / SEG) % n, i = Math.min(n - 1, Math.floor(tt)), u = tt - i, e = u * u * (3 - 2 * u);
+    ids.forEach((id, k) => { st[id] = KF[i][k] + (KF[i + 1][k] - KF[i][k]) * e; });
+    syncInputs(); pose();
+  }
+
+  // ---- views ----
+  const VIEWS = {
+    iso: [[720, 560, 660], [90, 150, 0]], side: [[110, 170, 820], [110, 160, 0]],
+    front: [[820, 190, 0], [80, 140, 0]], top: [[110, 900, 1], [110, 0, 0]]
+  };
+  let fly = null;
+  function goView(k) {
+    const [p, t] = VIEWS[k];
+    fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: new THREE.Vector3(...p), t1: new THREE.Vector3(...t), s: performance.now() };
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) fly.s -= 1e6;
+  }
+  document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => goView(b.dataset.v)));
+  camera.position.set(...VIEWS.iso[0]); controls.target.set(...VIEWS.iso[1]);
+
+  // ---- hover names ----
+  const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = el('tip');
+  cv.addEventListener('pointermove', ev => {
+    const r = cv.getBoundingClientRect();
+    mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.name);
+    if (hit) {
+      tip.textContent = hit.object.userData.name; tip.hidden = false;
+      const x = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 6);
+      tip.style.left = Math.max(6, x) + 'px'; tip.style.top = (ev.clientY - r.top + 14) + 'px';
+    } else tip.hidden = true;
+  });
+  cv.addEventListener('pointerleave', () => { tip.hidden = true; });
+
+  // ---- x-ray: see the bearings and axles inside the printed parts ----
+  const printed = [M.print, M.print2, M.base, M.rod, M.crank, M.finger, M.servo];
+  el('xray').addEventListener('click', () => {
+    const on = el('xray').getAttribute('aria-pressed') !== 'true';
+    el('xray').setAttribute('aria-pressed', on);
+    el('xray').classList.toggle('on', on);
+    printed.forEach(m => { m.transparent = on; m.opacity = on ? 0.18 : 1; m.depthWrite = !on; m.needsUpdate = true; });
+    [M.b609, M.thrust].forEach(m => { m.emissive.setHex(on ? 0x2a1f6e : 0x000000); });
+  });
+
+  // ---- copy ----
+  el('copy').addEventListener('click', () => {
+    const txt = el('gc').textContent;
+    const done = () => { el('copy').textContent = 'Скопійовано'; setTimeout(() => el('copy').textContent = 'Копіювати G-code', 1400); };
+    const fallback = () => { const s = window.getSelection(), rg = document.createRange(); rg.selectNodeContents(el('gc')); s.removeAllRanges(); s.addRange(rg); el('copy').textContent = 'Виділено, натисни Ctrl+C'; };
+    try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
+  });
+
+  // ---- theme ----
+  function theme() {
+    const cs = getComputedStyle(document.documentElement);
+    const bg = cs.getPropertyValue('--scene').trim() || '#dfe5e9', gl = cs.getPropertyValue('--grid').trim() || '#b9c3ca';
+    scene.background = new THREE.Color(bg);
+    floor.material.color.set(bg).multiplyScalar(0.82);
+    if (grid) scene.remove(grid);
+    grid = new THREE.GridHelper(800, 32, new THREE.Color(gl), new THREE.Color(gl));
+    grid.position.y = 0.2; scene.add(grid);
+  }
+  theme();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', theme);
+  new MutationObserver(theme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---- size + loop ----
+  function resize() {
+    const w = view.clientWidth, h = view.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(view); resize();
+
+  placeJ4(); clampJ3(); syncInputs(); pose();
+  function loop(now) {
+    requestAnimationFrame(loop);   // schedule first, so one bad frame can't stop the page
+    if (demo) stepDemo(now);
+    if (fly) {
+      const u = Math.min(1, (now - fly.s) / 700), e = u * u * (3 - 2 * u);
+      camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.t0, fly.t1, e);
+      if (u >= 1) fly = null;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
