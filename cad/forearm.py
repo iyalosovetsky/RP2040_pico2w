@@ -388,6 +388,7 @@ for o in (forearm, rod_drive, rod_low, rod_up, elbow_plate, wrist_fork):
 # ------------------------------------------------- interference sweep ---
 pgd = App.getDocument("pg27")
 static = {"TurretBody": tur.getObject("TurretBody").Shape,
+          "J1HubScrews": tur.getObject("J1HubScrews").Shape,
           "BaseHousing": tur.getObject("Ctx_BaseHousing").Shape}
 for n in ("J2_Motor", "J3_Motor"):
     body = pgd.getObject("Motor_NEMA17").Shape.fuse([pgd.getObject(k).Shape for k in ("Flange", "Gearbox")])

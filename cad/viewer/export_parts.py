@@ -57,6 +57,7 @@ parts = {
     # world (static)
     "base_housing": shp("base", "BaseHousing"),
     "bearing_51211": compound("base", ["Washer_Housing", "Washer_Shaft", "Balls"]),
+    "j1_keeper": shp("base", "J1Keeper"),
     # PG27, one mesh reused for all four joints (its own frame: gearbox face at 0, shaft +Z)
     "pg27_body": shp("pg27", "Motor_NEMA17"),
     "pg27_gear": compound("pg27", ["Flange", "Gearbox", "Boss", "Gearbox_CapScrews"]),
@@ -64,6 +65,7 @@ parts = {
     # turret frame (turns with J1)
     "turret_body": shp("turret", "TurretBody"),
     "j1_hub": shp("turret", "J1Hub"),
+    "j1_hub_screws": shp("turret", "J1HubScrews"),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
     "ua_j3": shp("upper_arm", "UpperArmJ3"),

@@ -227,7 +227,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const M = {
     // same colours as in the .FCStd files
     print: mat(0x5c7d96), print2: mat(0x99b3c7), turret: mat(0x7a96ad), base: mat(0x5c7d96), rod: mat(0x1c9e75),
-    crank: mat(0xd95c30), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
+    crank: mat(0xd95c30), keeper: mat(0x4d9e85), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
     shaft: mat(0xdbdee0, { metalness: 0.6, roughness: 0.35 }), b609: mat(0x8078de, { metalness: 0.3, roughness: 0.45 }),
     thrust: mat(0xd9a340, { metalness: 0.4, roughness: 0.4 }), servo: mat(0x1e2226), finger: mat(0xcf5428),
     toolBody: mat(0x3a4148, { metalness: 0.5, roughness: 0.4 }), spBody: mat(0xc8ccd0, { metalness: 0.7, roughness: 0.3 })
@@ -279,11 +279,13 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root);
   root.add(part('base_housing', M.base, 'Корпус основи (друк, cad/base.FCStd)'));
   root.add(part('bearing_51211', M.thrust, 'Упорний підшипник 51211 (55×90×25)'));
+  root.add(part('j1_keeper', M.keeper, 'Утримувач J1 (друк, 2 половинки, 4×M3×10): губа над диском маточини, турель не перекидається'));
   root.add(pg27('J1 — 17HS15-1684S-PG27, поворот основи', CAD.motors.J1));
 
   const turret = new THREE.Group(); root.add(turret);
   turret.add(part('turret_body', M.turret, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
-  turret.add(part('j1_hub', M.crank, 'D-маточина J1 (друк), 3×M3 у турель'));
+  turret.add(part('j1_hub', M.crank, 'D-маточина J1 (друк): диск знизу під губою утримувача, 3×M3×20 зверху крізь турель'));
+  turret.add(part('j1_hub_screws', M.body, 'Гвинти маточини J1, 3×M3×20'));
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
   const lugPin = at(cylY(2, 14, M.shaft), -LV, 21, 0); // pin of the lower levelling rod (y 17..26)
@@ -501,7 +503,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   cv.addEventListener('pointerleave', () => { tip.hidden = true; });
 
   // ---- x-ray: printed parts translucent, bought parts (motors, bearings, axles) solid ----
-  const printed = [M.print, M.print2, M.turret, M.base, M.rod, M.crank, M.finger, M.servo];
+  const printed = [M.print, M.print2, M.turret, M.base, M.rod, M.crank, M.keeper, M.finger, M.servo];
   el('xray').addEventListener('click', () => {
     const on = el('xray').getAttribute('aria-pressed') !== 'true';
     el('xray').setAttribute('aria-pressed', on);

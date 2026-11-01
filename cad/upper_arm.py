@@ -311,7 +311,7 @@ expr(cp, ".Placement.Base.z", f"{P}shoulder_z")
 
 # ----------------------------------------------------------- context ---
 ctx = doc.addObject("App::DocumentObjectGroup", "Turret_context")
-for n in ("TurretBody", "J1Hub", "J2_Motor", "J3_Motor", "Ctx_BaseHousing", "Ctx_Bearing_51211", "Ctx_J1_Motor"):
+for n in ("TurretBody", "J1Hub", "J1HubScrews", "J2_Motor", "J3_Motor", "Ctx_BaseHousing", "Ctx_Bearing_51211", "Ctx_J1_Motor"):
     lk = doc.addObject("App::Link", "Ctx_" + n.replace("Ctx_", ""))
     lk.LinkedObject = tur.getObject(n)
     lk.LinkTransform = True

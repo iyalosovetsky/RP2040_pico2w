@@ -4,13 +4,27 @@ turret.py - parametric FreeCAD model of the turret (J1 output, carries J2 + J3).
 Builds cad/turret.FCStd plus print files for its two printed parts:
   turret_body.stl/.step  - plate + two motor cheeks + levelling lug + motor cradles.
                            Print plate-down (the bearing recess opens onto the bed).
-  turret_j1hub.stl/.step - D-bore hub on the J1 shaft, screwed to the turret from
-                           below (3x M3 into heat inserts). Print flange-down.
+  turret_j1hub.stl/.step - D-bore hub on the J1 shaft with an anti-lift disc at the
+                           bottom, held to the turret by 3x M3x20 from above into heat
+                           inserts in its flange. Print flange-down.
 Needs pg27.FCStd and base.FCStd in the same folder (App::Links to the motors,
 their mounting cut-outs and the base for context).
 
 Run headless:
     <FreeCAD.AppImage> freecadcmd cad/turret.py --pass cad/turret.FCStd
+
+Anti-lift: the 51211 only takes thrust, and with the arm reaching out (J4 + tool at
+~300 mm) the overturning moment is several times what the turret's weight resists
+over the bearing's ball circle (r ~36). The hub's bottom disc runs 0.2 mm under the lip
+of the J1 keeper (base.FCStd, screwed to the seat floor), so the turret can't lift.
+Assembly order:
+  1. J1 into the base (4x M3x8 from above).
+  2. Hub onto the J1 shaft (it rests on the motor screw heads for now).
+  3. Both keeper halves around the hub disc, 4x M3x10 into the inserts in the seat floor
+     (lift the hub a little on the shaft to get them in; the housing washer goes on after).
+  4. 51211 housing washer (over the keeper foot), ball cage, shaft washer, then the turret; turn it until its 3 holes line up with the
+     hub inserts and pull the hub up with 3x M3x20 from the top of the plate.
+  A turret printed with the old blind insert pockets: drill those through Ø3.4 from below.
 
 The J2/J3 motors hang 74 mm out from the cheeks on 4x M3 into the gearbox, so each one
 also lies in a cradle that grows out of the plate: floor on the bed, two side walls fused
@@ -61,9 +75,11 @@ PARAMS = [
     ("lug_pin_r",  "6 mm",    "radius of the cheek ear / pin boss around the rod pin"),
     ("pin_d",      "4.2 mm",  "M4 pin hole"),
     ("hub_d",      "20 mm",   "J1 hub OD (M3 heads on the roof sit at r >= 10.75)"),
-    ("hub_bot",    "86 mm",   "J1 hub bottom (1 mm above the roof)"),
+    ("hub_bot",    "84 mm",   "J1 hub bottom: seat floor 82, J1 screw heads up to 82.8"),
+    ("hub_disc_r", "17.5 mm", "J1 hub anti-lift disc radius (keeper wall r 18, lip r 12)"),
+    ("hub_disc_t", "4 mm",    "J1 hub anti-lift disc thickness (top 88, keeper lip 88.2)"),
     ("hub_fl_d",   "44 mm",   "J1 hub flange (inside the bearing bore)"),
-    ("hub_fl_t",   "6 mm",    "J1 hub flange thickness"),
+    ("hub_fl_t",   "8 mm",    "J1 hub flange thickness (heat inserts from the top)"),
     ("hub_scr_r",  "15 mm",   "3x M3 hub screws radius"),
     ("insert_d",   "4.2 mm",  "M3 heat insert hole"),
     ("insert_h",   "6 mm",    "M3 heat insert depth"),
@@ -227,7 +243,8 @@ mc_j2 = link("J2_MountCut", pg.getObject("PG27_MountCut"), X, 90, "0 mm", f"{P}f
 mc_j3 = link("J3_MountCut", pg.getObject("PG27_MountCut"), X, -90, "0 mm", f"-{P}face_y", f"{P}shoulder_z")
 lug_pin = cyl("LugPin", f"{P}pin_d / 2", f"{P}lug_t + {P}cheek_t + 2 mm", f"{P}shoulder_z", f"{P}lev_x",
               f"{P}cheek_in - {P}lug_t - 1 mm", axis="y")
-inserts = [cyl(f"HubInsert{k}", f"{P}insert_d / 2", f"{P}insert_h", f"{P}bear_top - 0.01 mm",
+# hub screws come from above (M3x20, head on the plate top) so the hub can go on before the turret
+inserts = [cyl(f"HubScrewHole{k}", f"{P}m3_clear / 2", f"{P}plate_t + 1 mm", f"{P}bear_top - 0.5 mm",
                f"{P}hub_scr_r * cos({90 + 120 * k} deg)", f"{P}hub_scr_r * sin({90 + 120 * k} deg)")
            for k in range(3)]
 tools = fuse("TurretTools", [recess, mc_j2, mc_j3, lug_pin] + inserts + cradle_cuts)
@@ -237,7 +254,8 @@ turret.Label = "Turret body (print)"
 # ------------------------------------------------------------- J1 hub ---
 hub_fl = cyl("HubFlange", f"{P}hub_fl_d / 2", f"{P}hub_fl_t", f"{P}bear_top - {P}hub_fl_t")
 hub_tube = cyl("HubTube", f"{P}hub_d / 2", f"{P}bear_top - {P}hub_fl_t - {P}hub_bot + 0.01 mm", f"{P}hub_bot")
-hub_solid = fuse("HubSolid", [hub_fl, hub_tube])
+hub_disc = cyl("HubDisc", f"{P}hub_disc_r", f"{P}hub_disc_t", f"{P}hub_bot")
+hub_solid = fuse("HubSolid", [hub_fl, hub_tube, hub_disc])
 bore = cyl("HubBore", f"{P}shaft_d / 2 + {P}d_clr", f"{P}bear_top - {P}hub_bot + 1 mm", f"{P}hub_bot - 0.5 mm")
 flat = box("HubFlat", f"{P}shaft_d", f"{P}shaft_d * 2", f"{P}bear_top - {P}hub_bot + 2 mm",
            f"{P}shaft_d / 2 - {P}flat_depth + {P}d_clr", f"-{P}shaft_d", f"{P}hub_bot - 1 mm")
@@ -245,18 +263,22 @@ dbore = cut("HubDBore", bore, flat)
 hub_holes = []
 for k in range(3):
     x, y = f"{P}hub_scr_r * cos({90 + 120 * k} deg)", f"{P}hub_scr_r * sin({90 + 120 * k} deg)"
-    hub_holes.append(cyl(f"HubHole{k}", f"{P}m3_clear / 2", f"{P}hub_fl_t + 1 mm", f"{P}bear_top - {P}hub_fl_t - 0.5 mm", x, y))
-    hub_holes.append(cyl(f"HubHead{k}", f"{P}m3_head_d / 2", f"{P}m3_head_h + 0.01 mm",
-                         f"{P}bear_top - {P}hub_fl_t - 0.01 mm", x, y))
+    hub_holes.append(cyl(f"HubInsert{k}", f"{P}insert_d / 2", f"{P}insert_h + 0.01 mm",
+                         f"{P}bear_top - {P}insert_h", x, y))
 hub = cut("J1Hub", hub_solid, fuse("HubTools", [dbore] + hub_holes))
 hub.Label = "J1 hub (print)"
+# the 3 screw heads on the plate top (context + interference sweeps of the arm)
+hub_heads = fuse("J1HubScrews", [cyl(f"HubScrewHead{k}", "2.75 mm", "3 mm", f"{P}plate_top",
+                                     f"{P}hub_scr_r * cos({90 + 120 * k} deg)",
+                                     f"{P}hub_scr_r * sin({90 + 120 * k} deg)") for k in range(3)])
+hub_heads.Label = "J1 hub screws M3x20 (heads)"
 
 # ------------------------------------------------- motors and context ---
 j2 = link("J2_Motor", pg.getObject("PG27"), X, 90, "0 mm", f"{P}face_y", f"{P}shoulder_z")
 j3 = link("J3_Motor", pg.getObject("PG27"), X, -90, "0 mm", f"-{P}face_y", f"{P}shoulder_z")
 j2.Label, j3.Label = "J2 - 17HS15-1684S-PG27 (shoulder)", "J3 - 17HS15-1684S-PG27 (forearm crank)"
 ctx = doc.addObject("App::DocumentObjectGroup", "Base_context")
-for n in ("BaseHousing", "Bearing_51211", "J1_Motor"):
+for n in ("BaseHousing", "Bearing_51211", "J1_Motor", "J1Keeper"):
     c = link("Ctx_" + n, base.getObject(n), X, 0)
     c.LinkTransform = True  # keep the target's own placement (J1_Motor is itself a placed link)
     ctx.addObject(c)
@@ -284,5 +306,6 @@ def overlap(a, b):
 ctx_objs = {o.LinkedObject.Name: o for o in ctx.Group}
 for a, b in ((turret, j2), (turret, j3), (turret, hub), (turret, ctx_objs["Bearing_51211"]),
              (turret, ctx_objs["BaseHousing"]), (hub, ctx_objs["J1_Motor"]),
-             (hub, ctx_objs["BaseHousing"]), (hub, ctx_objs["Bearing_51211"])):
+             (hub, ctx_objs["BaseHousing"]), (hub, ctx_objs["Bearing_51211"]), (hub, ctx_objs["J1Keeper"]),
+             (turret, ctx_objs["J1Keeper"]), (hub_heads, j2), (hub_heads, j3)):
     print(f"overlap {a.Name} / {b.Label}: {overlap(a, b)} mm3")

@@ -14,7 +14,10 @@ Run headless:
 Frame: table at z = 0, J1 axis = Z. The J1 gearbox face sits on the roof's
 underside; its shaft comes up through the roof into the bearing's bore, where
 the turret's D-bore hub picks it up (next part). The turret rests on the
-bearing's upper washer; the shaft only carries the yaw torque.
+bearing's upper washer; the shaft only carries the yaw torque. The 51211 takes thrust
+only, so the J1 keeper (two printed half-rings, base_j1keeper.stl, 4x M3x10 into heat
+inserts in the seat floor) hooks over a disc on the turret's hub and holds the turret
+down against the tipping moment of the arm.
 """
 
 import os
@@ -55,6 +58,18 @@ PARAMS = [
     ("win_w",       "22 mm",   "cable window width"),
     ("win_h",       "20 mm",   "cable window height"),
     ("motor_rot",   "0 deg",   "J1 motor turned about Z (hole pattern / cable side)"),
+    ("keep_r_in",   "18 mm",   "J1 keeper: wall inner radius (hub disc r 17.5; J1 screw heads r <= 17.25)"),
+    ("keep_r_wall", "21.5 mm", "J1 keeper: wall outer radius (clear of the 51211 cage, bore ~55)"),
+    ("keep_r_out",  "27.8 mm", "J1 keeper: foot radius (inside the housing washer bore r 28.5)"),
+    ("keep_foot_t", "4 mm",    "J1 keeper: foot thickness (M3x10, 6 into the floor insert)"),
+    ("keep_lip_r",  "12 mm",   "J1 keeper: lip inner radius (hub tube r 10)"),
+    ("keep_lip_bot", "6.2 mm", "J1 keeper: lip underside above the seat floor (hub disc top 6.0: 0.2 gap)"),
+    ("keep_lip_t",  "5 mm",    "J1 keeper: lip thickness"),
+    ("keep_scr_r",  "25 mm",   "J1 keeper: 4x M3 radius (heads on the foot, beside the wall)"),
+    ("keep_split",  "0.6 mm",  "J1 keeper: gap between the two halves"),
+    ("insert_d",    "4.2 mm",  "M3 heat insert hole"),
+    ("insert_h",    "6 mm",    "M3 heat insert depth"),
+    ("m3_clear",    "3.4 mm",  "M3 clearance"),
 ]
 
 ss = doc.addObject("Spreadsheet::Sheet", "Params")
@@ -156,15 +171,52 @@ expr(mcut, ".Placement.Base.z", f"{P}face_z")
 expr(mcut, ".Placement.Rotation.Angle", f"{P}motor_rot")
 mcut.Placement.Rotation.Axis = App.Vector(0, 0, 1)
 
+floor = f"{P}body_h - {P}seat_h"   # seat floor: the housing washer and the keeper stand on it
+keep_ins = [cyl(f"KeeperInsert{k}", f"{P}insert_d / 2", f"{P}insert_h + 0.01 mm", f"{floor} - {P}insert_h",
+                f"{P}keep_scr_r * cos({90 * k} deg)", f"{P}keep_scr_r * sin({90 * k} deg)") for k in range(4)]
+
 tools = doc.addObject("Part::MultiFuse", "HousingTools")
-tools.Shapes = [cavity, cone, seat, win, mcut] + screws
-hide(cavity, cone, seat, win, mcut, *screws)
+tools.Shapes = [cavity, cone, seat, win, mcut] + screws + keep_ins
+hide(cavity, cone, seat, win, mcut, *screws, *keep_ins)
 
 housing = doc.addObject("Part::Cut", "BaseHousing")
 housing.Base = solid
 housing.Tool = tools
 hide(solid, tools)
 housing.Label = "Base housing (print)"
+
+# -------------------------------------------------------- J1 keeper ---
+# Anti-lift ring: the 51211 only takes thrust, so an arm reaching out would tip the turret off it.
+# The keeper stands on the seat floor inside the bearing bore and its lip hangs over the disc at the
+# bottom of the turret's J1 hub; the hub is screwed to the turret, so lifting the turret pulls the
+# disc up against the lip and the 4 screws into the roof. Two halves, fitted around the hub after it
+# is on the shaft (assembly order in turret.py).
+k_top = f"{P}keep_lip_bot + {P}keep_lip_t"
+k_wall = doc.addObject("Part::MultiFuse", "Keeper_Solid")
+k_wall.Shapes = [cyl("Keeper_Wall", f"{P}keep_r_wall", k_top, floor),
+                 cyl("Keeper_Foot", f"{P}keep_r_out", f"{P}keep_foot_t", floor)]
+hide(*k_wall.Shapes)
+k_lip_hole = cyl("Keeper_LipHole", f"{P}keep_lip_r", f"{k_top} + 2 mm", f"{floor} - 1 mm")
+k_disc_room = cyl("Keeper_DiscRoom", f"{P}keep_r_in", f"{P}keep_lip_bot + 1 mm", f"{floor} - 1 mm")
+k_cuts = [k_lip_hole, k_disc_room]
+for k in range(4):
+    x, y = f"{P}keep_scr_r * cos({90 * k} deg)", f"{P}keep_scr_r * sin({90 * k} deg)"
+    k_cuts.append(cyl(f"Keeper_Hole{k}", f"{P}m3_clear / 2", f"{P}keep_foot_t + 2 mm", f"{floor} - 1 mm", x, y))
+# split along the 45 deg diagonal: each half keeps two screws
+split = doc.addObject("Part::Box", "Keeper_Split")
+expr(split, "Length", f"2 * {P}keep_r_out + 4 mm")
+expr(split, "Width", f"{P}keep_split")
+expr(split, "Height", f"{k_top} + 2 mm")
+split.Placement.Rotation = App.Rotation(App.Vector(0, 0, 1), 45)
+expr(split, ".Placement.Base.x", f"-({P}keep_r_out + 2 mm) * cos(45 deg) + {P}keep_split / 2 * sin(45 deg)")
+expr(split, ".Placement.Base.y", f"-({P}keep_r_out + 2 mm) * sin(45 deg) - {P}keep_split / 2 * cos(45 deg)")
+expr(split, ".Placement.Base.z", f"{floor} - 1 mm")
+k_tools = doc.addObject("Part::MultiFuse", "KeeperTools")
+k_tools.Shapes = k_cuts + [split]
+keeper = doc.addObject("Part::Cut", "J1Keeper")
+keeper.Base, keeper.Tool = k_wall, k_tools
+hide(k_wall, k_tools, split, *k_cuts)
+keeper.Label = "J1 keeper, 2 halves (print lip-down)"
 
 # ---------------------------------------------------------- bought parts ---
 j1 = doc.addObject("App::Link", "J1_Motor")
@@ -204,6 +256,14 @@ doc.saveAs(out)
 stem = os.path.join(here, "base_housing")
 Import.export([housing], stem + ".step")
 Mesh.export([housing], stem + ".stl")
+kp = keeper.Shape.copy()
+kp.rotate(App.Vector(0, 0, 0), App.Vector(1, 0, 0), 180)   # lip on the bed
+kp.translate(App.Vector(0, 0, -kp.BoundBox.ZMin))
+kp_obj = doc.addObject("Part::Feature", "tmp_keeper_print")
+kp_obj.Shape = kp
+Import.export([kp_obj], os.path.join(here, "base_j1keeper.step"))
+Mesh.export([kp_obj], os.path.join(here, "base_j1keeper.stl"))
+doc.removeObject(kp_obj.Name)
 
 bb = housing.Shape.BoundBox
 print(f"housing: vol {housing.Shape.Volume / 1000:.1f} cm3, {bb.XLength:.1f} x {bb.YLength:.1f} x {bb.ZLength:.1f}, "
@@ -213,4 +273,9 @@ for a in ("body_h", "face_z", "bear_top", "shaft_top"):
 motor_bb = j1.Shape.BoundBox
 print(f"J1 motor z {motor_bb.ZMin:.1f} .. {motor_bb.ZMax:.1f}")
 print("motor/housing overlap mm3:", round(j1.Shape.common(housing.Shape).Volume, 2))
+ks = keeper.Shape
+print(f"keeper: vol {ks.Volume / 1000:.2f} cm3, valid {ks.isValid()}, solids {len(ks.Solids)}, "
+      f"z {ks.BoundBox.ZMin:.1f}..{ks.BoundBox.ZMax:.1f}")
+print("keeper/housing overlap mm3:", round(ks.common(housing.Shape).Volume, 2),
+      " keeper/motor:", round(ks.common(j1.Shape).Volume, 2))
 print("bearing/housing overlap mm3:", round(bearing.Shape.common(housing.Shape).Volume if hasattr(bearing, 'Shape') else -1, 2))
