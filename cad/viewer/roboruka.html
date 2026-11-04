@@ -284,8 +284,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const turret = new THREE.Group(); root.add(turret);
   turret.add(part('turret_body', M.turret, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
-  turret.add(part('j1_hub', M.crank, 'D-маточина J1 (друк): диск знизу під губою утримувача, 3×M3×20 зверху крізь турель'));
-  turret.add(part('j1_hub_screws', M.body, 'Гвинти маточини J1, 3×M3×20'));
+  turret.add(part('j1_hub', M.crank, 'Маточина J1 (друк): диск знизу під губою утримувача, 3×M3×20 зверху крізь турель у гайки в бічних пазах фланця'));
+  turret.add(part('j1_wedge', M.keeper, 'Клин J1 (друк): на лиску вала, конус 1:10, тягне вгору M3×25 з центру турелі — без люфту'));
+  turret.add(part('j1_hub_screws', M.body, 'Гвинти J1: 3×M3×20 (маточина), M3×25 + шайби 2 мм (клин)'));
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
   const lugPin = at(cylY(2, 14, M.shaft), -LV, 21, 0); // pin of the lower levelling rod (y 17..26)

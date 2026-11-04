@@ -66,6 +66,7 @@ parts = {
     "turret_body": shp("turret", "TurretBody"),
     "j1_hub": shp("turret", "J1Hub"),
     "j1_hub_screws": shp("turret", "J1HubScrews"),
+    "j1_wedge": shp("turret", "J1Wedge"),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
     "ua_j3": shp("upper_arm", "UpperArmJ3"),
