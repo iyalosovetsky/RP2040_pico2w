@@ -335,8 +335,7 @@ def moving(j2, j3):
         "WristAxle": posed(wrist_axle.Shape, 0, k["W"]),
         "UpperArmJ2": posed(uad.getObject("UpperArmJ2").Shape, j2, k["O"]),
         "UpperArmJ3": posed(uad.getObject("UpperArmJ3").Shape, j2, k["O"]),
-        "Spacer0": posed(uad.getObject("Spacer0").Shape, j2, k["O"]),
-        "Spacer1": posed(uad.getObject("Spacer1").Shape, j2, k["O"]),
+        **{f"Spacer{i}": posed(uad.getObject(f"Spacer{i}").Shape, j2, k["O"]) for i in range(3)},
         "J3Crank": posed(uad.getObject("J3Crank").Shape, j3 + 180, k["O"]),
     }
 

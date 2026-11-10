@@ -70,7 +70,7 @@ parts = {
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
     "ua_j3": shp("upper_arm", "UpperArmJ3"),
-    "ua_spacers": compound("upper_arm", ["Spacer0", "Spacer1"]),
+    "ua_spacers": compound("upper_arm", ["Spacer0", "Spacer1", "Spacer2"]),
     "ua_bush6803": shp("upper_arm", "TempBushing6803"),   # 6803 (17x26x5) or its printed stand-in
     # 609Z: elbow pair in the upper arm frame (the CAD draws them at the elbow origin), wrist in the forearm frame
     "b609_elbow": elbow_b609(),

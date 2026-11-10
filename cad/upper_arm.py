@@ -2,9 +2,11 @@
 upper_arm.py - parametric FreeCAD model of the upper arm (J2) and the J3 crank.
 
 Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
-  upper_arm_j2.stl   - J2-side plate with the D-hub on the J2 shaft + elbow 609Z seat
+  upper_arm_j2.stl   - J2-side plate with the D-hub on the J2 shaft + elbow 609Z seat; the
+                       clamp slit runs through the hub and the plate's shoulder end, 2x M3x16
   upper_arm_j3.stl   - J3-side plate, bushing boss riding on the crank hub + elbow 609Z seat
-  upper_arm_spacer.stl - print 2: tubes between the plates (M4x35 through-bolts)
+  upper_arm_tie.stl  - print 3: blocks across the gap between the plates; a tenon on each face
+                       sits in a pocket in each plate, 2x M3x12 per plate into nuts in the tie
   j3_crank.stl       - D-hub on the J3 shaft, D18 bushing for the J3-side plate, 35 mm arm
 Needs turret.FCStd (and through it base.FCStd, pg27.FCStd) in the same folder.
 
@@ -67,19 +69,24 @@ PARAMS = [
     ("elb_boss_r", "15 mm",   "elbow boss radius"),
     ("elb_t",      "7 mm",    "plate thickness at the elbow: no boss, the levelling/drive rods pass right outside"),
     ("lip_hole_d", "13 mm",   "hole through the lip behind the 609Z"),
-    ("sp_x1",      "55 mm",   "spacer 1 position along the link"),
-    ("sp_x2",      "90 mm",   "spacer 2 position (forearm folded to 30 deg still clears)"),
-    ("sp_r",       "6 mm",    "spacer tube radius"),
-    ("m4_clear",   "4.4 mm",  "M4 clearance"),
-    ("m4_head_d",  "7.5 mm",  "M4 head counterbore"),
-    ("m4_head_h",  "3 mm",    "M4 head counterbore depth"),
-    ("m4_nut_w",   "7.2 mm",  "M4 nut across flats"),
-    ("m4_nut_t",   "3.4 mm",  "M4 nut trap depth"),
+    ("sp_x0",      "25 mm",   "plate tie 1 centre along the link (clear of the J2 clamp jaw, r 18)"),
+    ("sp_x1",      "55 mm",   "plate tie 2 centre"),
+    ("sp_x2",      "90 mm",   "plate tie 3 centre (forearm folded to 30 deg still clears)"),
+    ("web_len",    "16 mm",   "plate tie: length along the link"),
+    ("web_hw",     "14 mm",   "plate tie: half-height across the link (plate half-width 18)"),
+    ("web_key",    "1.5 mm",  "plate tie: tenon height = pocket depth in each plate"),
+    ("web_key_in", "1.5 mm",  "plate tie: tenon inset from the tie's outline"),
+    ("web_fit",    "0.1 mm",  "plate tie: pocket clearance per side"),
+    ("web_scr_z",  "8 mm",    "plate tie: 2 M3 per plate at +-this across the link"),
+    ("m3_clear",   "3.4 mm",  "M3 clearance"),
+    ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth (heads flush: the rods pass outside the plates)"),
+    ("cl_nut_d",   "3 mm",    "clamp: nut pocket depth (nut 2.4)"),
+    ("cl_head_h",  "2.5 mm",  "clamp: head pocket depth"),
     ("cr_y0",      "25.5 mm", "crank hub outer end |y|"),
     ("cr_t",       "4.5 mm",  "crank arm thickness (|y| 21..25.5)"),
     ("cr_w",       "16 mm",   "crank arm width"),
     ("cr_boss_r",  "12 mm",   "crank root ring around the J3 shaft (clamp), |y| 20.5..25.5"),
-    ("cl_slit",    "1 mm",    "clamp hub slit width"),
+    ("cl_slit",    "1 mm",    "clamp slit width (J2: through the hub and the plate's shoulder end)"),
     ("cl_reach",   "19 mm",   "clamp lugs: outer edge from the shaft axis"),
     ("cl_lug_t",   "5.5 mm",  "clamp lugs: thickness each side of the slit"),
     ("cl_bolt_d",  "3.4 mm",  "clamp pinch bolt M3"),
@@ -182,21 +189,22 @@ def plate(name, y0, y1):
     return fuse(name, parts)
 
 
-def bolt_tools(name, x, lo, hi, head_side):
-    """M4 through-bolt along Y at (x, z=0) through lo..hi: head counterbore in the +Y face
-    (head_side > 0, J2 plate) or a nut trap in the -Y face (J3 plate)."""
-    t = [cyl_y(name + "_H", f"{P}m4_clear / 2", f"{lo} - 1 mm", f"{hi} + 1 mm", x=x)]
-    if head_side > 0:
-        t.append(cyl_y(name + "_CB", f"{P}m4_head_d / 2", f"{hi} - {P}m4_head_h", f"{hi} + 1 mm", x=x))
-    else:
-        y_nut = lo
-        nut = doc.addObject("Part::Prism", name + "_NT")
-        nut.Polygon = 6
-        expr(nut, "Circumradius", f"{P}m4_nut_w / sqrt(3)")
-        expr(nut, "Height", f"{P}m4_nut_t + 1 mm")
-        nut.Placement.Rotation = YROT
-        place(nut, x, f"{y_nut} - 1 mm", "0 mm")
-        t.append(nut)
+def tie_tools(name, x, face, side):
+    """Pocket for a plate tie's tenon in the plate's inner face (y = side * face), plus 2 M3
+    clearance holes with head counterbores in the outer face (y = side * (face + pl_t))."""
+    y0 = f"{face} - 0.01 mm" if side > 0 else f"-{face} - {P}web_key"
+    pk = box(name + "_Pocket", f"{P}web_len - 2 * {P}web_key_in + 2 * {P}web_fit", f"{P}web_key + 0.01 mm",
+             f"2 * ({P}web_hw - {P}web_key_in + {P}web_fit)",
+             f"{x} - {P}web_len / 2 + {P}web_key_in - {P}web_fit", y0, f"-{P}web_hw + {P}web_key_in - {P}web_fit")
+    t = [pk]
+    out = f"{face} + {P}pl_t"
+    for k, z in enumerate((f"{P}web_scr_z", f"-{P}web_scr_z")):
+        if side > 0:
+            t += [cyl_y(f"{name}_H{k}", f"{P}m3_clear / 2", f"{face} - 1 mm", f"{out} + 1 mm", x=x, z=z),
+                  cyl_y(f"{name}_CB{k}", f"{P}cl_head_d / 2", f"{out} - {P}m3_head_h", f"{out} + 1 mm", x=x, z=z)]
+        else:
+            t += [cyl_y(f"{name}_H{k}", f"{P}m3_clear / 2", f"-({out}) - 1 mm", f"-{face} + 1 mm", x=x, z=z),
+                  cyl_y(f"{name}_CB{k}", f"{P}cl_head_d / 2", f"-({out}) - 1 mm", f"-({out}) + {P}m3_head_h", x=x, z=z)]
     return t
 
 
@@ -204,30 +212,35 @@ def bolt_tools(name, x, lo, hi, head_side):
 pj2 = plate("PlateJ2", f"{P}pl_in", f"{P}pl_in + {P}pl_t")
 hub2 = cyl_y("HubJ2", f"{P}j2_hub_r", f"{P}pl_in + {P}pl_t - 0.01 mm", f"{P}j2_hub_out")
 elb2 = cyl_y("ElbowBossJ2", f"{P}elb_boss_r", f"{P}pl_in", f"{P}pl_in + {P}elb_t", x=f"{P}len_l2")
-# clamp lugs under the hub (arm frame -Z): the lower levelling rod always passes above the axis
-hy0, hy1 = f"{P}pl_in + {P}pl_t + 2 mm", f"{P}j2_hub_out"
+# clamp lugs under the hub (arm frame -Z): the lower levelling rod always passes above the axis.
+# The slit runs the whole hub length and on through the plate's shoulder end, so the back half
+# of the plate end is a jaw that the 2 bolts pull onto the shaft along its full length.
+hy0, hy1 = f"{P}pl_in", f"{P}j2_hub_out"
 lug2 = box("ClampLugJ2", f"{P}cl_slit + 2 * {P}cl_lug_t", f"({hy1}) - ({hy0})", f"{P}cl_reach - {P}j2_hub_r + 3 mm",
            f"-({P}cl_slit / 2 + {P}cl_lug_t)", hy0, f"-{P}cl_reach")
 j2_solid = fuse("J2Solid", [pj2, hub2, elb2, lug2])
 j2_tools = [d_bore("BoreJ2", f"{P}pl_in + 1 mm", f"{P}j2_hub_out + 1 mm")]
 j2_tools += grub("GrubJ2", f"({P}pl_in + {P}pl_t + {P}j2_hub_out) / 2", f"{P}j2_hub_r", 1, f"{P}j2_hub_out")
-yc2 = f"(({hy0}) + ({hy1})) / 2"
 zb2 = f"-({P}cl_reach + {P}j2_hub_r) / 2 - 1.5 mm"
-j2_tools += [
-    box("ClampSlitJ2", f"{P}cl_slit", f"({hy1}) - ({hy0}) + 1 mm", f"{P}cl_reach + 1 mm - {P}shaft_d / 2",
-        f"-{P}cl_slit / 2", hy0, f"-{P}cl_reach - 1 mm"),
-    box("ClampBoltJ2", f"2 * ({P}cl_slit + 2 * {P}cl_lug_t)", f"{P}cl_bolt_d", f"{P}cl_bolt_d",
-        f"-({P}cl_slit + 2 * {P}cl_lug_t)", f"{yc2} - {P}cl_bolt_d / 2", f"{zb2} - {P}cl_bolt_d / 2"),
-    box("ClampHeadJ2", "3 mm", f"{P}cl_head_d", f"{P}cl_head_d", f"{P}cl_slit / 2 + {P}cl_lug_t - 2 mm",
-        f"{yc2} - {P}cl_head_d / 2", f"{zb2} - {P}cl_head_d / 2"),
-    box("ClampNutJ2", "3 mm", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", f"-({P}cl_slit / 2 + {P}cl_lug_t) - 1 mm",
-        f"{yc2} - {P}nut_w / 2 - 0.2 mm", f"{zb2} - {P}nut_w / 2 - 0.2 mm"),
-]
+lug_x = f"({P}cl_slit / 2 + {P}cl_lug_t)"
+j2_tools.append(box("ClampSlitJ2", f"{P}cl_slit", f"({hy1}) - ({hy0}) + 2 mm", f"{P}cl_reach + 1 mm - {P}shaft_d / 2",
+                    f"-{P}cl_slit / 2", f"({hy0}) - 1 mm", f"-{P}cl_reach - 1 mm"))
+# two bolts spread over the lug's length (|y| 9..25.5): ~1.4 mm of wall around each pocket
+for k, yc2 in enumerate((f"{P}pl_in + 4.5 mm", f"{P}j2_hub_out - 4.5 mm")):
+    j2_tools += [
+        box(f"ClampBoltJ2_{k}", f"2 * {lug_x} + 2 mm", f"{P}cl_bolt_d", f"{P}cl_bolt_d",
+            f"-{lug_x} - 1 mm", f"{yc2} - {P}cl_bolt_d / 2", f"{zb2} - {P}cl_bolt_d / 2"),
+        box(f"ClampHeadJ2_{k}", f"{P}cl_head_h + 1 mm", f"{P}cl_head_d", f"{P}cl_head_d", f"{lug_x} - {P}cl_head_h",
+            f"{yc2} - {P}cl_head_d / 2", f"{zb2} - {P}cl_head_d / 2"),
+        box(f"ClampNutJ2_{k}", f"{P}cl_nut_d + 1 mm", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", f"-{lug_x} - 1 mm",
+            f"{yc2} - {P}nut_w / 2 - 0.2 mm", f"{zb2} - {P}nut_w / 2 - 0.2 mm"),
+    ]
 j2_tools += [cyl_y("Seat609J2", f"{P}b609_d / 2 + {P}b609_fit", f"{P}pl_in + {P}elb_t - {P}b609_w",
                    f"{P}pl_in + {P}elb_t + 1 mm", x=f"{P}len_l2"),
              cyl_y("LipJ2", f"{P}lip_hole_d / 2", f"{P}pl_in - 1 mm", f"{P}pl_in + {P}elb_t", x=f"{P}len_l2")]
-for k, x in enumerate((f"{P}sp_x1", f"{P}sp_x2")):
-    j2_tools += bolt_tools(f"BoltJ2_{k}", x, f"{P}pl_in", f"{P}pl_in + {P}pl_t", +1)
+TIES = (f"{P}sp_x0", f"{P}sp_x1", f"{P}sp_x2")
+for k, x in enumerate(TIES):
+    j2_tools += tie_tools(f"TieJ2_{k}", x, f"{P}pl_in", +1)
 plate_j2 = cut("UpperArmJ2", j2_solid, j2_tools)
 plate_j2.Label = "Upper arm, J2 side (print)"
 
@@ -244,17 +257,32 @@ j3_tools = [cyl_y("Seat6803", f"{P}b6803_d / 2 + {P}b6803_fit", f"-{P}pl_in - {P
             cyl_y("Seat609J3", f"{P}b609_d / 2 + {P}b609_fit", f"-{P}pl_in - {P}elb_t - 1 mm",
                   f"-{P}pl_in - {P}elb_t + {P}b609_w", x=f"{P}len_l2"),
             cyl_y("LipJ3", f"{P}lip_hole_d / 2", f"-{P}pl_in - {P}elb_t", f"-{P}pl_in + 1 mm", x=f"{P}len_l2")]
-for k, x in enumerate((f"{P}sp_x1", f"{P}sp_x2")):
-    j3_tools += bolt_tools(f"BoltJ3_{k}", x, f"-{P}pl_in - {P}pl_t", f"-{P}pl_in", -1)
+for k, x in enumerate(TIES):
+    j3_tools += tie_tools(f"TieJ3_{k}", x, f"{P}pl_in", -1)
 plate_j3 = cut("UpperArmJ3", j3_solid, j3_tools)
 plate_j3.Label = "Upper arm, J3 side (print)"
 
+# plate ties: a block across the gap with a tenon on each face sitting in a pocket in each plate
+# (the form fit takes the racking, not the screws), 2 M3x12 from each plate into nuts in the tie
 spacers = []
-for k, x in enumerate((f"{P}sp_x1", f"{P}sp_x2")):
-    tube = cyl_y(f"SpacerTube{k}", f"{P}sp_r", f"-{P}pl_in", f"{P}pl_in", x=x)
-    hole = cyl_y(f"SpacerHole{k}", f"{P}m4_clear / 2", f"-{P}pl_in - 1 mm", f"{P}pl_in + 1 mm", x=x)
-    s = cut(f"Spacer{k}", tube, hole)
-    s.Label = f"Spacer {k + 1} (print, M4x35)"
+for k, x in enumerate(TIES):
+    body = box(f"TieBody{k}", f"{P}web_len", f"2 * {P}pl_in", f"2 * {P}web_hw",
+               f"{x} - {P}web_len / 2", f"-{P}pl_in", f"-{P}web_hw")
+    keys = [box(f"TieKey{k}_{t}", f"{P}web_len - 2 * {P}web_key_in", f"{P}web_key - 0.1 mm",
+                f"2 * ({P}web_hw - {P}web_key_in)", f"{x} - {P}web_len / 2 + {P}web_key_in", y0,
+                f"-{P}web_hw + {P}web_key_in")
+            for t, y0 in (("P", f"{P}pl_in - 0.01 mm"), ("N", f"-{P}pl_in - {P}web_key + 0.11 mm"))]
+    holes = []
+    for j, (z, sz) in enumerate(((f"{P}web_scr_z", 1), (f"-{P}web_scr_z", -1))):
+        holes.append(cyl_y(f"TieHole{k}_{j}", f"{P}m3_clear / 2", f"-{P}pl_in - {P}web_key - 1 mm",
+                           f"{P}pl_in + {P}web_key + 1 mm", x=x, z=z))
+        # nut slots 3 mm inside each face, open to the tie's top/bottom edge
+        for t, yn in (("P", f"{P}pl_in - 3 mm - {P}nut_t"), ("N", f"-{P}pl_in + 3 mm")):
+            holes.append(box(f"TieNut{k}_{j}{t}", f"{P}nut_w + 0.3 mm", f"{P}nut_t", f"{P}web_hw",
+                             f"{x} - ({P}nut_w + 0.3 mm) / 2", yn,
+                             z if sz > 0 else f"{z} - {P}web_hw"))
+    s = cut(f"Spacer{k}", fuse(f"TieSolid{k}", [body] + keys), holes)
+    s.Label = f"Plate tie {k + 1} (print, 4x M3x12 + nuts)"
     spacers.append(s)
 
 tb_o = cyl_y("TmpBush_O", f"{P}b6803_d / 2", f"-{P}pl_in - {P}pl_t", f"-{P}pl_in - {P}pl_t + {P}b6803_w")
@@ -282,22 +310,23 @@ cr_collar = cyl_y("CrankCollar", f"{P}collar_r", f"-{P}cr_y0", f"-{P}pl_in - {P}
 cr_arm = box("CrankArm", f"{P}R", f"{P}cr_t", f"{P}cr_w", "0 mm", f"-{P}cr_y0", f"-{P}cr_w / 2")
 cr_tip = cyl_y("CrankTip", f"{P}cr_w / 2", f"-{P}cr_y0", f"-{P}cr_y0 + {P}cr_t", x=f"{P}R")
 cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
-lug3 = box("ClampLugCrank", f"{P}cl_reach - {P}cr_boss_r + 3 mm", f"{P}cr_t + 0.5 mm", f"{P}cl_slit + 2 * {P}cl_lug_t",
-           f"-{P}cl_reach", f"-{P}cr_y0", f"-({P}cl_slit / 2 + {P}cl_lug_t)")
+# lug over the whole ring + collar (|y| 16.5..25.5) so the bolt pockets keep 1.4 mm walls
+lug3 = box("ClampLugCrank", f"{P}cl_reach - {P}cr_boss_r + 3 mm", f"{P}cr_y0 - {P}pl_in - {P}pl_t - 0.5 mm",
+           f"{P}cl_slit + 2 * {P}cl_lug_t", f"-{P}cl_reach", f"-{P}cr_y0", f"-({P}cl_slit / 2 + {P}cl_lug_t)")
 cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, lug3])
 cr_tools = [d_bore("BoreJ3", f"-{P}cr_y0 - 1 mm", f"-{P}pl_in - 2 mm", side=-1),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R")]
 # clamp: slit along -X through the root ring and the collar (not the 6803 journal), M3 across
 xb3 = f"-({P}cl_reach + {P}cr_boss_r) / 2 - 1.5 mm"
-yc3 = f"-{P}cr_y0 + ({P}cr_t + 0.5 mm) / 2"
+yc3 = f"-({P}cr_y0 + {P}pl_in + {P}pl_t + 0.5 mm) / 2"
 g = [
     box("ClampSlitCrank", f"{P}cl_reach + 1 mm - {P}shaft_d / 2", f"{P}cr_y0 - {P}pl_in - {P}pl_t + 1 mm", f"{P}cl_slit",
         f"-{P}cl_reach - 1 mm", f"-{P}cr_y0 - 1 mm", f"-{P}cl_slit / 2"),
     box("ClampBoltCrank", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"2 * ({P}cl_slit + 2 * {P}cl_lug_t)",
         f"{xb3} - {P}cl_bolt_d / 2", f"{yc3} - {P}cl_bolt_d / 2", f"-({P}cl_slit + 2 * {P}cl_lug_t)"),
-    box("ClampHeadCrank", f"{P}cl_head_d", f"{P}cl_head_d", "3 mm", f"{xb3} - {P}cl_head_d / 2",
-        f"{yc3} - {P}cl_head_d / 2", f"{P}cl_slit / 2 + {P}cl_lug_t - 2 mm"),
-    box("ClampNutCrank", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", "3 mm", f"{xb3} - {P}nut_w / 2 - 0.2 mm",
+    box("ClampHeadCrank", f"{P}cl_head_d", f"{P}cl_head_d", f"{P}cl_head_h + 1 mm", f"{xb3} - {P}cl_head_d / 2",
+        f"{yc3} - {P}cl_head_d / 2", f"{P}cl_slit / 2 + {P}cl_lug_t - {P}cl_head_h"),
+    box("ClampNutCrank", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", f"{P}cl_nut_d + 1 mm", f"{xb3} - {P}nut_w / 2 - 0.2 mm",
         f"{yc3} - {P}nut_w / 2 - 0.2 mm", f"-({P}cl_slit / 2 + {P}cl_lug_t) - 1 mm"),
 ]
 crank = cut("J3Crank", cr_solid, cr_tools + g)
@@ -337,11 +366,11 @@ def export(part, stem, rot):
 
 export(plate_j2, "upper_arm_j2", 90)      # inner face (y = +pl_in) on the bed
 export(plate_j3, "upper_arm_j3", -90)     # inner face (y = -pl_in) on the bed
-export(spacers[0], "upper_arm_spacer", -90)
+export(spacers[0], "upper_arm_tie", 0)   # print 3; standing on its edge, tenons to the sides
 export(crank, "j3_crank", 90)             # hub/arm outer face (y = -cr_y0) on the bed
 export(temp_bush, "temp_bushing_6803", 90)
 
-for o in (plate_j2, plate_j3, spacers[0], crank, temp_bush):
+for o in (plate_j2, plate_j3, *spacers, crank, temp_bush):
     s = o.Shape
     print(f"{o.Name:12s} vol {s.Volume / 1000:6.2f} cm3 valid {s.isValid()} solids {len(s.Solids)}")
 
