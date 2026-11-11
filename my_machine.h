@@ -106,6 +106,7 @@
 #define ST3215_ENABLE           1 // Enable M101 support for a Feetech/Waveshare ST3215 serial bus servo on a dedicated hardware UART (default: UART0, GPIO0/GPIO1). See st3215.c for wiring notes and ST3215_STREAM/ST3215_BAUDRATE/ST3215_ID_DEFAULT overrides.
 #if ROBOT_ARM
 #define ST3215_GRIPPER_ENABLE   1 // M102 open / M103 close the gripper (ST3215 id ST3215_ID_DEFAULT) to $455/$456.
+#define ARM_GUARD_ENABLE        1 // Overload guard on the joints from TMC2209 StallGuard4, |SG: in the status report, $457/$458. See arm_guard.c.
 #endif
 //#define EVENTOUT_ENABLE         1 // Enable binding events (triggers) to control auxiliary outputs.
 //#define ESP_AT_ENABLE           1 // Enable support for Telnet communication via UART connected ESP32 running ESP-AT.

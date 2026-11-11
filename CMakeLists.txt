@@ -78,6 +78,7 @@ if(AddMyPlugin)
     tmc_uart.c
     st3215.c
     rotary_table.c
+    arm_guard.c
     my_plugin.c
     boards/pico_cnc.c
     boards/flexihal2350.c
@@ -105,6 +106,7 @@ else()
     tmc_uart.c
     st3215.c
     rotary_table.c
+    arm_guard.c
     boards/pico_cnc.c
     boards/flexihal2350.c
     boards/btt_skr_pico_10.c
@@ -145,12 +147,22 @@ if(ROBOT_ARM)
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_MAX_RATE=1800.0f)    # deg/min (30 deg/s, ~134 rpm motor side, ~7.2 kHz step rate)
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_ACCELERATION=60.0f)  # deg/s^2, gentle for a loaded arm
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_MAX_TRAVEL=360.0f)   # deg, narrow per joint once homing/limits exist
-        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_CURRENT=1200.0f)     # mA RMS, motor rated 1.68 A
-        target_compile_definitions(grblHAL PUBLIC TMC_${ax}_HOLD_CURRENT_PCT=70)     # holding torque against gravity
+        # The motor current is the arm's torque fuse. At the rated 1.68 A the motor gives ~0.36 N*m,
+        # x26.85 x ~0.8 = ~7.7 N*m at the joint - the gearbox allows ~3 N*m and the links are printed.
+        # 700 mA stalls the joint at ~3.2 N*m (the gripper needs 1-1.2); 60 % of it holds ~1.9 N*m and
+        # heats the motors a quarter as much as the old 1200 mA / 70 % did (the turret is PLA-CF).
+        # Estimates from the datasheet figures, not measured: tune with $140-$143 / $210-$213.
+        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_CURRENT=700.0f)      # mA RMS, motor rated 1.68 A
+        target_compile_definitions(grblHAL PUBLIC TMC_${ax}_HOLD_CURRENT_PCT=60)     # holding torque against gravity
     endforeach()
+    # StallGuard4 (arm_guard.c) only works in StealthChop.
+    target_compile_definitions(grblHAL PUBLIC TMC_STEALTHCHOP=1)
     # The PG27 gearbox is back-drivable: an unpowered arm falls. Keep the drivers
-    # enabled after every move (255 = never disable on idle).
+    # enabled after every move (255 = never disable on idle)...
     target_compile_definitions(grblHAL PUBLIC DEFAULT_STEPPER_IDLE_LOCK_TIME=255)
+    # ...and after an alarm too: st_go_idle() ignores the 255 when an alarm is pending (hard limit,
+    # reset during a move, arm_guard trip) and switches off every axis not in $37 255 ms later.
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_STEPPER_DEENERGIZE_MASK=15)
 else()
     target_compile_definitions(grblHAL PUBLIC DEFAULT_DIR_SIGNALS_INVERT_MASK=7) # Invert X/Y/Z direction (bits 0-2), read by grbl/settings.c to seed $3.
 endif()

@@ -82,6 +82,10 @@ void tmc_uart_write (trinamic_motor_t driver, TMC_uart_write_datagram_t *dgr)
 
 #if defined(BOARD_BTT_SKR_PICO_10)
 
+#if ARM_GUARD_ENABLE
+extern void arm_guard_driver_postinit (motor_map_t motor, const tmchal_t *driver);
+#endif
+
 void driver_preinit (motor_map_t motor, trinamic_driver_config_t *config)
 {
     static const uint8_t address_map[4] = { 0, 2, 1, 3 };
@@ -92,7 +96,10 @@ void driver_preinit (motor_map_t motor, trinamic_driver_config_t *config)
 void tmc_uart_init (void)
 {
     static trinamic_driver_if_t driver_if = {
-        .on_driver_preinit = driver_preinit
+        .on_driver_preinit = driver_preinit,
+#if ARM_GUARD_ENABLE
+        .on_driver_postinit = arm_guard_driver_postinit // hands the joints' driver handles to arm_guard.c
+#endif
     };
 
     const io_stream_t *stream;

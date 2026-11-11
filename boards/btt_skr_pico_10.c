@@ -38,6 +38,11 @@ void board_init (void)
     extern void rotary_table_init (void);
     rotary_table_init();
 #endif
+
+#if ARM_GUARD_ENABLE
+    extern void arm_guard_init (void);
+    arm_guard_init();
+#endif
 }
 
 #endif

@@ -43,9 +43,19 @@ The machine is **joint-space**: G-code X/Y/Z/A are joint angles in degrees (grbl
 Defaults baked in via `CMakeLists.txt` (all overridable with `$`-settings after flashing):
 - `$100-$103` = **238.678 steps/deg** (200 × 16 microsteps × 26+103/121 / 360).
 - `$110-$113` = 1800 deg/min (30 °/s, ~7.2 kHz step rate), `$120-$123` = 60 °/s².
-- `$140-$143` TMC2209 current = 1200 mA RMS (motor rated 1.68 A), hold current 70 %.
+- `$140-$143` TMC2209 current = **700 mA RMS** (motor rated 1.68 A), `$210-$213` hold current 60 %. The current is the arm's torque fuse: at the rated current a joint stalls at roughly 7-8 N·m, the gearbox allows ~3 N·m and the links are printed; 700 mA stalls at roughly 3 N·m (datasheet estimate, not measured — raise it only as far as the payload needs).
+- Drivers start in StealthChop (`M569` toggles per axis) — StallGuard4 needs it.
 - `$1=255` — drivers stay enabled when idle. The PG27 gearbox back-drives; with the motors released the arm falls under its own weight.
+- `$37=15` — and they stay enabled after an **alarm** too. Without it grbl releases every axis 255 ms after a hard limit trip or a reset during a move, `$1=255` or not.
 - `$3=0` direction invert — set per joint once wired; homing/soft limits are off until limit switches are fitted (`$22`, `$20`, `$130-$133`).
+
+Overload guard (in [arm_guard.c](arm_guard.c), `ARM_GUARD_ENABLE`) — the TMC2209 has no readable motor current, but in StealthChop it reports the motor's load as `SG_RESULT` (StallGuard4: 510 = no load, falling towards 0 near a stall). The drivers' DIAG outputs share the endstop inputs with the limit switches on this board, so the plugin polls `SG_RESULT` over the TMC UART for every joint that is moving:
+- The `?` report gets `|SG:<x>,<y>,<z>,<a>` — per joint the lowest reading since the previous report, `-` where there is none. It only shows while something moves faster than `$458` (deg/min, default 600): at standstill and when creeping there is no back-EMF to measure, so a joint that just holds a load is **not** monitored.
+- `$457` — axis mask of the joints that kill the motion with **alarm 17** when the reading stays at or below 2 × their StallGuard threshold for two polls (80 ms). Default 0: report only. The thresholds are the Trinamic plugin's own `$200-$203` (also `M914`).
+- Tuning: with `$457=0` jog each joint through its range at working speed, note the lowest `|SG:` value, set `$20x` a bit under half of it, then enable the joint in `$457` and check that pushing on the arm by hand trips it. Redo this after changing the current or the feed rates — both move `SG_RESULT`.
+- Not tested on the arm yet. `M122` (Trinamic plugin) still gives the full driver report: over-temperature pre-warning, shorts, open load.
+
+After flashing over an existing configuration the old values stay in flash, and the driver mode (StealthChop) has no `$`-setting of its own: run `$RST=*` once, then re-enter what was tuned by hand (`$3`, the gripper angles `$455`/`$456`).
 
 Gripper (in [st3215.c](st3215.c), `ST3215_GRIPPER_ENABLE`):
 - `M102 [P<id>]` open to `$455`, `M103 [P<id>]` close to `$456` (degrees).
