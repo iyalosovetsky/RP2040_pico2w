@@ -146,7 +146,6 @@ if(ROBOT_ARM)
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_STEPS_PER_MM=238.678f)
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_MAX_RATE=1800.0f)    # deg/min (30 deg/s, ~134 rpm motor side, ~7.2 kHz step rate)
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_ACCELERATION=60.0f)  # deg/s^2, gentle for a loaded arm
-        target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_MAX_TRAVEL=360.0f)   # deg, narrow per joint once homing/limits exist
         # The motor current is the arm's torque fuse. At the rated 1.68 A the motor gives ~0.36 N*m,
         # x26.85 x ~0.8 = ~7.7 N*m at the joint - the gearbox allows ~3 N*m and the links are printed.
         # 700 mA stalls the joint at ~3.2 N*m (the gripper needs 1-1.2); 60 % of it holds ~1.9 N*m and
@@ -155,6 +154,26 @@ if(ROBOT_ARM)
         target_compile_definitions(grblHAL PUBLIC DEFAULT_${ax}_CURRENT=700.0f)      # mA RMS, motor rated 1.68 A
         target_compile_definitions(grblHAL PUBLIC TMC_${ax}_HOLD_CURRENT_PCT=60)     # holding torque against gravity
     endforeach()
+    # Homing on the limit switches (cad/endstop_dims.py has the numbers these are copied from, cad/limits.py
+    # the hardware). One switch per joint trips at both ends of its travel: J1 +-171, J2 33.5/151.5,
+    # J3 -71.5/36.5 deg. J2 and J3 home together, towards + (arm up and back, away from the table): at the
+    # same rate the angle between the links doesn't change until one of them is home, and from there it
+    # only moves towards its value at the home pose - no folding or over-stretching on the way, whatever
+    # the starting pose. J1 after them. Machine zero is the + trip point, the working range ends 3 deg
+    # (pull-off) short of it and 1.5 deg short of the other trip point: travel = span + 3 - 1.5.
+    # Homing and the limits themselves stay off until the switches are fitted: $21=5, $22=7, $20=1 (README).
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_X_MAX_TRAVEL=343.5f)
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_Y_MAX_TRAVEL=119.5f)
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_Z_MAX_TRAVEL=109.5f)
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_A_MAX_TRAVEL=360.0f)       # J4 has no switch
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_DIR_MASK=0)         # all towards +
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_CYCLE_0=6)          # $44: J2 + J3 together
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_CYCLE_1=1)          # $45: then J1
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_CYCLE_2=0)
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_SEEK_RATE=600.0f)   # deg/min, the same for every joint
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_FEED_RATE=60.0f)
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HOMING_PULLOFF=3.0f)       # deg: the lever needs ~2 to let go
+    target_compile_definitions(grblHAL PUBLIC DEFAULT_HARD_LIMITS_DISABLE_FOR_ROTARY=1) # A (J4): nothing on E0-STOP
     # StallGuard4 (arm_guard.c) only works in StealthChop.
     target_compile_definitions(grblHAL PUBLIC TMC_STEALTHCHOP=1)
     # The PG27 gearbox is back-drivable: an unpowered arm falls. Keep the drivers

@@ -50,9 +50,22 @@
        and that normal moves don't.
   SG_RESULT changes with motor current and speed: redo this after changing $14x or the feed rates.
 
+  Two more checks live here because they guard the same arm; both need the joints homed on the
+  limit switches (cad/limits.py, defaults in CMakeLists.txt):
+
+  - Angle between the links. The parallelogram only allows 30..140 deg between upper arm and forearm
+    (180 + J3 - J2), and no per-joint limit can express that: each joint may be inside its own range
+    while the forearm folds into the upper arm. With $459 on (default) and J2 and J3 homed, a target
+    outside that range is refused the same way a soft limit violation is ($20 must be on for grbl to
+    ask). Joint angle = machine position + the angle of the joint's home trip point.
+  - Homing with a switch already pressed is refused. A switch trips at both ends of a joint's travel,
+    so a joint that starts on its switch could be at either end, and grbl would take it for home and
+    back off - further out if it was the other end. Jog the joint off the switch first.
+
   $-settings:
     $457 - axis mask, joints that raise the alarm (default 0: report only).
     $458 - joint speed in deg/min below which SG_RESULT is ignored (default 600).
+    $459 - check the angle between the links (default 1).
 
 */
 
@@ -70,6 +83,7 @@
 #include "grbl/nvs_buffer.h"
 #include "grbl/motion_control.h"
 #include "grbl/state_machine.h"
+#include "grbl/machine_limits.h"
 #include "motors/trinamic.h"
 
 #if TRINAMIC_ENABLE != 2209 || !TRINAMIC_UART_ENABLE
@@ -88,21 +102,36 @@
 #define ARM_GUARD_MIN_SPEED_MIN 60.0f
 #define ARM_GUARD_MIN_SPEED_MAX 6000.0f
 #define ARM_GUARD_BACKOFF_POLLS 50      // Leave a driver alone for 2 s when it doesn't answer (no motor power).
+// from cad/endstop_dims.py: J2_LIM[1], J3_LIM[1] (the trip points the joints home on) and the link range of cad/forearm.py
+#ifndef ARM_J2_HOME_DEG
+#define ARM_J2_HOME_DEG 151.5f
+#endif
+#ifndef ARM_J3_HOME_DEG
+#define ARM_J3_HOME_DEG 36.5f
+#endif
+#define ARM_LINK_MIN_DEG 30.0f
+#define ARM_LINK_MAX_DEG 140.0f
+#define ARM_LINK_AXES (Y_AXIS_BIT|Z_AXIS_BIT)
 #define SG_NONE 0xFFFF
 #define SG_POISON 0xFFFFFFFF
 
 #define Setting_ArmGuard_Axes     Setting_UserDefined_7
 #define Setting_ArmGuard_MinSpeed Setting_UserDefined_8
+#define Setting_ArmGuard_LinkCheck Setting_UserDefined_9
 
 typedef struct {
     axes_signals_t axes;
     float min_speed;
+    uint8_t link_check;
 } arm_guard_settings_t;
 
 static arm_guard_settings_t guard = {
     .axes.mask = 0,
-    .min_speed = ARM_GUARD_MIN_SPEED_DEFAULT
+    .min_speed = ARM_GUARD_MIN_SPEED_DEFAULT,
+    .link_check = 1
 };
+static travel_limits_ptr check_travel_limits;
+static home_machine_ptr home_machine;
 static nvs_address_t nvs_address;
 static const tmchal_t *tmc[N_AXIS] = {0};
 static uint16_t sg_min[N_AXIS];
@@ -223,9 +252,63 @@ static void guard_poll (void *data)
     } while(idx);
 }
 
+// target is in machine coordinates: degrees below each joint's home trip point
+static bool checkTravelLimits (float *target, axes_signals_t axes, bool is_cartesian, work_envelope_t *envelope)
+{
+    bool ok = check_travel_limits(target, axes, is_cartesian, envelope);
+
+    if(ok && guard.link_check && (sys.homed.mask & ARM_LINK_AXES) == ARM_LINK_AXES) {
+
+        float link = 180.0f + (target[Z_AXIS] + ARM_J3_HOME_DEG) - (target[Y_AXIS] + ARM_J2_HOME_DEG);
+
+        if(!(ok = link >= ARM_LINK_MIN_DEG - 0.01f && link <= ARM_LINK_MAX_DEG + 0.01f))
+            report_message("Arm guard: angle between the links outside 30..140 deg", Message_Warning);
+    }
+
+    return ok;
+}
+
+static bool homeMachine (axes_signals_t cycle, axes_signals_t auto_square)
+{
+    axes_signals_t pressed = limit_signals_merge(hal.limits.get_state());
+
+    if((pressed.mask &= cycle.mask)) {
+
+        char msg[80];
+        uint_fast8_t idx;
+
+        strcpy(msg, "Arm guard: limit switch already pressed on");
+        for(idx = 0; idx < N_AXIS; idx++) {
+            if(bit_istrue(pressed.mask, bit(idx))) {
+                strcat(msg, " ");
+                strcat(msg, axis_letter[idx]);
+            }
+        }
+        strcat(msg, " - jog it clear, then home");
+        report_message(msg, Message_Warning);
+
+        return false;
+    }
+
+    return home_machine(cycle, auto_square);
+}
+
+static status_code_t set_link_check (setting_id_t id, uint_fast16_t value)
+{
+    guard.link_check = value != 0;
+
+    return Status_OK;
+}
+
+static uint32_t get_link_check (setting_id_t id)
+{
+    return guard.link_check;
+}
+
 static const setting_detail_t guard_settings_detail[] = {
     { Setting_ArmGuard_Axes, Group_MotorDriver, "Arm overload guard", NULL, Format_AxisMask, NULL, NULL, NULL, Setting_NonCore, &guard.axes.mask, NULL, NULL },
     { Setting_ArmGuard_MinSpeed, Group_MotorDriver, "Arm overload guard minimum speed", "deg/min", Format_Decimal, "###0.0", "60", "6000", Setting_NonCore, &guard.min_speed, NULL, NULL },
+    { Setting_ArmGuard_LinkCheck, Group_Limits, "Arm link angle check", NULL, Format_Bool, NULL, NULL, NULL, Setting_NonCoreFn, set_link_check, get_link_check, NULL },
 };
 
 static const setting_descr_t guard_settings_descr[] = {
@@ -233,6 +316,8 @@ static const setting_descr_t guard_settings_descr[] = {
                              "stays at or below 2 x the axis StallGuard4 fast threshold ($200 + axis). Joints not set are only reported." },
     { Setting_ArmGuard_MinSpeed, "Joint speed below which the StallGuard4 reading is ignored: it needs the motor's back-EMF, "
                                  "so it is not valid at standstill or when creeping." },
+    { Setting_ArmGuard_LinkCheck, "Refuse targets that put the angle between upper arm and forearm (180 + J3 - J2) outside 30..140 deg. "
+                                  "Needs J2 and J3 homed and soft limits enabled." },
 };
 
 static void guard_settings_save (void)
@@ -244,6 +329,7 @@ static void guard_settings_restore (void)
 {
     guard.axes.mask = 0;
     guard.min_speed = ARM_GUARD_MIN_SPEED_DEFAULT;
+    guard.link_check = 1;
 
     guard_settings_save();
 }
@@ -251,7 +337,7 @@ static void guard_settings_restore (void)
 static void guard_settings_load (void)
 {
     if(hal.nvs.memcpy_from_nvs((uint8_t *)&guard, nvs_address, sizeof(arm_guard_settings_t), true) != NVS_TransferResult_OK ||
-        (guard.axes.mask & ~AXES_BITMASK) ||
+        (guard.axes.mask & ~AXES_BITMASK) || guard.link_check > 1 ||
          !(guard.min_speed >= ARM_GUARD_MIN_SPEED_MIN && guard.min_speed <= ARM_GUARD_MIN_SPEED_MAX))
         guard_settings_restore();
 }
@@ -289,7 +375,7 @@ static void onReportOptions (bool newopt)
     on_report_options(newopt);
 
     if(!newopt)
-        report_plugin("Arm overload guard", "0.01");
+        report_plugin("Arm guard", "0.02");
 }
 
 void arm_guard_init (void)
@@ -320,6 +406,12 @@ void arm_guard_init (void)
 
     on_realtime_report = grbl.on_realtime_report;
     grbl.on_realtime_report = onRealtimeReport;
+
+    check_travel_limits = grbl.check_travel_limits;
+    grbl.check_travel_limits = checkTravelLimits;
+
+    home_machine = grbl.home_machine;
+    grbl.home_machine = homeMachine;
 
     task_add_delayed(guard_poll, NULL, 1000);
 }

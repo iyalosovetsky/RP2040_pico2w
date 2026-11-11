@@ -47,11 +47,15 @@ GEOM = {
     "y_face": 37.0,       # bracket Y: J4 gearbox face |y|
 }
 
-# Joint limits the CAD was interference-checked for (cad/forearm.py, cad/tools.py).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cad"))
+import endstop_dims as ES  # noqa: E402  (limit switch trip points, shared with the CAD and the firmware defaults)
+
+# Joint limits: what the firmware's soft limits leave between the limit switches (the CAD is
+# interference-checked a little beyond that: cad/forearm.py, cad/tools.py).
 LIMITS = {
-    "X": (-170.0, 170.0),
-    "Y": (35.0, 150.0),
-    "Z": (-70.0, 35.0),
+    "X": ES.working_range(ES.J1_LIM),
+    "Y": ES.working_range(ES.J2_LIM),
+    "Z": ES.working_range(ES.J3_LIM),
     "A_z": (-180.0, 180.0),
     "A_y": (-60.0, 130.0),
 }
@@ -239,6 +243,8 @@ def main():
     s = sub.add_parser("send", help="stream a G-code file to the board")
     s.add_argument("file")
     s.add_argument("--port", required=True)
+    o = sub.add_parser("offsets", help="G54 offsets that make X/Y/Z read joint angles after homing on the limit switches")
+    o.add_argument("--port", help="send the line to the board (it is stored there)")
 
     args = ap.parse_args()
     geom = dict(GEOM)
@@ -265,6 +271,12 @@ def main():
         elif args.cmd == "send":
             with open(args.file) as fh:
                 stream(args.port, fh.readlines())
+        elif args.cmd == "offsets":
+            # machine zero of a homed joint is its + trip point, so work = machine + that angle
+            line = "G10 L2 P1 " + " ".join(f"{ax}{-lim[1]:g}" for ax, lim in (("X", ES.J1_LIM), ("Y", ES.J2_LIM), ("Z", ES.J3_LIM)))
+            print(line)
+            if args.port:
+                stream(args.port, [line])
     except IKError as e:
         sys.exit(f"error: {e}")
 
