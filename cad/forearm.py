@@ -37,6 +37,8 @@ import Mesh
 
 out = os.path.abspath(next(a for a in sys.argv if a.endswith(".FCStd")))
 here = os.path.dirname(out)
+sys.path.insert(0, here)
+import endstop_dims as ES  # noqa: E402
 for f in ("pg27", "base", "turret", "upper_arm"):
     App.openDocument(os.path.join(here, f + ".FCStd"))
 tur, uad = App.getDocument("turret"), App.getDocument("upper_arm")
@@ -402,8 +404,9 @@ ok_pairs = {("ElbowAxle", "Forearm"), ("ElbowAxle", "ElbowPlate"), ("ElbowAxle",
             ("B609_Elbow", "UpperArmJ2"), ("B609_Elbow", "UpperArmJ3")}
 worst = {}
 poses = 0
-for j2 in (35, 50, 70, 90, 110, 130, 150):
-    for j3 in (-70, -50, -30, -10, 10, 35):
+# the working range, plus the limit switch trip points 1.5 deg outside it (endstop_dims.py)
+for j2 in (ES.J2_LIM[0], 35, 50, 70, 90, 110, 130, 150, ES.J2_LIM[1]):
+    for j3 in (ES.J3_LIM[0], -70, -50, -30, -10, 10, 35, ES.J3_LIM[1]):
         if not -150 <= j3 - j2 <= -40:   # angle between the links = 180 + (J3 - J2): 30..140 deg
             continue
         poses += 1
@@ -424,7 +427,8 @@ for j2 in (35, 50, 70, 90, 110, 130, 150):
                     key = (a, b)
                     if v > worst.get(key, (0, ""))[0]:
                         worst[key] = (v, f"J2={j2} J3={j3}")
-print(f"interference sweep over {poses} poses (J2 35..150, J3 -70..35, links 30..140 deg):")
+print(f"interference sweep over {poses} poses (J2 {ES.J2_LIM[0]}..{ES.J2_LIM[1]}, J3 {ES.J3_LIM[0]}..{ES.J3_LIM[1]}, "
+      "links 30..140 deg):")
 if not worst:
     print("  none")
 for (a, b), (v, at) in sorted(worst.items(), key=lambda kv: -kv[1][0]):

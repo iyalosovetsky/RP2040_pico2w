@@ -8,6 +8,8 @@ Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
   upper_arm_tie.stl  - print 3: blocks across the gap between the plates; a tenon on each face
                        sits in a pocket in each plate, 2x M3x12 per plate into nuts in the tie
   j3_crank.stl       - D-hub on the J3 shaft, D18 bushing for the J3-side plate, 35 mm arm
+Limit switches (endstop_dims.py, limits.py): the J2-side plate and the crank each carry two
+fingers that sweep past a switch board lying under the shoulder - one finger per end of travel.
 Needs turret.FCStd (and through it base.FCStd, pg27.FCStd) in the same folder.
 
 Run headless:
@@ -35,6 +37,9 @@ import Mesh
 
 out = os.path.abspath(next(a for a in sys.argv if a.endswith(".FCStd")))
 here = os.path.dirname(out)
+sys.path.insert(0, here)
+import endstop_dims as ES  # noqa: E402
+
 for f in ("pg27", "base", "turret"):
     App.openDocument(os.path.join(here, f + ".FCStd"))
 tur = App.getDocument("turret")
@@ -181,6 +186,21 @@ def grub(name, y, out_r, side, face_y):
     return [hole, nut]
 
 
+def finger(name, ang, r0, y0, y1, face_y):
+    """Limit switch finger: a radial bar at ang (deg, in the part's frame) from r0 out to
+    ES.FINGER_R, between y0 and y1; the face at face_y works the switch lever and has its
+    two long edges chamfered so it rides onto the lever from either end."""
+    w, c = ES.FINGER_W / 2, ES.FINGER_CH
+    back, sg = (y1, 1) if face_y == y0 else (y0, -1)
+    prof = [(-w, face_y + sg * c), (-w + c, face_y), (w - c, face_y), (w, face_y + sg * c), (w, back), (-w, back)]
+    pts = [App.Vector(r0, y, t) for t, y in prof]
+    s = Part.Face(Part.makePolygon(pts + pts[:1])).extrude(App.Vector(ES.FINGER_R - r0, 0, 0))
+    s.rotate(App.Vector(0, 0, 0), App.Vector(0, 1, 0), -ang)
+    o = doc.addObject("Part::Feature", name)
+    o.Shape = s
+    return o
+
+
 def plate(name, y0, y1):
     """Link outline (stadium) in the X/Z plane between y0 and y1."""
     parts = [box(name + "_B", f"{P}len_l2", f"({y1}) - ({y0})", f"2 * {P}pl_r", "0 mm", y0, f"-{P}pl_r"),
@@ -218,7 +238,11 @@ elb2 = cyl_y("ElbowBossJ2", f"{P}elb_boss_r", f"{P}pl_in", f"{P}pl_in + {P}elb_t
 hy0, hy1 = f"{P}pl_in", f"{P}j2_hub_out"
 lug2 = box("ClampLugJ2", f"{P}cl_slit + 2 * {P}cl_lug_t", f"({hy1}) - ({hy0})", f"{P}cl_reach - {P}j2_hub_r + 3 mm",
            f"-({P}cl_slit / 2 + {P}cl_lug_t)", hy0, f"-{P}cl_reach")
-j2_solid = fuse("J2Solid", [pj2, hub2, elb2, lug2])
+# limit switch fingers on the shoulder end, in the inner 3 mm of the plate: thin enough to pass
+# inside the head of the M4 pin that holds the lower levelling rod to the turret's ear
+lim2 = [finger(f"LimFingerJ2_{k}", a, 15, ES.J2_FACE, ES.J2_FACE + ES.J2_FINGER_T, ES.J2_FACE)
+        for k, a in enumerate(ES.J2_FINGERS)]
+j2_solid = fuse("J2Solid", [pj2, hub2, elb2, lug2] + lim2)
 j2_tools = [d_bore("BoreJ2", f"{P}pl_in + 1 mm", f"{P}j2_hub_out + 1 mm")]
 j2_tools += grub("GrubJ2", f"({P}pl_in + {P}pl_t + {P}j2_hub_out) / 2", f"{P}j2_hub_r", 1, f"{P}j2_hub_out")
 zb2 = f"-({P}cl_reach + {P}j2_hub_r) / 2 - 1.5 mm"
@@ -310,24 +334,30 @@ cr_collar = cyl_y("CrankCollar", f"{P}collar_r", f"-{P}cr_y0", f"-{P}pl_in - {P}
 cr_arm = box("CrankArm", f"{P}R", f"{P}cr_t", f"{P}cr_w", "0 mm", f"-{P}cr_y0", f"-{P}cr_w / 2")
 cr_tip = cyl_y("CrankTip", f"{P}cr_w / 2", f"-{P}cr_y0", f"-{P}cr_y0 + {P}cr_t", x=f"{P}R")
 cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
-# lug over the whole ring + collar (|y| 16.5..25.5) so the bolt pockets keep 1.4 mm walls
-lug3 = box("ClampLugCrank", f"{P}cl_reach - {P}cr_boss_r + 3 mm", f"{P}cr_y0 - {P}pl_in - {P}pl_t - 0.5 mm",
-           f"{P}cl_slit + 2 * {P}cl_lug_t", f"-{P}cl_reach", f"-{P}cr_y0", f"-({P}cl_slit / 2 + {P}cl_lug_t)")
-cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, lug3])
+# lug over the whole ring + collar (|y| 16.5..25.5) so the bolt pockets keep 1.4 mm walls. It hangs
+# under the root (crank frame -Z): it then stays in the upper half over the whole J3 range, clear of
+# the limit switch under the shoulder, and leaves the ring's -X side to the low-limit finger.
+lug3 = box("ClampLugCrank", f"{P}cl_slit + 2 * {P}cl_lug_t", f"{P}cr_y0 - {P}pl_in - {P}pl_t - 0.5 mm",
+           f"{P}cl_reach - {P}cr_boss_r + 3 mm", f"-({P}cl_slit / 2 + {P}cl_lug_t)", f"-{P}cr_y0", f"-{P}cl_reach")
+# limit switch fingers on the root ring, in the crank arm's plane (the drive rod runs inside it)
+lim3 = [finger(f"LimFingerJ3_{k}", a, 10, ES.J3_FACE - ES.J3_FINGER_T, ES.J3_FACE, ES.J3_FACE)
+        for k, a in enumerate(ES.J3_FINGERS)]
+cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, lug3] + lim3)
 cr_tools = [d_bore("BoreJ3", f"-{P}cr_y0 - 1 mm", f"-{P}pl_in - 2 mm", side=-1),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R")]
-# clamp: slit along -X through the root ring and the collar (not the 6803 journal), M3 across
-xb3 = f"-({P}cl_reach + {P}cr_boss_r) / 2 - 1.5 mm"
+# clamp: slit along -Z through the root ring and the collar (not the 6803 journal), M3 across (along X)
+zb3 = f"-({P}cl_reach + {P}cr_boss_r) / 2 - 1.5 mm"
 yc3 = f"-({P}cr_y0 + {P}pl_in + {P}pl_t + 0.5 mm) / 2"
+lug3_x = f"({P}cl_slit / 2 + {P}cl_lug_t)"
 g = [
-    box("ClampSlitCrank", f"{P}cl_reach + 1 mm - {P}shaft_d / 2", f"{P}cr_y0 - {P}pl_in - {P}pl_t + 1 mm", f"{P}cl_slit",
-        f"-{P}cl_reach - 1 mm", f"-{P}cr_y0 - 1 mm", f"-{P}cl_slit / 2"),
-    box("ClampBoltCrank", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"2 * ({P}cl_slit + 2 * {P}cl_lug_t)",
-        f"{xb3} - {P}cl_bolt_d / 2", f"{yc3} - {P}cl_bolt_d / 2", f"-({P}cl_slit + 2 * {P}cl_lug_t)"),
-    box("ClampHeadCrank", f"{P}cl_head_d", f"{P}cl_head_d", f"{P}cl_head_h + 1 mm", f"{xb3} - {P}cl_head_d / 2",
-        f"{yc3} - {P}cl_head_d / 2", f"{P}cl_slit / 2 + {P}cl_lug_t - {P}cl_head_h"),
-    box("ClampNutCrank", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", f"{P}cl_nut_d + 1 mm", f"{xb3} - {P}nut_w / 2 - 0.2 mm",
-        f"{yc3} - {P}nut_w / 2 - 0.2 mm", f"-({P}cl_slit / 2 + {P}cl_lug_t) - 1 mm"),
+    box("ClampSlitCrank", f"{P}cl_slit", f"{P}cr_y0 - {P}pl_in - {P}pl_t + 1 mm", f"{P}cl_reach + 1 mm - {P}shaft_d / 2",
+        f"-{P}cl_slit / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cl_reach - 1 mm"),
+    box("ClampBoltCrank", f"2 * {lug3_x} + 2 mm", f"{P}cl_bolt_d", f"{P}cl_bolt_d",
+        f"-{lug3_x} - 1 mm", f"{yc3} - {P}cl_bolt_d / 2", f"{zb3} - {P}cl_bolt_d / 2"),
+    box("ClampHeadCrank", f"{P}cl_head_h + 1 mm", f"{P}cl_head_d", f"{P}cl_head_d", f"{lug3_x} - {P}cl_head_h",
+        f"{yc3} - {P}cl_head_d / 2", f"{zb3} - {P}cl_head_d / 2"),
+    box("ClampNutCrank", f"{P}cl_nut_d + 1 mm", f"{P}nut_w + 0.4 mm", f"{P}nut_w + 0.4 mm", f"-{lug3_x} - 1 mm",
+        f"{yc3} - {P}nut_w / 2 - 0.2 mm", f"{zb3} - {P}nut_w / 2 - 0.2 mm"),
 ]
 crank = cut("J3Crank", cr_solid, cr_tools + g)
 crank.Label = "J3 crank (print)"

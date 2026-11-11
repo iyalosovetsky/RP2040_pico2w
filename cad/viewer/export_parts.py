@@ -20,9 +20,10 @@ import Part
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAD = os.path.dirname(HERE)
-for f in ("pg27", "base", "turret", "upper_arm", "forearm", "tools"):
+DOCS = ("pg27", "base", "turret", "upper_arm", "forearm", "tools", "limits")
+for f in DOCS:
     App.openDocument(os.path.join(CAD, f + ".FCStd"))
-D = {n: App.getDocument(n) for n in ("pg27", "base", "turret", "upper_arm", "forearm", "tools")}
+D = {n: App.getDocument(n) for n in DOCS}
 TOL = 0.3
 
 
@@ -67,6 +68,8 @@ parts = {
     "j1_hub": shp("turret", "J1Hub"),
     "j1_hub_screws": shp("turret", "J1HubScrews"),
     "j1_wedge": shp("turret", "J1Wedge"),
+    "limit_plate": shp("limits", "LimitPlate"),
+    "endstops": compound("limits", ["EndstopJ2", "EndstopJ3"]),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
     "ua_j3": shp("upper_arm", "UpperArmJ3"),

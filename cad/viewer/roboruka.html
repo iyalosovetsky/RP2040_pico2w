@@ -227,7 +227,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const M = {
     // same colours as in the .FCStd files
     print: mat(0x5c7d96), print2: mat(0x99b3c7), turret: mat(0x7a96ad), base: mat(0x5c7d96), rod: mat(0x1c9e75),
-    crank: mat(0xd95c30), keeper: mat(0x4d9e85), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
+    crank: mat(0xd95c30), keeper: mat(0x4d9e85), pcb: mat(0xb3261e), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
     shaft: mat(0xdbdee0, { metalness: 0.6, roughness: 0.35 }), b609: mat(0x8078de, { metalness: 0.3, roughness: 0.45 }),
     thrust: mat(0xd9a340, { metalness: 0.4, roughness: 0.4 }), servo: mat(0x1e2226), finger: mat(0xcf5428),
     toolBody: mat(0x3a4148, { metalness: 0.5, roughness: 0.4 }), spBody: mat(0xc8ccd0, { metalness: 0.7, roughness: 0.3 })
@@ -286,7 +286,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   turret.add(part('turret_body', M.turret, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
   turret.add(part('j1_hub', M.crank, 'Маточина J1 (друк): диск знизу під губою утримувача, 3×M3×20 зверху крізь турель у гайки в бічних пазах фланця'));
   turret.add(part('j1_wedge', M.keeper, 'Клин J1 (друк): на лиску вала, конус 1:10, тягне вгору M3×25 з центру турелі — без люфту'));
-  turret.add(part('j1_hub_screws', M.body, 'Гвинти J1: 3×M3×20 (маточина), M3×25 + шайби 2 мм (клин)'));
+  turret.add(part('j1_hub_screws', M.body, 'Гвинти J1: 3×M3×20 (маточина; два передні з кронштейном кінцевиків — M3×25), M3×25 + шайби 2 мм (клин)'));
+  turret.add(part('limit_plate', M.keeper, 'Кронштейн кінцевиків J2/J3 (друк): лежить між щоками, тримається двома гвинтами маточини M3×25; плати на пазах, 2×M3×6 у гайки в каналах'));
+  turret.add(part('endstops', M.pcb, 'Кінцевики J2 (ззаду) і J3 (спереду): плата 39.4×16.4 з мікриком; палець проходить за 1.5 мм від краю й притискає важіль'));
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
   const lugPin = at(cylY(2, 14, M.shaft), -LV, 21, 0); // pin of the lower levelling rod (y 17..26)
@@ -294,13 +296,13 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   lugPin.position.set(-LV, 21.5, 0); sh.add(tag(lugPin, 'Палець M4 нижньої тяги вирівнювання'));
 
   const upper = new THREE.Group(); sh.add(upper);
-  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): D-маточина на валу J2, гніздо 608ZZ'));
+  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): D-маточина на валу J2, гніздо 608ZZ; два пальці кінцевика J2 (спрацювання на 33.5° і 151.5°)'));
   upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): гніздо 6803 на шийці кривошипа Ø17, гніздо 608ZZ ліктя'));
   upper.add(part('ua_spacers', M.print2, 'Поперечини плеча (друк, 3 шт.): шипи в гніздах обох пластин, по 4×M3×12 у гайки'));
   upper.add(part('ua_bush6803', M.b609, 'Підшипник 6803 (17×26×5) у щоці плеча J3; до його приїзду — друкована втулка того ж розміру'));
   upper.add(part('b609_elbow', M.b609, '608ZZ ×2 (8×22×7) — лікоть, у щоках плеча; у них крутиться вісь ліктя'));
   const crank = new THREE.Group(); sh.add(crank);
-  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): шийка Ø17 під 6803 щоки плеча, буртик притискає внутрішнє кільце'));
+  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): шийка Ø17 під 6803 щоки плеча, буртик притискає внутрішнє кільце; два пальці кінцевика J3 (−71.5° і +36.5°)'));
   crank.add(tag(at(cylY(2, 10, M.shaft), R, -21, 0), 'Палець M4: кривошип / тяга приводу'));
 
   const fore = new THREE.Group(); sh.add(fore);
