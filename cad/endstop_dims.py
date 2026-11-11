@@ -46,6 +46,18 @@ FINGER_R, FINGER_W, FINGER_CH = 29.0, 6.0, 1.2
 J2_LIM = (33.5, 151.5)
 J3_LIM = (-71.5, 36.5)
 
+# ---- J1 (base frame: table z = 0, J1 = Z) ----
+# The board stands upright on a collar clamped round the base housing, in front of the J1 axis: parts
+# outward, lever edge up and level. A flag under an arm of the J2/J3 bracket (so it turns with the
+# turret, behind the J1 axis when the arm points forward) passes STANDOFF above that edge. It gets to
+# the board from either side after a little under half a turn, so the one switch stops J1 both ways.
+J1_PCB_X = 59.1           # PCB top (component) face: its back sits on a flat 1.5 mm proud of the collar
+J1_EDGE = 98.5            # lever edge above the table; the free lever stays 1.3 mm under the motor cradles
+J1_HINGE_Y = -(LEV_TIP_X - LEV_HINGE_X + LEV_PRESS) / 2   # lever placed so both trip points are the same angle
+J1_FLAG_R = (57.0, 68.0)  # flag, radially: the lever strip is at 60.3..64.4
+J1_FLAG_W = 15.0          # and along its path
+J1_COLLAR_T, J1_COLLAR_H = 4.0, 14.0
+
 LEV_DEPTH = PCB_DEPTH - (LEV_Z0 + LEV_Z1) / 2        # lever centre below the axis
 LEV_TIP = TIP_END + BOARD_L - LEV_TIP_X              # |x| of the lever's free end
 LEV_HINGE = TIP_END + BOARD_L - LEV_HINGE_X          # |x| of its hinge

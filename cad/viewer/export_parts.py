@@ -59,6 +59,8 @@ parts = {
     "base_housing": shp("base", "BaseHousing"),
     "bearing_51211": compound("base", ["Washer_Housing", "Washer_Shaft", "Balls"]),
     "j1_keeper": shp("base", "J1Keeper"),
+    "limit_collar": compound("limits", ["LimitCollarFront", "LimitCollarRear"]),
+    "endstop_j1": shp("limits", "EndstopJ1"),
     # PG27, one mesh reused for all four joints (its own frame: gearbox face at 0, shaft +Z)
     "pg27_body": shp("pg27", "Motor_NEMA17"),
     "pg27_gear": compound("pg27", ["Flange", "Gearbox", "Boss", "Gearbox_CapScrews"]),
@@ -69,6 +71,7 @@ parts = {
     "j1_hub_screws": shp("turret", "J1HubScrews"),
     "j1_wedge": shp("turret", "J1Wedge"),
     "limit_plate": shp("limits", "LimitPlate"),
+    "limit_flag": shp("limits", "LimitFlag"),
     "endstops": compound("limits", ["EndstopJ2", "EndstopJ3"]),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),

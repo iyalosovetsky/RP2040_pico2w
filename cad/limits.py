@@ -2,9 +2,13 @@
 limits.py - limit switches for J2 and J3: the two switch boards and the printed bracket
 that carries them on the turret, plus the checks that the fingers work them.
 
-Builds cad/limits.FCStd and the print file
-  limit_plate.stl/.step - bracket on the turret plate between the cheeks. Print flat, no
-                          supports (PLA-CF or PETG).
+Builds cad/limits.FCStd and the print files
+  limit_plate.stl/.step  - bracket on the turret plate between the cheeks, with an arm out over
+                           the plate's rear edge for the J1 flag. Print flat, no supports.
+  limit_flag.stl/.step   - J1 flag: a saddle that slides onto the end of that arm, M3x12 + nut.
+                           Print on its outer face.
+  limit_collar_front.stl - half collar round the base housing with the seat for the J1 board,
+  limit_collar_rear.stl  - the plain half; 2x M3x20 + nuts pull them together. Print as modelled.
 Needs upper_arm.FCStd (and the files it uses) in the same folder; endstop_dims.py holds the
 board's dimensions and the installation numbers, read that first.
 
@@ -16,6 +20,8 @@ Layout (turret frame, shoulder axis along Y at z = shoulder_z): both boards lie 
 its lever edge to +y; the fingers on the J2-side plate (y 9..12) pass 1.5 mm from that edge.
 J3's board is the same thing turned half a turn: in front, lever edge to -y, worked by the fingers
 on the crank's root ring (y -20.5..-25.5). One switch per joint trips at both ends of travel.
+J1's board stands on a collar clamped round the base housing just under its top, lever edge up;
+the flag hangs from the bracket's arm behind the turret and passes 1.5 mm over that edge.
 
 Fitting:
   1. Take out the two hub screws at the front (x = +-13, y = -7.5), put the bracket down between
@@ -28,6 +34,11 @@ Fitting:
      travel left when the finger is over it. Tighten.
   4. Leave 0.5 mm between the crank and the J3 cheek when clamping the crank: the fingers pass
      0.9 mm from the board seats.
+  5. J1: flag onto the arm's end from behind (M3x12 down into the nut under the arm). The two collar
+     halves round the housing with their tops 1 mm under its top edge, 2x M3x20 + nuts, board on the
+     front half with 2x M3x6 (or M3x8) into nuts dropped into the channels from above. Turn the
+     collar until the board is opposite the flag with the arm pointing where "straight ahead" should
+     be, set the board's height the same way as in 3, tighten everything.
 """
 
 import math
@@ -46,7 +57,7 @@ import endstop_dims as ES  # noqa: E402
 
 for f in ("pg27", "base", "turret", "upper_arm"):
     App.openDocument(os.path.join(here, f + ".FCStd"))
-tur, ua = App.getDocument("turret"), App.getDocument("upper_arm")
+tur, ua, bas = App.getDocument("turret"), App.getDocument("upper_arm"), App.getDocument("base")
 doc = App.newDocument("Limits")
 doc.saveAs(out)
 V = App.Vector
@@ -56,6 +67,8 @@ SH_Z = tp.shoulder_z.Value            # shoulder axis
 TOP = tp.plate_top.Value              # turret plate top
 CHEEK = tp.cheek_in.Value             # cheek inner faces |y|
 HUB_R = tp.hub_scr_r.Value
+HR = bas.getObject("Params").body_od.Value / 2   # base housing radius
+BODY_H = bas.getObject("Params").body_h.Value    # its top
 PCB_TOP = SH_Z - ES.PCB_DEPTH
 SEAT = PCB_TOP - ES.BOARD_T           # the boards rest on this
 BASE_T, POCKET = 2.5, 1.0             # bracket floor; depth of the pockets under the two hub screw heads
@@ -125,6 +138,13 @@ for tag, j3 in (("J2", False), ("J3", True)):
     o = show(f"Endstop{tag}", Part.makeCompound([boards[tag][k] for k in ("pcb", "sw", "lever", "conn")]),
              f"{tag} limit switch board (bought)")
 
+# J1: board upright in front of the J1 axis - board x -> +y, its lever edge up, parts to +x
+Y0_J1 = ES.J1_HINGE_Y - ES.LEV_HINGE_X
+M_J1 = App.Matrix(0, 0, 1, ES.J1_PCB_X, 1, 0, 0, Y0_J1, 0, 1, 0, ES.J1_EDGE, 0, 0, 0, 1)
+boards["J1"] = {k: v.transformGeometry(M_J1) for k, v in bp.items()}
+show("EndstopJ1", Part.makeCompound([boards["J1"][k] for k in ("pcb", "sw", "lever", "conn")]),
+     "J1 limit switch board (bought)")
+
 # ---------------------------------------------------------- the bracket ---
 def half(sgn):
     """Seat block, nut channels, slots and the rest pad of the J2 board (sgn = 1); the J3 side
@@ -164,13 +184,63 @@ for sgn in (1, -1):
     s, c = half(sgn)
     solids += s
     cuts += c
+# J1: arm out over the rear edge of the turret plate; its thick end carries the flag
+FR0, FR1 = ES.J1_FLAG_R
+ARM_W, BOSS_T = 10.0, 5.0
+solids += [box(-FR1, -X_END, -ARM_W / 2, ARM_W / 2, z0, z1), box(-FR1, -FR0, -ARM_W / 2, ARM_W / 2, z0, z0 + BOSS_T)]
+FX = -(FR0 + FR1) / 2
+cuts += [cyl(1.7, FX, 0, z0 - 1, z0 + BOSS_T + 1), box(FX - 2.85, FX + 2.85, -3.3, 3.3, z0 - 1, z0 + 2.8)]
 plate = solids[0].fuse(solids[1:]).removeSplitter()
 plate = plate.cut(cuts[0].fuse(cuts[1:])).removeSplitter()
 lp = show("LimitPlate", plate, "Limit switch bracket (print)")
 
+# ------------------------------------------------------------ J1 flag ---
+# saddle over the arm's end: block from the lever up to above the arm, slot for the arm's end right
+# through it, so it can only slide along the arm and the screw stops that
+FZ0, FZ1 = ES.J1_EDGE + ES.STANDOFF, TOP + BOSS_T + 3.0
+fw = ES.J1_FLAG_W / 2
+flag = box(-FR1, -FR0, -fw, fw, FZ0, FZ1)
+flag = flag.cut(box(-FR1 - 1, -FR0 + 1, -ARM_W / 2 - 0.15, ARM_W / 2 + 0.15, TOP - 0.5, TOP + BOSS_T + 0.2))
+flag = flag.cut(cyl(1.7, FX, 0, TOP + BOSS_T, FZ1 + 1))
+c = ES.FINGER_CH
+for sg in (1, -1):   # the two long bottom edges: it rides onto the lever from either end
+    w = Part.makePolygon([V(0, sg * fw, FZ0), V(0, sg * (fw - c), FZ0), V(0, sg * fw, FZ0 + c), V(0, sg * fw, FZ0)])
+    flag = flag.cut(Part.Face(w).extrude(V(FR1 - FR0 + 2, 0, 0)).translated(V(-FR1 - 1, 0, 0)))
+flag = flag.removeSplitter()
+fl = show("LimitFlag", flag, "J1 limit flag (print, M3x12 + nut)")
+
+# ---------------------------------------------------------- J1 collar ---
+CT, CZ1 = ES.J1_COLLAR_T, BODY_H - 1.0
+CZ0 = CZ1 - ES.J1_COLLAR_H
+SEAT_X = ES.J1_PCB_X - ES.BOARD_T                       # the PCB's back
+ring = Part.makeCylinder(HR + CT, CZ1 - CZ0, V(0, 0, CZ0))
+ears = [box(-8, 8, sg * (HR + 2), sg * (HR + 15), CZ0, CZ1) if sg > 0 else box(-8, 8, -(HR + 15), -(HR + 2), CZ0, CZ1)
+        for sg in (1, -1)]
+riser = box(48.5, SEAT_X, Y0_J1 - 0.6, Y0_J1 + ES.BOARD_L + 0.6, CZ0, ES.J1_EDGE + 0.6)
+col = ring.fuse(ears + [riser])
+col = col.cut(Part.makeCylinder(HR, BODY_H + 0.6 - CZ0 + 1, V(0, 0, CZ0 - 1)))      # the housing; above it the seat may reach in
+ccuts = [box(-0.5, 0.5, -HR - 20, HR + 20, CZ0 - 1, ES.J1_EDGE + 2),                 # split into halves
+         # room for the solder joints behind the PCB: under the seat strip, and behind the header
+         box(SEAT_X - 2.5, SEAT_X + 1, Y0_J1 + 3.2, Y0_J1 + ES.BOARD_L + 1, CZ1, ES.J1_EDGE - ES.TERM_Y + 0.7),
+         box(SEAT_X - 2.5, SEAT_X + 1, Y0_J1 + 3.2, Y0_J1 + 12.4, CZ1, ES.J1_EDGE - 1.0)]
+for hx, hy in ES.HOLES:
+    y, z = Y0_J1 + hx, ES.J1_EDGE - hy
+    ccuts += [box(SEAT_X - 2.0 - CH_H, SEAT_X - 2.0, y - CH_W / 2, y + CH_W / 2, z - ES.ADJ[1] - 3.6, ES.J1_EDGE + 2),   # nut channel, open on top
+              box(48, SEAT_X + 1, y - SLOT_W / 2, y + SLOT_W / 2, z - ES.ADJ[1] - SLOT_W / 2, z - ES.ADJ[0] + SLOT_W / 2)]  # slot, right through
+for sg in (1, -1):
+    y = sg * (HR + 8.5)
+    ccuts += [Part.makeCylinder(1.7, 20, V(-10, y, (CZ0 + CZ1) / 2), V(1, 0, 0)),
+              box(-9, -5.2, y - 2.85, y + 2.85, (CZ0 + CZ1) / 2 - 3.3, (CZ0 + CZ1) / 2 + 3.3)]   # nut pocket in the rear half
+col = col.cut(ccuts[0].fuse(ccuts[1:])).removeSplitter()
+halves = sorted(col.Solids, key=lambda h: -h.BoundBox.XMax)
+if len(halves) != 2:
+    sys.exit(f"collar: expected 2 solids, got {len(halves)}")
+cf = show("LimitCollarFront", halves[0], "J1 collar, front half with the board seat (print)")
+cr = show("LimitCollarRear", halves[1], "J1 collar, rear half (print)")
+
 # ------------------------------------------------------------ context ---
 ctx = doc.addObject("App::DocumentObjectGroup", "Context")
-for d, n in ((tur, "TurretBody"), (tur, "J1HubScrews"), (ua, "UpperArm"), (ua, "Crank")):
+for d, n in ((tur, "TurretBody"), (tur, "J1HubScrews"), (ua, "UpperArm"), (ua, "Crank"), (bas, "BaseHousing")):
     lk = doc.addObject("App::Link", "Ctx_" + n)
     lk.LinkedObject = d.getObject(n)
     lk.LinkTransform = True
@@ -178,13 +248,24 @@ for d, n in ((tur, "TurretBody"), (tur, "J1HubScrews"), (ua, "UpperArm"), (ua, "
 doc.recompute()
 doc.save()
 
-s = plate.copy()
-s.translate(V(0, 0, -s.BoundBox.ZMin))
-Import.export([Part.show(s, "limit_plate")], os.path.join(here, "limit_plate.step"))
-m = Mesh.Mesh()
-m.addFacets(s.tessellate(0.05))
-m.write(os.path.join(here, "limit_plate.stl"))
-doc.removeObject("limit_plate")
+def export(shape, stem, rot=None):
+    s = shape.copy()
+    if rot:
+        s.rotate(V(0, 0, 0), rot[0], rot[1])
+    s.translate(V(0, 0, -s.BoundBox.ZMin))
+    Import.export([Part.show(s, stem)], os.path.join(here, stem + ".step"))
+    m = Mesh.Mesh()
+    m.addFacets(s.tessellate(0.05))
+    m.write(os.path.join(here, stem + ".stl"))
+    doc.removeObject(stem)
+
+
+export(plate, "limit_plate")
+export(flag, "limit_flag", (V(0, 1, 0), -90))     # outer face (the one away from the turret) on the bed
+export(halves[0], "limit_collar_front")
+export(halves[1], "limit_collar_rear")
+for o in (fl, cf, cr):
+    print(f"{o.Name} vol {o.Shape.Volume / 1000:.2f} cm3 valid {o.Shape.isValid()} solids {len(o.Shape.Solids)}")
 print(f"LimitPlate vol {plate.Volume / 1000:.2f} cm3 valid {plate.isValid()} solids {len(plate.Solids)}")
 
 # -------------------------------------------------------------- checks ---
@@ -201,6 +282,8 @@ static = {"LimitPlate": plate, "TurretBody": tur.getObject("TurretBody").Shape,
           "J1HubScrews": tur.getObject("J1HubScrews").Shape}
 for tag in boards:
     static[f"Endstop{tag}"] = Part.makeCompound([boards[tag][k] for k in ("pcb", "sw", "conn", "plug", "solder")])
+static.update({"LimitFlag": flag, "LimitCollarFront": halves[0], "LimitCollarRear": halves[1],
+               "BaseHousing": bas.getObject("BaseHousing").Shape})
 
 print("static fit:")
 bad = 0
@@ -208,7 +291,9 @@ bad = 0
 # on the turret, where the bracket's screw seats now are)
 for a, b in (("LimitPlate", "TurretBody"), ("EndstopJ2", "LimitPlate"),
              ("EndstopJ3", "LimitPlate"), ("EndstopJ2", "J1HubScrews"), ("EndstopJ3", "J1HubScrews"),
-             ("EndstopJ2", "EndstopJ3")):
+             ("EndstopJ2", "EndstopJ3"), ("LimitFlag", "LimitPlate"), ("LimitFlag", "TurretBody"),
+             ("LimitCollarFront", "BaseHousing"), ("LimitCollarRear", "BaseHousing"),
+             ("LimitCollarFront", "LimitCollarRear"), ("EndstopJ1", "LimitCollarFront"), ("EndstopJ1", "BaseHousing")):
     v = static[a].common(static[b]).Volume
     if v > 0.01:
         bad += 1
@@ -227,15 +312,39 @@ for tag, shape, lo, hi, off in (("J2", arm, ES.J2_LIM[0] - 3, ES.J2_LIM[1] + 3, 
         mv = posed(shape, ang + off)
         if i % 4 == 0:   # every 2 deg is plenty for the solids
             for sn, st in static.items():
-                if sn == "TurretBody":
-                    continue   # upper_arm.py checks that one, over the working range
+                if sn in ("TurretBody", "BaseHousing", "LimitCollarFront", "LimitCollarRear", "EndstopJ1"):
+                    continue   # the turret: upper_arm.py checks it; the rest belongs to J1, below
                 v = mv.common(st).Volume
                 if v > 0.01 and v > worst.get((tag, sn), (0, 0))[0]:
                     worst[(tag, sn)] = (v, ang)
         for bt in boards:
             if mv.common(boards[bt]["probe"]).Volume > 0.05:
                 pressed[tag].append((bt, ang))
-print("interference sweep (arm and crank against the boards, the bracket, the hub screws):")
+# J1: everything on the turret against everything on the base, a full turn
+pgd = App.getDocument("pg27")
+onturret = [tur.getObject("TurretBody").Shape, plate, flag, static["EndstopJ2"], static["EndstopJ3"]]
+for n in ("J2_Motor", "J3_Motor"):
+    body = pgd.getObject("Motor_NEMA17").Shape.fuse([pgd.getObject(k).Shape for k in ("Flange", "Gearbox")])
+    body.Placement = tur.getObject(n).Placement.multiply(body.Placement)
+    onturret.append(body)
+onturret = Part.makeCompound(onturret)
+onbase = {k: static[k] for k in ("LimitCollarFront", "LimitCollarRear", "EndstopJ1")}
+j1_pressed = []
+for i in range(int(360 / STEP) + 1):
+    ang = -180 + i * STEP
+    mv = onturret.copy()
+    mv.rotate(V(0, 0, 0), V(0, 0, 1), ang)
+    if i % 8 == 0:
+        for sn, st in onbase.items():
+            v = mv.common(st).Volume
+            if v > 0.01 and v > worst.get(("J1", sn), (0, 0))[0]:
+                worst[("J1", sn)] = (v, ang)
+    if abs(ang) > 150:
+        fm = flag.copy()
+        fm.rotate(V(0, 0, 0), V(0, 0, 1), ang)
+        if fm.common(boards["J1"]["probe"]).Volume > 0.05:
+            j1_pressed.append(ang)
+print("interference sweep (arm and crank against the boards, the bracket, the hub screws; the turret a full turn over the J1 collar):")
 if not worst:
     print("  none")
 for (tag, sn), (v, ang) in worst.items():
@@ -253,3 +362,5 @@ for tag in ("J2", "J3"):
             start = None
     print(f"  {tag}: " + (", ".join(f"{a:g}..{b:g}" for a, b in runs) or "never")
           + (f"   !! also presses the other board at {other}" if other else ""))
+neg, posv = [a for a in j1_pressed if a < 0], [a for a in j1_pressed if a > 0]
+print("  J1: " + (f"-180..{max(neg):g}, {min(posv):g}..180" if neg and posv else f"!! {j1_pressed}"))
