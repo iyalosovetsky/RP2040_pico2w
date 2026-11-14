@@ -2,15 +2,16 @@
 upper_arm.py - parametric FreeCAD model of the upper arm (J2) and the J3 crank.
 
 Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
-  upper_arm_j2.stl     - J2-side plate: saddle with a D-seat for the J2 shaft, elbow 609Z seat,
-                         two limit switch fingers. Print inner face down.
-  upper_arm_j2_cap.stl - cap under that saddle: 2x M3x16 + nuts pull it up onto the shaft
+  upper_arm_j2.stl     - J2-side plate: saddle that wraps the J2 shaft, elbow 609Z seat, two limit
+                         switch fingers. Print inner face down.
   upper_arm_j3.stl     - J3-side plate, 6803 seat on the crank's journal + elbow 609Z seat
   upper_arm_tie.stl    - print 3: blocks across the gap between the plates; two ribs on each face
                          sit in two grooves in each plate, 2x M3x12 per plate into nuts in the tie
-  j3_crank.stl         - crank: saddle with a D-seat for the J3 shaft, D17 journal for the J3-side
-                         plate's 6803, 40 mm arm, one limit switch finger. Print outer face down.
-  j3_crank_cap.stl     - its cap, with the other finger: 2x M3x16 + nuts from the arm's side
+  j3_crank.stl         - crank: saddle that wraps the J3 shaft, D17 journal for the J3-side plate's
+                         6803, 40 mm arm, both limit switch fingers. Print outer face down.
+  hub_cap.stl          - print 2 (or cut 2 from 3 mm steel / 4 mm aluminium): flat 25 x 9 plate with
+                         two 3.4 holes 17 apart. One under each saddle, on the shaft's flat; 2x M3x16
+                         (M3x12 with a metal plate) into the nuts in the saddle.
 Limit switches (endstop_dims.py, limits.py): the J2-side plate and the crank carry two fingers each
 that sweep past a switch board lying under the shoulder - one finger per end of travel.
 Needs turret.FCStd (and through it base.FCStd, pg27.FCStd) in the same folder.
@@ -88,15 +89,13 @@ PARAMS = [
     ("web_scr_z",  "8 mm",    "plate tie: 2 M3 per plate at +-this across the link"),
     ("m3_clear",   "3.4 mm",  "M3 clearance"),
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth (heads flush: the rods pass outside the plates)"),
-    ("cl_head_h",  "3 mm",    "clamp: head pocket depth"),
-    ("hub_hw",     "12.5 mm", "J2 hub block: half-width across the clamp screws"),
+    ("hub_hw",     "12.5 mm", "hub block / cap plate: half-width across the clamp screws"),
     ("hub_top",    "11 mm",   "hub saddle: height over the shaft axis (the lower levelling rod passes 12.2 above it)"),
-    ("cap_gap",    "0.8 mm",  "gap between saddle and cap - the screws close it onto the shaft"),
-    ("cap_t",      "9.2 mm",  "cap thickness (to 10 from the axis)"),
-    ("cl_x",       "8.5 mm",  "J2 clamp screws: distance from the shaft axis"),
-    ("cl_x3",      "11.3 mm", "crank clamp screws: distance from the axis (heads on the arm's side, clear of the 16 wide arm)"),
-    ("cr_blk_hw",  "15.2 mm", "crank hub block: half-width across the clamp screws"),
-    ("cl_nut_x",   "3.6 mm",  "clamp nut slot: plastic between it and the split"),
+    ("sad_low",    "2.2 mm",  "saddle reaches this far past the shaft axis: it wraps 244 deg of the shaft and stops 0.8 short of the flat (3.01)"),
+    ("cap_t",      "6.5 mm",  "printed cap plate thickness (metal: 3 mm steel or 4 mm aluminium)"),
+    ("cap_w",      "9 mm",    "cap plate width along the shaft"),
+    ("cl_x",       "8.5 mm",  "clamp screws: distance from the shaft axis"),
+    ("cl_nut_x",   "3.6 mm",  "clamp nut slot: plastic between it and the saddle's under face"),
     ("cr_y0",      "25.5 mm", "crank hub outer end |y|"),
     ("cr_t",       "4.5 mm",  "crank arm thickness (|y| 21..25.5)"),
     ("cr_w",       "16 mm",   "crank arm width"),
@@ -168,18 +167,6 @@ def cut(name, b, tools):
     return o
 
 
-def d_seat(name, y0, y1, flat):
-    """D-shaped seat along Y for the PG27 shaft, its flat facing +Z (flat="z") or +X ("x")."""
-    b = cyl_y(name + "_R", f"{P}shaft_d / 2 + {P}d_clr", y0, y1)
-    off = f"{P}shaft_d / 2 - {P}flat_depth + {P}d_clr"
-    ly = f"({y1}) - ({y0}) + 2 mm"
-    if flat == "z":
-        f = box(name + "_F", f"{P}shaft_d", ly, f"{P}shaft_d", f"-{P}shaft_d / 2", f"({y0}) - 1 mm", off)
-    else:
-        f = box(name + "_F", f"{P}shaft_d", ly, f"{P}shaft_d", off, f"({y0}) - 1 mm", f"-{P}shaft_d / 2")
-    return cut(name, b, f)
-
-
 def finger(name, ang, r0, y0, y1, face_y):
     """Limit switch finger: a radial bar at ang (deg, in the part's frame) from r0 out to
     ES.FINGER_R, between y0 and y1; the face at face_y works the switch lever and has its
@@ -226,40 +213,52 @@ pj2 = plate("PlateJ2", f"{P}pl_in", f"{P}pl_in + {P}pl_t")
 elb2 = cyl_y("ElbowBossJ2", f"{P}elb_boss_r", f"{P}pl_in", f"{P}pl_in + {P}elb_t", x=f"{P}len_l2")
 # J2 hub. The shaft stops 0.7 mm inside the plate, so all that can grip it lies between the plate and
 # the turret cheek (|y| 16..25.5), and a split ring of that size is far too stiff to close. So the hub
-# is two parts. A saddle on the plate has a D-shaped seat: the shaft's flat lies against the seat's
-# flat roof, which takes the torque straight into the plate. A loose cap underneath is pulled up by
-# 2x M3 and presses the flat home - no play, and nothing has to bend. The cap is under the hub (arm
-# frame -Z) because the lower levelling rod passes 12.2 mm above the axis.
+# is two parts. The saddle on the plate carries a round bore that wraps 244 deg of the shaft and is
+# open underneath, where the shaft's flat looks out 0.8 mm past the saddle. A flat plate lies on
+# that flat and 2x M3 pull it up: the flat bears on the plate, the plate's screws take the torque as
+# a push on one and a pull on the other, and the shaft is pressed up into the bore - no play, and
+# nothing has to bend. Being flat, the plate can be printed or cut from sheet metal. It is under
+# the hub (arm frame -Z) because the lower levelling rod passes 12.2 mm above the axis.
 hy0, hy1 = f"{P}pl_in + {P}pl_t", f"{P}j2_hub_out"
-hub2 = box("HubJ2", f"2 * {P}hub_hw", f"({hy1}) - ({hy0}) + 0.01 mm", f"{P}hub_top",
-           f"-{P}hub_hw", f"({hy0}) - 0.01 mm", "0 mm")
+FLAT = f"({P}shaft_d / 2 - {P}flat_depth)"                # the shaft's flat, from its axis
+hub2 = box("HubJ2", f"2 * {P}hub_hw", f"({hy1}) - ({hy0}) + 0.01 mm", f"{P}hub_top + {P}sad_low",
+           f"-{P}hub_hw", f"({hy0}) - 0.01 mm", f"-{P}sad_low")
 # limit switch fingers on the shoulder end, in the inner 3 mm of the plate: thin enough to pass
 # inside the head of the M4 pin that holds the lower levelling rod to the turret's ear
 lim2 = [finger(f"LimFingerJ2_{k}", a, 15, ES.J2_FACE, ES.J2_FACE + ES.J2_FINGER_T, ES.J2_FACE)
         for k, a in enumerate(ES.J2_FINGERS)]
 j2_solid = fuse("J2Solid", [pj2, hub2, elb2] + lim2)
-# the seat runs 1.5 mm into the plate as a closed pocket for the shaft's tip
-j2_tools = [d_seat("SeatJ2", f"({hy0}) - 1.5 mm", f"({hy1}) + 1 mm", "z")]
-yc2 = f"(({hy0}) + ({hy1})) / 2 + 0.15 mm"
-cap2_z = f"-({P}cap_gap + {P}cap_t)"
-cap2_tools = [cyl_y("CapJ2_Seat", f"{P}shaft_d / 2 + {P}d_clr", f"({hy0}) - 1 mm", f"({hy1}) + 1 mm")]
-for k, sx in enumerate((1, -1)):
-    xc = f"{sx} * {P}cl_x"
-    j2_tools += [   # nut slot open on the hub's end face, screw hole up from the split
-        box(f"ClampNutJ2_{k}", f"{P}nut_w + 0.4 mm", f"({hy1}) - ({yc2}) + {P}nut_w / 2 + 1.2 mm", f"{P}nut_t",
-            f"{xc} - {P}nut_w / 2 - 0.2 mm", f"{yc2} - {P}nut_w / 2 - 0.2 mm", f"{P}cl_nut_x"),
-        box(f"ClampBoltJ2_{k}", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"{P}hub_top - 0.5 mm",
-            f"{xc} - {P}cl_bolt_d / 2", f"{yc2} - {P}cl_bolt_d / 2", "-1 mm"),
-    ]
-    cap2_tools += [
-        box(f"CapJ2_Bolt{k}", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"{P}cap_t + 2 mm",
-            f"{xc} - {P}cl_bolt_d / 2", f"{yc2} - {P}cl_bolt_d / 2", f"{cap2_z} - 1 mm"),
-        box(f"CapJ2_Head{k}", f"{P}cl_head_d", f"{P}cl_head_d", f"{P}cl_head_h + 1 mm",
-            f"{xc} - {P}cl_head_d / 2", f"{yc2} - {P}cl_head_d / 2", f"{cap2_z} - 1 mm"),
-    ]
-cap_j2 = cut("UpperArmJ2Cap", box("CapJ2_B", f"2 * {P}hub_hw", f"({hy1}) - ({hy0}) - 0.3 mm", f"{P}cap_t",
-                                  f"-{P}hub_hw", f"({hy0}) + 0.3 mm", cap2_z), cap2_tools)
-cap_j2.Label = "J2 hub cap (print, 2x M3x16 + nuts)"
+# the bore runs 1.5 mm into the plate as a closed pocket for the shaft's tip
+j2_tools = [cyl_y("BoreJ2", f"{P}shaft_d / 2 + {P}d_clr", f"({hy0}) - 1.5 mm", f"({hy1}) + 1 mm")]
+yc2 = f"({hy1}) - {P}cap_w / 2"
+
+
+def clamp_tools(name, yc, y_open, sgn):
+    """Nut slots and screw holes of a saddle whose cap plate is at -Z; yc = the screws' y,
+    y_open = the end face the nut slots open on, sgn = +1 if that face is at the higher y."""
+    t = []
+    for k, sx in enumerate((1, -1)):
+        xc = f"{sx} * {P}cl_x"
+        ylen = f"abs(({y_open}) - ({yc})) + {P}nut_w / 2 + 1.2 mm"
+        y0 = f"{yc} - {P}nut_w / 2 - 0.2 mm" if sgn > 0 else f"({y_open}) - 1 mm"
+        t += [box(f"{name}Nut{k}", f"{P}nut_w + 0.4 mm", ylen, f"{P}nut_t",
+                  f"{xc} - {P}nut_w / 2 - 0.2 mm", y0, f"{P}cl_nut_x - {P}sad_low"),
+              box(f"{name}Bolt{k}", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"{P}hub_top + {P}sad_low - 0.5 mm",
+                  f"{xc} - {P}cl_bolt_d / 2", f"{yc} - {P}cl_bolt_d / 2", f"-{P}sad_low - 1 mm")]
+    return t
+
+
+def cap_plate(name, y0):
+    """The flat cap: lies on the shaft's flat, two clearance holes."""
+    b = box(name + "_B", f"2 * {P}hub_hw", f"{P}cap_w", f"{P}cap_t", f"-{P}hub_hw", y0, f"-{FLAT} - {P}cap_t")
+    holes = [box(f"{name}_H{k}", f"{P}cl_bolt_d", f"{P}cl_bolt_d", f"{P}cap_t + 2 mm", f"{sx} * {P}cl_x - {P}cl_bolt_d / 2",
+                 f"({y0}) + {P}cap_w / 2 - {P}cl_bolt_d / 2", f"-{FLAT} - {P}cap_t - 1 mm") for k, sx in enumerate((1, -1))]
+    return cut(name, b, holes)
+
+
+j2_tools += clamp_tools("ClampJ2_", yc2, hy1, 1)
+cap_j2 = cap_plate("UpperArmJ2Cap", f"({hy1}) - {P}cap_w")
+cap_j2.Label = "J2 hub cap plate (print or sheet metal, 2x M3 + nuts)"
 j2_tools += [cyl_y("Seat609J2", f"{P}b609_d / 2 + {P}b609_fit", f"{P}pl_in + {P}elb_t - {P}b609_w",
                    f"{P}pl_in + {P}elb_t + 1 mm", x=f"{P}len_l2"),
              cyl_y("LipJ2", f"{P}lip_hole_d / 2", f"{P}pl_in - 1 mm", f"{P}pl_in + {P}elb_t", x=f"{P}len_l2")]
@@ -337,42 +336,33 @@ cr_collar = cyl_y("CrankCollar", f"{P}collar_r", f"-{P}cr_y0", f"-{P}pl_in - {P}
 cr_arm = box("CrankArm", f"{P}R", f"{P}cr_t", f"{P}cr_w", "0 mm", f"-{P}cr_y0", f"-{P}cr_w / 2")
 cr_tip = cyl_y("CrankTip", f"{P}cr_w / 2", f"-{P}cr_y0", f"-{P}cr_y0 + {P}cr_t", x=f"{P}R")
 cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
-# hub: the same two parts as on J2. The saddle is the half towards the arm (+X): its D-seat's flat
-# takes the torque. The cap is the half behind the shaft; its screws come in from the arm's side, one
-# above and one below the arm, into nuts in the cap. The collar's cap side is gone with it - the
-# saddle's half of the collar still backs the 6803's inner ring.
+# hub: the same saddle + flat plate as on J2, the plate under the root (crank frame -Z). There it stays
+# in the upper half over the whole J3 range, clear of the limit switch under the shoulder. The plate
+# sits in a notch: the arm's lower edge is cut back to the saddle on one side, and on the other an ear
+# hangs down past the plate's end - that ear carries the low-limit finger. The journal is cut flat
+# at the saddle's under face too (the 6803 still sits on 210 deg of it), so nothing overhangs the
+# plate's place with the crank printed outer face down.
 y3a, y3b = f"-{P}cr_y0", f"-{P}pl_in - {P}pl_t"
-cr_blk = box("CrankBlock", f"{P}hub_top", f"({y3b}) - ({y3a}) - 0.5 mm", f"2 * {P}cr_blk_hw", "0 mm", y3a, f"-{P}cr_blk_hw")
+cr_blk = box("CrankBlock", f"2 * {P}hub_hw", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}hub_top + {P}sad_low",
+             f"-{P}hub_hw", y3a, f"-{P}sad_low")
+EAR_X = f"-{P}hub_hw - 4.5 mm"
+cr_ear = [box("CrankEar_U", "4.6 mm", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}sad_low + 3 mm", EAR_X, y3a, f"-{P}sad_low"),
+          box("CrankEar_L", "4.2 mm", f"({y3b}) - ({y3a}) - 0.5 mm", f"{FLAT} + {P}cap_t - {P}sad_low + 0.01 mm",
+              EAR_X, y3a, f"-{FLAT} - {P}cap_t")]
 # limit switch fingers in the crank arm's plane (the drive rod runs inside it): the high-limit one
-# on the saddle, the low-limit one on the cap
-lim3 = [finger(f"LimFingerJ3_{k}", a, 10, ES.J3_FACE - ES.J3_FINGER_T, ES.J3_FACE, ES.J3_FACE)
-        for k, a in enumerate(ES.J3_FINGERS)]
-cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, cr_blk, lim3[1]])
-cr_tools = [d_seat("SeatJ3", f"({y3a}) - 1 mm", f"({y3b}) + 1.5 mm", "x"),
+# on the saddle, the low-limit one on the ear
+lim3 = [finger("LimFingerJ3_0", ES.J3_FINGERS[0], 15.4, ES.J3_FACE - ES.J3_FINGER_T, ES.J3_FACE, ES.J3_FACE),
+        finger("LimFingerJ3_1", ES.J3_FINGERS[1], 10, ES.J3_FACE - ES.J3_FINGER_T, ES.J3_FACE, ES.J3_FACE)]
+cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, cr_blk] + cr_ear + lim3)
+yc3 = f"({y3a}) + {P}cap_w / 2"
+cr_tools = [cyl_y("BoreJ3", f"{P}shaft_d / 2 + {P}d_clr", f"({y3a}) - 1 mm", f"({y3b}) + 1.5 mm"),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R"),
-            box("CrankCapRoom", "30 mm", f"({y3b}) - ({y3a}) + 1 mm", "60 mm", "-30 mm", f"({y3a}) - 1 mm", "-30 mm")]
-yc3 = f"(({y3a}) + ({y3b}) - 0.5 mm) / 2"
-cap3_x = f"-({P}cap_gap + {P}cap_t)"
-cap3_tools = [cyl_y("CrankCap_Seat", f"{P}shaft_d / 2 + {P}d_clr", f"({y3a}) - 1 mm", f"({y3b}) + 1 mm")]
-g = []
-for k, sz in enumerate((1, -1)):
-    zc = f"{sz} * {P}cl_x3"
-    g += [
-        box(f"ClampBoltCrank{k}", f"{P}hub_top + 2 mm", f"{P}cl_bolt_d", f"{P}cl_bolt_d",
-            "-1 mm", f"{yc3} - {P}cl_bolt_d / 2", f"{zc} - {P}cl_bolt_d / 2"),
-        box(f"ClampHeadCrank{k}", f"{P}cl_head_h + 1 mm", f"{P}cl_head_d", f"{P}cl_head_d",
-            f"{P}hub_top - {P}cl_head_h", f"{yc3} - {P}cl_head_d / 2", f"{zc} - {P}cl_head_d / 2"),
-    ]
-    cap3_tools += [
-        box(f"CrankCap_Bolt{k}", f"{P}cap_t + 2 mm", f"{P}cl_bolt_d", f"{P}cl_bolt_d",
-            f"{cap3_x} - 1 mm", f"{yc3} - {P}cl_bolt_d / 2", f"{zc} - {P}cl_bolt_d / 2"),
-        # nut slot open on the cap's outer end
-        box(f"CrankCap_Nut{k}", f"{P}nut_t", f"({yc3}) - ({y3a}) + {P}nut_w / 2 + 1.2 mm", f"{P}nut_w + 0.4 mm",
-            f"-({P}cap_gap + {P}cl_nut_x + {P}nut_t)", f"({y3a}) - 1 mm", f"{zc} - {P}nut_w / 2 - 0.2 mm"),
-    ]
-cap3_b = box("CrankCap_B", f"{P}cap_t", f"({y3b}) - ({y3a}) - 0.5 mm", f"2 * {P}cr_blk_hw", cap3_x, y3a, f"-{P}cr_blk_hw")
-crank_cap = cut("J3CrankCap", fuse("CrankCapSolid", [cap3_b, lim3[0]]), cap3_tools)
-crank_cap.Label = "J3 crank cap (print, 2x M3x16 + nuts)"
+            # the plate's place, and the journal's flat beyond it
+            box("CrankCapRoom", f"2 * {P}hub_hw + 0.6 mm", "17 mm", "30 mm", f"-{P}hub_hw - 0.3 mm", f"({y3a}) - 1 mm",
+                f"-{P}sad_low - 30 mm")]
+g = clamp_tools("ClampCrank_", yc3, y3a, -1)
+crank_cap = cap_plate("J3CrankCap", y3a)
+crank_cap.Label = "J3 crank cap plate (print or sheet metal, 2x M3 + nuts)"
 crank = cut("J3Crank", cr_solid, cr_tools + g)
 crank.Label = "J3 crank (print)"
 cp = doc.addObject("App::Part", "Crank")
@@ -410,11 +400,10 @@ def export(part, stem, rot):
 
 
 export(plate_j2, "upper_arm_j2", 90)      # inner face (y = +pl_in) on the bed
-export(cap_j2, "upper_arm_j2_cap", 0)     # screw head side on the bed, seat up
 export(plate_j3, "upper_arm_j3", -90)     # inner face (y = -pl_in) on the bed
 export(spacers[0], "upper_arm_tie", 0)   # print 3; standing on its edge, ribs upright on the two sides
 export(crank, "j3_crank", 90)             # hub/arm outer face (y = -cr_y0) on the bed
-export(crank_cap, "j3_crank_cap", 90)     # the same end on the bed: finger flat, nut slots open downwards
+export(cap_j2, "hub_cap", 0)               # print 2, flat (the crank's plate is the same part)
 export(temp_bush, "temp_bushing_6803", 90)
 
 for o in (plate_j2, cap_j2, plate_j3, *spacers, crank, crank_cap, temp_bush):
