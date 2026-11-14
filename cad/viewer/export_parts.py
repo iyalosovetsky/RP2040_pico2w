@@ -75,6 +75,7 @@ parts = {
     "endstops": compound("limits", ["EndstopJ2", "EndstopJ3"]),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
+    "ua_j2_cap": shp("upper_arm", "UpperArmJ2Cap"),
     "ua_j3": shp("upper_arm", "UpperArmJ3"),
     "ua_spacers": compound("upper_arm", ["Spacer0", "Spacer1", "Spacer2"]),
     "ua_bush6803": shp("upper_arm", "TempBushing6803"),   # 6803 (17x26x5) or its printed stand-in
@@ -83,6 +84,7 @@ parts = {
     "b609_wrist": shp("forearm", "B609_Wrist"),
     # crank frame (origin on the shoulder axis, X along the crank)
     "crank": shp("upper_arm", "J3Crank"),
+    "crank_cap": shp("upper_arm", "J3CrankCap"),
     # forearm frame (origin on the elbow axle)
     "forearm": shp("forearm", "Forearm"),
     "elbow_axle": shp("forearm", "ElbowAxle"),

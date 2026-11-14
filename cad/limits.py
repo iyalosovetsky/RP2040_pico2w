@@ -276,8 +276,9 @@ def posed(shape, ang):
     return r
 
 
-arm = Part.makeCompound([ua.getObject(n).Shape for n in ("UpperArmJ2", "UpperArmJ3", "Spacer0", "Spacer1", "Spacer2")])
-crank = ua.getObject("J3Crank").Shape
+arm = Part.makeCompound([ua.getObject(n).Shape
+                         for n in ("UpperArmJ2", "UpperArmJ2Cap", "UpperArmJ3", "Spacer0", "Spacer1", "Spacer2")])
+crank = Part.makeCompound([ua.getObject(n).Shape for n in ("J3Crank", "J3CrankCap")])
 static = {"LimitPlate": plate, "TurretBody": tur.getObject("TurretBody").Shape,
           "J1HubScrews": tur.getObject("J1HubScrews").Shape}
 for tag in boards:

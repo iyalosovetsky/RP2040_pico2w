@@ -338,7 +338,9 @@ def moving(j2, j3):
         "UpperArmJ2": posed(uad.getObject("UpperArmJ2").Shape, j2, k["O"]),
         "UpperArmJ3": posed(uad.getObject("UpperArmJ3").Shape, j2, k["O"]),
         **{f"Spacer{i}": posed(uad.getObject(f"Spacer{i}").Shape, j2, k["O"]) for i in range(3)},
+        "UpperArmJ2Cap": posed(uad.getObject("UpperArmJ2Cap").Shape, j2, k["O"]),
         "J3Crank": posed(uad.getObject("J3Crank").Shape, j3 + 180, k["O"]),
+        "J3CrankCap": posed(uad.getObject("J3CrankCap").Shape, j3 + 180, k["O"]),
     }
 
 
