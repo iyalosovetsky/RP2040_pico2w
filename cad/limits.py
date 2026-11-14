@@ -27,7 +27,8 @@ Fitting:
   1. Take out the two hub screws at the front (x = +-13, y = -7.5), put the bracket down between
      the cheeks and put the screws back as M3x25 (the M3x20 ones are 1.5 mm short now). The third
      hub screw and the wedge screw stay as they are; the wedge screw can still be reached.
-  2. An M3 nut into each of the four channels under the board seats, the boards on top with
+  2. An M3 nut pushed sideways into each of the four channels under the board seats (they hold
+     it by its flats), the boards on top, parts up, with
      2x M3x6 each (M3x8 bottoms out), loose.
   3. Arm on. Push a finger of the plate / the crank over the lever by hand and slide the board
      towards it until its LED comes on, then about 1 mm more; the lever must still have a little
@@ -72,7 +73,7 @@ BODY_H = bas.getObject("Params").body_h.Value    # its top
 PCB_TOP = SH_Z - ES.PCB_DEPTH
 SEAT = PCB_TOP - ES.BOARD_T           # the boards rest on this
 BASE_T, POCKET = 2.5, 1.0             # bracket floor; depth of the pockets under the two hub screw heads
-CH_W, CH_H = 6.6, 2.9                 # nut channel: the nut's corners (6.35) ride its walls
+CH_W, CH_H = 5.9, 2.9                 # nut channel: holds the nut by its flats (5.5), so it cannot turn
 SLOT_W = 3.3
 X_END = ES.TIP_END + ES.BOARD_L       # the boards' connector end, |x|
 Y2 = ES.J2_FACE - ES.STANDOFF         # J2 board's lever edge
