@@ -165,7 +165,10 @@ def grub_up(name, x, y, z0, z1, face_y):
     hole = box(name + "_H", f"{x} - {P}grub_d / 2", f"{x} + {P}grub_d / 2",
                f"{y} - {P}grub_d / 2", f"{y} + {P}grub_d / 2", z0, z1)
     zn = f"({z0}) + 2 mm"
-    lo, hi = (f"{y} - {P}nut_w / 2", f"{face_y} + 1 mm") if not face_y.startswith("-") else (f"{face_y} - 1 mm", f"{y} + {P}nut_w / 2")
+    # the slot holds the nut by its flats, so a corner points at the slot's end: that end has to be a
+    # corner radius (3.2) past the screw axis, not half the flats, or the nut stops off the axis
+    lo, hi = ((f"{y} - {P}nut_w / 2 - 0.5 mm", f"{face_y} + 1 mm") if not face_y.startswith("-")
+              else (f"{face_y} - 1 mm", f"{y} + {P}nut_w / 2 + 0.5 mm"))
     nut = box(name + "_N", f"{x} - {P}nut_w / 2", f"{x} + {P}nut_w / 2", lo, hi, zn, f"{zn} + {P}nut_t")
     return [hole, nut]
 

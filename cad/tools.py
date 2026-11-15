@@ -191,7 +191,10 @@ fz_tools = [cyl_z("FZ_Bore", f"{P}shaft_d / 2 + {P}d_clr", f"{fz_tip} - 1 mm", f
             box("FZ_Grub", f"{P}zx", f"{P}zx + {P}hub_r + 1 mm", f"-{P}grub_d / 2", f"{P}grub_d / 2",
                 f"{fz_top} - 6 mm - {P}grub_d / 2", f"{fz_top} - 6 mm + {P}grub_d / 2"),
             box("FZ_Nut", f"{P}zx + {P}shaft_d / 2 + 1.5 mm", f"{P}zx + {P}shaft_d / 2 + 1.5 mm + {P}nut_t",
-                f"-{P}nut_w / 2", f"{P}nut_w / 2", f"{fz_top} - 6 mm - {P}nut_w / 2", f"{fz_top} + 1 mm")]
+                f"-{P}nut_w / 2", f"{P}nut_w / 2", f"{fz_top} - 6 mm - {P}nut_w / 2 - 0.5 mm", f"{fz_top} + 1 mm")]
+# D-bore = the round bore less the flat's segment. (Both used to be cut from the hub, which left a
+# round bore with a 16 mm window where the flat and the grub's nut should be.)
+fz_tools[0:2] = [cut("FZ_DBore", fz_tools[0], fz_tools[1])]
 for k, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
     fz_tools.append(cyl_z(f"FZ_Hole{k}", f"{P}m3_clear / 2", f"{fz_tip} - 2 mm - {P}tp_t", f"{fz_tip}",
                           f"{P}zx + {sx} * {P}tp_hole / 2", f"{sy} * {P}tp_hole / 2"))
@@ -220,7 +223,10 @@ fy_tools = [cyl_y("FY_Bore", f"{P}shaft_d / 2 + {P}d_clr", f"{fy_tip} - 1 mm", f
             box("FY_Grub", f"{P}yx", f"{P}yx + {P}hub_r + 1 mm", f"{fy_top} - 6 mm - {P}grub_d / 2",
                 f"{fy_top} - 6 mm + {P}grub_d / 2", f"{P}yz - {P}grub_d / 2", f"{P}yz + {P}grub_d / 2"),
             box("FY_Nut", f"{P}yx + {P}shaft_d / 2 + 1.5 mm", f"{P}yx + {P}shaft_d / 2 + 1.5 mm + {P}nut_t",
-                f"{fy_top} - 6 mm - {P}nut_w / 2", f"{fy_top} + 1 mm", f"{P}yz - {P}nut_w / 2", f"{P}yz + {P}nut_w / 2")]
+                f"{fy_top} - 6 mm - {P}nut_w / 2 - 0.5 mm", f"{fy_top} + 1 mm", f"{P}yz - {P}nut_w / 2", f"{P}yz + {P}nut_w / 2")]
+# D-bore = the round bore less the flat's segment. (Both used to be cut from the hub, which left a
+# round bore with a 16 mm window where the flat and the grub's nut should be.)
+fy_tools[0:2] = [cut("FY_DBore", fy_tools[0], fy_tools[1])]
 for k, (sx, sz) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
     fy_tools.append(cyl_y(f"FY_Hole{k}", f"{P}m3_clear / 2", f"{fy_tip} - 2 mm - {P}tp_t", f"{fy_tip}",
                           f"{P}yx + {sx} * {P}tp_hole / 2", f"{P}yz + {sz} * {P}tp_hole / 2"))
