@@ -87,6 +87,9 @@ PARAMS = [
     ("web_rib_w",  "4 mm",    "plate tie: rib width - narrow, so the groove's roof bridges cleanly with the plate printed inner face down"),
     ("web_rib_x",  "5 mm",    "plate tie: the two ribs' centres either side of the tie's middle (the M3 holes are between them)"),
     ("web_scr_z",  "8 mm",    "plate tie: 2 M3 per plate at +-this across the link"),
+    ("tie_end",    "0.3 mm",  "plate tie: shorter than the grooves by this at each end (first-layer flare, top skin)"),
+    ("tie_rib_in", "0.4 mm",  "plate tie: ribs lower than the grooves are deep by this (the groove's roof is a bridge and sags)"),
+    ("tie_rib_nw", "0.3 mm",  "plate tie: ribs narrower than nominal by this (printed standing they came out too wide for the grooves)"),
     ("m3_clear",   "3.4 mm",  "M3 clearance"),
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth (heads flush: the rods pass outside the plates)"),
     ("hub_hw",     "12.5 mm", "hub block / cap plate: half-width across the clamp screws"),
@@ -290,23 +293,29 @@ plate_j3.Label = "Upper arm, J3 side (print)"
 # (the form fit takes the racking, not the screws), 2 M3x12 from each plate into nuts in the tie.
 # Ribs, not one wide tenon: the plates print inner face down, and a 4 mm groove bridges cleanly where
 # a 13 mm pocket sags. They run the tie's whole height, so the tie prints standing with no overhang.
+# The tie is a little smaller than the grooves all round (tie_end, tie_rib_in, tie_rib_nw): the plates
+# are printed already, and the first tie did not go in.
 spacers = []
+TIE_HW = f"({P}web_hw - {P}tie_end)"
+RIB_W = f"({P}web_rib_w - {P}tie_rib_nw)"
+RIB_H = f"({P}web_key - {P}tie_rib_in)"
 for k, x in enumerate(TIES):
-    body = box(f"TieBody{k}", f"{P}web_len", f"2 * {P}pl_in", f"2 * {P}web_hw",
-               f"{x} - {P}web_len / 2", f"-{P}pl_in", f"-{P}web_hw")
-    keys = [box(f"TieKey{k}_{t}{j}", f"{P}web_rib_w", f"{P}web_key - 0.1 mm", f"2 * {P}web_hw",
-                f"{x} + {sx} * {P}web_rib_x - {P}web_rib_w / 2", y0, f"-{P}web_hw")
-            for t, y0 in (("P", f"{P}pl_in - 0.01 mm"), ("N", f"-{P}pl_in - {P}web_key + 0.11 mm"))
+    body = box(f"TieBody{k}", f"{P}web_len", f"2 * {P}pl_in", f"2 * {TIE_HW}",
+               f"{x} - {P}web_len / 2", f"-{P}pl_in", f"-{TIE_HW}")
+    keys = [box(f"TieKey{k}_{t}{j}", RIB_W, f"{RIB_H} + 0.01 mm", f"2 * {TIE_HW}",
+                f"{x} + {sx} * {P}web_rib_x - {RIB_W} / 2", y0, f"-{TIE_HW}")
+            for t, y0 in (("P", f"{P}pl_in - 0.01 mm"), ("N", f"-{P}pl_in - {RIB_H}"))
             for j, sx in enumerate((1, -1))]
     holes = []
     for j, (z, sz) in enumerate(((f"{P}web_scr_z", 1), (f"-{P}web_scr_z", -1))):
         holes.append(cyl_y(f"TieHole{k}_{j}", f"{P}m3_clear / 2", f"-{P}pl_in - {P}web_key - 1 mm",
                            f"{P}pl_in + {P}web_key + 1 mm", x=x, z=z))
-        # nut slots 3 mm inside each face, open to the tie's top/bottom edge
+        # nut slots 3 mm inside each face, open to the tie's top/bottom edge and deep enough for the
+        # nut to sit on the slot's end with its thread on the screw's axis
         for t, yn in (("P", f"{P}pl_in - 3 mm - {P}nut_t"), ("N", f"-{P}pl_in + 3 mm")):
             holes.append(box(f"TieNut{k}_{j}{t}", f"{P}nut_w + 0.3 mm", f"{P}nut_t", f"{P}web_hw",
                              f"{x} - ({P}nut_w + 0.3 mm) / 2", yn,
-                             z if sz > 0 else f"{z} - {P}web_hw"))
+                             f"{z} - {P}nut_w / 2" if sz > 0 else f"{z} + {P}nut_w / 2 - {P}web_hw"))
     s = cut(f"Spacer{k}", fuse(f"TieSolid{k}", [body] + keys), holes)
     s.Label = f"Plate tie {k + 1} (print, 4x M3x12 + nuts)"
     spacers.append(s)
