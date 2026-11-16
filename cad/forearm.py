@@ -75,6 +75,7 @@ PARAMS = [
     ("b609_w",     "7 mm",    "609Z width"),
     ("b609_fit",   "0 mm",    "608/609 seat radial clearance; press fit, 0.1 went in freely"),
     ("lip_hole_d", "13 mm",   "hole through the lip behind the wrist 609Z"),
+    ("seat_roof",  "0.2 mm",  "wrist 609Z seat: its 45 deg roof starts this much short of the bearing's depth (the outer ring's corner radius lands on it)"),
     ("fk_in",      "8.5 mm",  "wrist fork cheek inner face |y|"),
     ("fk_t",       "5 mm",    "wrist fork cheek thickness"),
     ("fk_r",       "12 mm",   "wrist fork cheek radius around the axle"),
@@ -208,10 +209,20 @@ fa_parts = [
     cyl_y("FA_Tail", f"{P}fa_tail_r", f"-{yt}", yt, x=f"-{P}R"),
     cyl_y("FA_TailBoss", f"{P}tail_boss_r", f"-{P}drv_y0 + 0.2 mm", f"-{yt} + 0.01 mm", x=f"-{P}R"),
 ]
+# The forearm prints +y face down (the tail boss is on -y), so the wrist bearing's seat opens on the
+# bed and its floor would be a flat ring hanging in the air. It is a 45 deg cone instead, from the seat's
+# wall in to the lip hole: every layer rests on the one below, and the bearing's outer ring stops on it.
+seat_roof = doc.addObject("Part::Cone", "FA_SeatRoof")
+expr(seat_roof, "Radius1", f"{P}lip_hole_d / 2")
+expr(seat_roof, "Radius2", f"{P}b609_d / 2 + {P}b609_fit")
+expr(seat_roof, "Height", f"{P}b609_d / 2 + {P}b609_fit - {P}lip_hole_d / 2")
+seat_roof.Placement.Rotation = YROT
+place(seat_roof, f"{P}len_l3", f"{yt} - {P}b609_w + {P}seat_roof - ({P}b609_d / 2 + {P}b609_fit - {P}lip_hole_d / 2)")
 fa_tools = [
     cyl_y("FA_ElbowBore", f"{P}axle_d / 2 + {P}axle_clr", f"-{yt} - 1 mm", f"{yt} + 1 mm"),
-    cyl_y("FA_Seat609", f"{P}b609_d / 2 + {P}b609_fit", f"{yt} - {P}b609_w", f"{yt} + 1 mm", x=f"{P}len_l3"),
-    cyl_y("FA_Lip", f"{P}lip_hole_d / 2", f"-{yt} - 1 mm", f"{yt} - {P}b609_w + 0.1 mm", x=f"{P}len_l3"),
+    cyl_y("FA_Seat609", f"{P}b609_d / 2 + {P}b609_fit", f"{yt} - {P}b609_w + {P}seat_roof - 0.01 mm", f"{yt} + 1 mm", x=f"{P}len_l3"),
+    cyl_y("FA_Lip", f"{P}lip_hole_d / 2", f"-{yt} - 1 mm", f"{yt} - {P}b609_w - 3 mm", x=f"{P}len_l3"),
+    seat_roof,
     cyl_y("FA_TailPin", f"{P}pin_d / 2", f"-{P}drv_y0 - 1 mm", f"{yt} + 1 mm", x=f"-{P}R"),
 ] + grub_up("FA_Grub", "0 mm", "0 mm", f"{P}axle_d / 2 - 0.5 mm", f"{P}fa_end_r + 1 mm", f"{yt}")
 forearm = cut("Forearm", fuse("FA_Solid", fa_parts), fa_tools)

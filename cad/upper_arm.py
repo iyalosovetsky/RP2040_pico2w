@@ -7,8 +7,9 @@ Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
   upper_arm_j3.stl     - J3-side plate, 6803 seat on the crank's journal + elbow 609Z seat
   upper_arm_tie.stl    - print 3: blocks across the gap between the plates; two ribs on each face
                          sit in two grooves in each plate, 2x M3x12 per plate into nuts in the tie
-  j3_crank.stl         - crank: saddle that wraps the J3 shaft, D17 journal for the J3-side plate's
-                         6803, 40 mm arm, both limit switch fingers. Print outer face down.
+  j3_crank.stl         - crank: saddle that wraps the J3 shaft, round D17 journal for the J3-side
+                         plate's 6803, 40 mm arm, both limit switch fingers. Print outer face down,
+                         with support under the journal's lower part (it hangs over the cap's slot).
   hub_cap.stl          - print 2 (or cut 2 from 3 mm steel / 4 mm aluminium): flat 25 x 9 plate with
                          two 3.4 holes 17 apart. One under each saddle, on the shaft's flat; 2x M3x16
                          (M3x12 with a metal plate) into the nuts in the saddle.
@@ -68,7 +69,7 @@ PARAMS = [
     ("b6803_bore", "17 mm",   "6803 bore = crank journal diameter"),
     ("b6803_w",    "5 mm",    "6803 width"),
     ("b6803_fit",  "0 mm",    "6803 seat radial clearance (also the temporary bushing's OD)"),
-    ("tmp_clr",    "0.25 mm", "temporary printed bushing: running clearance on the journal (radius)"),
+    ("tmp_clr",    "0.1 mm",  "temporary printed bushing: running clearance on the journal (radius); 0.25 rattled"),
     ("lip_d3",     "20 mm",   "hole through the lip behind the 6803 (journal 17 passes)"),
     ("collar_r",   "10.5 mm", "crank collar pressing the 6803 inner ring (outer ring starts at ~11.5)"),
     ("b609_d",     "22 mm",   "609Z OD"),
@@ -348,9 +349,11 @@ cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
 # hub: the same saddle + flat plate as on J2, the plate under the root (crank frame -Z). There it stays
 # in the upper half over the whole J3 range, clear of the limit switch under the shoulder. The plate
 # sits in a notch: the arm's lower edge is cut back to the saddle on one side, and on the other an ear
-# hangs down past the plate's end - that ear carries the low-limit finger. The journal is cut flat
-# at the saddle's under face too (the 6803 still sits on 210 deg of it), so nothing overhangs the
-# plate's place with the crank printed outer face down.
+# hangs down past the plate's end - that ear carries the low-limit finger. The journal and its
+# collar are full circles, so their lower part hangs over the plate's place when the crank prints
+# outer face down: that spot needs support. (Cut flat there it printed without, but the 6803 held
+# the journal over 210 deg only, and the ends of that arc face just 15 deg off the flat's direction -
+# a radial clearance c let the plate move 3.9 c that way.)
 y3a, y3b = f"-{P}cr_y0", f"-{P}pl_in - {P}pl_t"
 cr_blk = box("CrankBlock", f"2 * {P}hub_hw", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}hub_top + {P}sad_low",
              f"-{P}hub_hw", y3a, f"-{P}sad_low")
@@ -366,9 +369,9 @@ cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, cr_bl
 yc3 = f"({y3a}) + {P}cap_w / 2"
 cr_tools = [cyl_y("BoreJ3", f"{P}shaft_d / 2 + {P}d_clr", f"({y3a}) - 1 mm", f"({y3b}) + 1.5 mm"),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R"),
-            # the plate's place, and the journal's flat beyond it
-            box("CrankCapRoom", f"2 * {P}hub_hw + 0.6 mm", "17 mm", "30 mm", f"-{P}hub_hw - 0.3 mm", f"({y3a}) - 1 mm",
-                f"-{P}sad_low - 30 mm")]
+            # the plate's place: as far as the saddle goes, the collar and the journal stay round
+            box("CrankCapRoom", f"2 * {P}hub_hw + 0.6 mm", f"({y3b}) - ({y3a}) + 0.5 mm", "30 mm",
+                f"-{P}hub_hw - 0.3 mm", f"({y3a}) - 1 mm", f"-{P}sad_low - 30 mm")]
 g = clamp_tools("ClampCrank_", yc3, y3a, -1)
 crank_cap = cap_plate("J3CrankCap", y3a)
 crank_cap.Label = "J3 crank cap plate (print or sheet metal, 2x M3 + nuts)"
