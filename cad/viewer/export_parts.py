@@ -98,6 +98,9 @@ parts = {
     "forearm": shp("forearm", "Forearm"),
     "elbow_axle": shp("forearm", "ElbowAxle"),
     "elbow_washers": elbow_washers(),
+    # the six M4 rod pins with their nuts, each in the frame of the part it goes through:
+    # A shoulder (world orientation), B/C elbow plate, D wrist fork, E crank, F forearm
+    **{"pin_" + k.lower(): shp("forearm", "Pin" + k) for k in "ABCDEF"},
     # elbow plate (origin on the elbow axle, keeps its orientation)
     "elbow_plate": shp("forearm", "ElbowPlate"),
     "b609_eplate": shp("forearm", "B609_ElbowPlate"),

@@ -29,8 +29,10 @@ The PG27 shafts end 15.3 mm from the arm's middle, so a hub only has |y| 16..25.
 Lateral stack (|y|): plates 9..16 (forearm |y| < 7.5); +y: J2 hub 16..25.5 inside the turret lug's gap;
 -y: 6803 in the plate (16..11), crank collar 16..20.5, crank arm 21..25.5,
 J3 drive rod 16.5..20.5 (outside the plate).
-The crank-to-rod pin is an M4 in a printed bushing: a 609Z (7 mm wide) doesn't fit
-between the cheek, crank, rod and plate.
+The crank-to-rod pin has 0.5 mm to spare at both ends (turret cheek outside the crank, J3 plate
+inside the rod), so nothing may stand proud: an M4x8 countersunk screw goes in from the rod's
+inner face and into a plain nut sunk in the crank's outer face (thread-lock it, leaving the rod
+free to turn). A 609Z (7 mm wide) doesn't fit between the cheek, crank, rod and plate.
 """
 
 import os
@@ -106,7 +108,9 @@ PARAMS = [
     ("cr_boss_r",  "12 mm",   "crank root ring around the J3 shaft, |y| 20.5..25.5"),
     ("cl_bolt_d",  "3.4 mm",  "clamp screw M3"),
     ("cl_head_d",  "6.2 mm",  "M3 head counterbore"),
-    ("pin_d",      "4.2 mm",  "M4 pin hole (crank-rod, printed bushing)"),
+    ("pin_d",      "4.2 mm",  "M4 pin hole (crank-rod)"),
+    ("m4_nut_w",   "7.2 mm",  "M4 nut pocket across flats (nut 7.0)"),
+    ("m4_nut_h",   "3.3 mm",  "M4 plain nut pocket depth (nut 3.2): flush with the crank's outer face"),
     ("pose_j2",    "60 deg",  "display pose: upper arm above horizontal"),
     ("pose_j3",    "-30 deg", "display pose: forearm above horizontal"),
 ]
@@ -137,6 +141,17 @@ def cyl_y(name, r, y0, y1, x="0 mm", z="0 mm"):
     """Cylinder along Y from y0 to y1 (expressions, y1 > y0)."""
     o = doc.addObject("Part::Cylinder", name)
     expr(o, "Radius", r)
+    expr(o, "Height", f"({y1}) - ({y0})")
+    o.Placement.Rotation = YROT
+    place(o, x, y0, z)
+    return o
+
+
+def hex_y(name, flats, y0, y1, x="0 mm", z="0 mm"):
+    """Hexagonal pocket along Y from y0 to y1, two flats square to Z."""
+    o = doc.addObject("Part::Prism", name)
+    o.Polygon = 6
+    expr(o, "Circumradius", f"({flats}) / 2 / cos(30 deg)")
     expr(o, "Height", f"({y1}) - ({y0})")
     o.Placement.Rotation = YROT
     place(o, x, y0, z)
@@ -369,6 +384,7 @@ cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, cr_bl
 yc3 = f"({y3a}) + {P}cap_w / 2"
 cr_tools = [cyl_y("BoreJ3", f"{P}shaft_d / 2 + {P}d_clr", f"({y3a}) - 1 mm", f"({y3b}) + 1.5 mm"),
             cyl_y("CrankPin", f"{P}pin_d / 2", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}cr_t + 1 mm", x=f"{P}R"),
+            hex_y("CrankPinNut", f"{P}m4_nut_w", f"-{P}cr_y0 - 1 mm", f"-{P}cr_y0 + {P}m4_nut_h", x=f"{P}R"),
             # the plate's place: as far as the saddle goes, the collar and the journal stay round
             box("CrankCapRoom", f"2 * {P}hub_hw + 0.6 mm", f"({y3b}) - ({y3a}) + 0.5 mm", "30 mm",
                 f"-{P}hub_hw - 0.3 mm", f"({y3a}) - 1 mm", f"-{P}sad_low - 30 mm")]

@@ -159,6 +159,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
         <li><i style="background:#2b3137"></i><span>4× 17HS15-1684S-PG27<small>J1 в основі, J2 і J3 співвісно на турелі, J4 на кисті</small></span></li>
         <li><i style="background:#d9a441"></i><span>1× упорний 51211, 55×90×25<small>поворот основи</small></span></li>
         <li><i style="background:#7f77dd"></i><span>4× 608ZZ, 8×22×7 (або 609Z із втулкою 8→9)<small>лікоть ×2, пластина ліктя, кисть; осі Ø8 з лінійного вала</small></span></li>
+        <li><i style="background:#c9ced1"></i><span>Пальці тяг: 6× M4<small>потай M4×25, ×20, ×8; циліндрична голівка M4×20, ×25, ×35; 5 самоконтрних гайок, 1 звичайна, 2 шайби. Гайки не затягувати: тяги мають крутитись</small></span></li>
         <li><i style="background:#7f77dd"></i><span>1× 6803, 17×26×5<small>плече з боку J3, на шийці кривошипа Ø17; до доставки друкована втулка</small></span></li>
         <li><i style="background:#cf5428"></i><span>Інтерфейс інструмента 50×50, 4×M3 на 40×40<small>фланець на валу J4; кронштейн Z (вертикально) або Y (нахил −60…130°)</small></span></li>
         <li><i style="background:#1e2226"></i><span>ST3215 / мотор 775 / шпиндель Ø52<small>змінні інструменти на фланці</small></span></li>
@@ -296,9 +297,8 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   turret.add(part('endstops', M.pcb, 'Кінцевики J2 (ззаду) і J3 (спереду): плата 39.4×16.4 з мікриком; палець проходить за 1.5 мм від краю й притискає важіль'));
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
-  const lugPin = at(cylY(2, 14, M.shaft), -LV, 21, 0); // pin of the lower levelling rod (y 17..26)
   const sh = new THREE.Group(); sh.position.z = D1; turret.add(sh);
-  lugPin.position.set(-LV, 21.5, 0); sh.add(tag(lugPin, 'Палець M4 нижньої тяги вирівнювання'));
+  sh.add(part('pin_a', M.shaft, 'Палець A, вухо турелі / нижня тяга: гвинт M4×25 з потайною голівкою зсередини тяги, самоконтрна гайка зовні щоки'));
 
   const upper = new THREE.Group(); sh.add(upper);
   upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): сідло охоплює вал J2 знизу відкритим отвором, гніздо 608ZZ; два пальці кінцевика J2 (спрацювання на 33.5° і 151.5°)'));
@@ -310,16 +310,18 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const crank = new THREE.Group(); sh.add(crank);
   crank.add(part('crank', M.crank, 'Кривошип J3 (друк): сідло охоплює вал J3, шийка Ø17 під 6803 щоки плеча; обидва пальці кінцевика J3 (−71.5° і +36.5°)'));
   crank.add(part('crank_cap', M.keeper, 'Кришка кривошипа: та сама пласка пластина 25×9, що й на J2; лежить на лисці вала, 2×M3 у гайки сідла'));
-  crank.add(tag(at(cylY(2, 10, M.shaft), R, -21, 0), 'Палець M4: кривошип / тяга приводу'));
+  crank.add(part('pin_e', M.shaft, 'Палець E, кривошип / тяга приводу: гвинт M4×8 з потайною голівкою зсередини тяги, звичайна гайка втоплена в кривошип (на фіксатор різьби)'));
 
   const fore = new THREE.Group(); sh.add(fore);
   fore.add(part('forearm', M.print, 'Передпліччя L3 (друк), хвостик 40'));
   fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø8×46.5: лінійний вал 8 мм; затиснута гвинтом M3 у передпліччі, крутиться в 608ZZ щік плеча, на її кінці — пластина ліктя'));
   fore.add(part('elbow_washers', M.print2, 'Шайби 8.3×11.5×1.4 (друк, 2 шт.): тримають передпліччя посередині між щоками'));
   fore.add(part('b609_wrist', M.b609, '608ZZ — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
-  fore.add(tag(at(cylY(2, 14, M.shaft), -R, -12, 0), 'Палець M4: хвостик / тяга приводу'));
+  fore.add(part('pin_f', M.shaft, 'Палець F, хвостик / тяга приводу: гвинт M4×35, шайба зовні тяги, самоконтрна гайка на грані хвостика'));
   const eplate = new THREE.Group(); sh.add(eplate);
   eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк), 7 мм: тримає орієнтацію; у маточині 608ZZ'));
+  eplate.add(part('pin_b', M.shaft, 'Палець B, пластина ліктя / нижня тяга: гвинт M4×20 з потайною голівкою зсередини тяги, самоконтрна гайка зовні пластини'));
+  eplate.add(part('pin_c', M.shaft, 'Палець C, пластина ліктя / верхня тяга: гвинт M4×20, шайба зовні тяги, самоконтрна гайка зсередини пластини'));
   eplate.add(part('b609_eplate', M.b609, '608ZZ у маточині пластини ліктя: пластина крутиться на осі ліктя'));
   const rodD = part('rod_drive', M.rod, 'Тяга приводу J3 (друк)'); sh.add(rodD);
   const rodL = part('rod_low', M.rod, 'Нижня тяга вирівнювання (друк)'); sh.add(rodL);
@@ -327,6 +329,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const fork = new THREE.Group(); sh.add(fork);
   fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн'));
+  fork.add(part('pin_d', M.shaft, 'Палець D, вилка кисті / верхня тяга: гвинт M4×25 зовні тяги без шайби, самоконтрна гайка втоплена в стовпчик'));
   fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×34: лінійний вал 8 мм або болт M8×40; затиснута у вилці, крутиться в 608ZZ (або 609Z з втулкою)'));
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
   const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));

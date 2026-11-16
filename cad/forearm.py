@@ -20,7 +20,14 @@ The wrist axle may be an M8x40 bolt (DIN 931) put in from +y.
 Bearings: 609Z (9 mm bore) with an 8->9 sleeve on the axle (brass tube 9x0.5, or the printed
 axle_sleeve_8x9.stl as a stop-gap), or 608ZZ (8x22x7) straight on the axle - the seats are
 the same 22x7 for both. 2 in the upper arm plates, 1 in the forearm tip, 1 in the elbow plate.
-M4 pins with printed bushings for the rods.
+The six rod pins are M4 screws that float in their holes, a nyloc nut sets the play (don't clamp).
+Where an end has no room it is flush: a countersunk head in the rod, a nut sunk in the part.
+  A turret ear / lower rod : M4x25 countersunk from the rod's inner face, nyloc outside the cheek
+  B elbow plate / lower rod: M4x20 countersunk from the rod's inner face, nyloc on the plate's outer face
+  C elbow plate / upper rod: M4x20 cap head + washer outside the rod, nyloc on the plate's inner face
+  D wrist fork / upper rod : M4x25 cap head outside the rod (no washer), nyloc sunk in the post's inner end
+  E crank / drive rod      : M4x8 countersunk from the rod's inner face, plain nut sunk in the crank (x10 would stand 1.2 proud)
+  F forearm tail / drive rod: M4x35 cap head + washer outside the rod, nyloc on the tail's +y face
 Needs upper_arm.FCStd (and the files it uses) in the same folder.
 
 Run headless:
@@ -67,6 +74,10 @@ PARAMS = [
     ("rod_t",      "4 mm",    "rod thickness"),
     ("rod_w",      "10 mm",   "rod width"),
     ("pin_d",      "4.2 mm",  "M4 pin hole"),
+    ("csk_d",      "8.4 mm",  "M4 countersunk head recess (head 8.0, 90 deg)"),
+    ("csk_sink",   "0.2 mm",  "countersunk head sits this far under the rod's face"),
+    ("m4_nut_w",   "7.2 mm",  "M4 nut pocket across flats (nut 7.0)"),
+    ("m4_nyl_h",   "5.2 mm",  "M4 nyloc nut pocket depth (nut 5.0)"),
     ("pl_y0",      "21.5 mm", "elbow plate inner face |y| (+y)"),
     ("pl_t",       "7 mm",    "elbow plate thickness (= 608 width, the bearing sits flush both sides); the upper rod pulls "
                               "8 mm off the plate's mid-plane, at 4 mm the neck between hub and pin bent ~5x more"),
@@ -195,14 +206,48 @@ def gusset(name, rot, base, leg_a, leg_b, t):
     return o
 
 
-def rod(name, length, y0):
-    """Flat bar along +X from pin to pin, between y0 and y0 + rod_t."""
+def hex_y(name, flats, y0, y1, x="0 mm", z="0 mm"):
+    """Hexagonal pocket along Y from y0 to y1, two flats square to Z."""
+    o = doc.addObject("Part::Prism", name)
+    o.Polygon = 6
+    expr(o, "Circumradius", f"({flats}) / 2 / cos(30 deg)")
+    expr(o, "Height", f"({y1}) - ({y0})")
+    o.Placement.Rotation = YROT
+    place(o, x, y0, z)
+    return o
+
+
+def csk(name, x, face, into):
+    """Recess for an M4 countersunk head in the face at y = face; into = +1 / -1 is the way the
+    screw goes. A 90 deg cone from csk_d down to the pin hole, csk_sink under the face."""
+    h = f"({P}csk_d - {P}pin_d) / 2"
+    c = doc.addObject("Part::Cone", name + "_C")
+    expr(c, "Height", h)
+    c.Placement.Rotation = YROT
+    if into > 0:
+        expr(c, "Radius1", f"{P}csk_d / 2")
+        expr(c, "Radius2", f"{P}pin_d / 2")
+        place(c, x, f"({face}) + {P}csk_sink")
+        rim = cyl_y(name + "_R", f"{P}csk_d / 2", f"({face}) - 1 mm", f"({face}) + {P}csk_sink + 0.01 mm", x=x)
+    else:
+        expr(c, "Radius1", f"{P}pin_d / 2")
+        expr(c, "Radius2", f"{P}csk_d / 2")
+        place(c, x, f"({face}) - {P}csk_sink - {h}")
+        rim = cyl_y(name + "_R", f"{P}csk_d / 2", f"({face}) - {P}csk_sink - 0.01 mm", f"({face}) + 1 mm", x=x)
+    return [c, rim]
+
+
+def rod(name, length, y0, sunk=()):
+    """Flat bar along +X from pin to pin, between y0 and y0 + rod_t. sunk: (x, "lo" / "hi") for each
+    end that takes a countersunk head, in the y0 face ("lo") or the other one ("hi")."""
     y1 = f"{y0} + {P}rod_t"
     body = fuse(name + "_S", [box(name + "_B", "0 mm", length, y0, y1, f"-{P}rod_w / 2", f"{P}rod_w / 2"),
                               cyl_y(name + "_E0", f"{P}rod_w / 2", y0, y1),
                               cyl_y(name + "_E1", f"{P}rod_w / 2", y0, y1, x=length)])
     holes = [cyl_y(name + "_H0", f"{P}pin_d / 2", f"{y0} - 1 mm", f"{y1} + 1 mm"),
              cyl_y(name + "_H1", f"{P}pin_d / 2", f"{y0} - 1 mm", f"{y1} + 1 mm", x=length)]
+    for k, (x, side) in enumerate(sunk):
+        holes += csk(f"{name}_K{k}", x, y0 if side == "lo" else y1, 1 if side == "lo" else -1)
     return cut(name, body, holes)
 
 
@@ -235,8 +280,10 @@ forearm = cut("Forearm", fuse("FA_Solid", fa_parts), fa_tools)
 forearm.Label = "Forearm L3 (print)"
 
 # ------------------------------------------------------------------- rods ---
-rod_drive = rod("RodDrive", f"{P}len_l2", f"-{P}drv_y0 - {P}rod_t")
-rod_low = rod("RodLevLow", f"{P}len_l2", f"{P}low_y0")
+# the drive rod's crank end and both ends of the lower rod have 0.5..1 mm to the upper arm's plates on
+# their inner faces: the screws there are countersunk into the rod
+rod_drive = rod("RodDrive", f"{P}len_l2", f"-{P}drv_y0 - {P}rod_t", sunk=(("0 mm", "hi"),))
+rod_low = rod("RodLevLow", f"{P}len_l2", f"{P}low_y0", sunk=(("0 mm", "lo"), (f"{P}len_l2", "lo")))
 rod_up = rod("RodLevUp", f"{P}len_l3", f"{P}up_y0")
 rod_drive.Label, rod_low.Label, rod_up.Label = ("Drive rod J3 (print)", "Lower levelling rod (print)",
                                                 "Upper levelling rod (print)")
@@ -280,6 +327,8 @@ fk_parts += [
 fk_tools = [
     cyl_y("FK_Bore", f"{P}axle_d / 2 + {P}axle_clr", f"-{P}fk_in - {P}fk_t - 7 mm", f"{P}fk_in + {P}fk_t + 1 mm"),
     cyl_y("FK_PostPin", f"{P}pin_d / 2", f"{P}fk_in - 1 mm", f"{P}up_y0 + 1 mm", z=f"{P}lev_w"),
+    # the forearm passes 1 mm from the post's inner end: the nyloc nut sits inside it
+    hex_y("FK_PostNut", f"{P}m4_nut_w", f"{P}fk_in - 1 mm", f"{P}fk_in + {P}m4_nyl_h", z=f"{P}lev_w"),
 ] + grub_up("FK_Grub", "0 mm", f"-{P}fk_in - {P}fk_t - 3 mm", f"{P}axle_d / 2 - 0.5 mm", "12 mm",
             f"-{P}fk_in - {P}fk_t - 6 mm")
 for k, (x, y) in enumerate(((10, 7), (10, -7), (34, 7), (34, -7))):
@@ -357,6 +406,65 @@ def washers():
     return Part.makeCompound([a, b])
 
 
+# ------------------------------------------------------ pin hardware ---
+# The six M4 pins with their heads, nuts and washers, as solids: bought parts, drawn so the sweep
+# below sees them. Each in the frame of the printed part it goes through.
+def m4_screw(x, z, face, way, length, sunk=False, washer=False):
+    """face: the y its head sits on (or is sunk in), way: +1 / -1 the direction the screw goes."""
+    at = lambda y: App.Vector(x, y, z)
+    if sunk:
+        top = face + way * ss.csk_sink.Value
+        parts = [Part.makeCone(4.0, 2.0, 2.0, at(top), App.Vector(0, way, 0)),
+                 Part.makeCylinder(2.0, length - 2.0, at(top + way * 2.0), App.Vector(0, way, 0))]
+    else:
+        under = face - way * (0.8 if washer else 0.0)
+        parts = [Part.makeCylinder(3.5, 4.0, at(under), App.Vector(0, -way, 0)),
+                 Part.makeCylinder(2.0, length, at(under), App.Vector(0, way, 0))]
+        if washer:
+            parts.append(Part.makeCylinder(4.5, 0.8, at(face), App.Vector(0, -way, 0)))
+    return parts
+
+
+def m4_nut(x, z, face, way, h):
+    """Hex nut 7 across flats (two flats square to Z) from y = face, h thick towards way."""
+    r = 3.5 / math.cos(math.radians(30))
+    pts = [App.Vector(x + r * math.cos(math.radians(60 * i)), face, z + r * math.sin(math.radians(60 * i)))
+           for i in range(7)]
+    hexa = Part.Face(Part.makePolygon(pts)).extrude(App.Vector(0, way * h, 0))
+    return [hexa.cut(Part.makeCylinder(2.0, h + 2, App.Vector(x, face - way, z), App.Vector(0, way, 0)))]
+
+
+def pin_hardware():
+    tp, up = tur.getObject("Params"), uad.getObject("Params")
+    low, up_out = ss.low_y0.Value, ss.up_y0.Value + ss.rod_t.Value
+    drv_in, drv_out = -ss.drv_y0.Value, -ss.drv_y0.Value - ss.rod_t.Value
+    pl_in, pl_out = ss.pl_y0.Value, ss.pl_y0.Value + ss.pl_t.Value
+    hw = {
+        "PinA": m4_screw(-V, 0, low, 1, 25, sunk=True) + m4_nut(-V, 0, tp.cheek_in.Value + tp.cheek_t.Value, 1, 5),
+        "PinB": m4_screw(-V, 0, low, 1, 20, sunk=True) + m4_nut(-V, 0, pl_out, 1, 5),
+        "PinC": m4_screw(0, W_, up_out, -1, 20, washer=True) + m4_nut(0, W_, pl_in, -1, 5),
+        "PinD": m4_screw(0, W_, up_out, -1, 25) + m4_nut(0, W_, ss.fk_in.Value + 0.1, 1, 5),
+        "PinE": m4_screw(R, 0, drv_in, -1, 8, sunk=True) + m4_nut(R, 0, -up.cr_y0.Value, 1, 3.2),
+        "PinF": m4_screw(-R, 0, drv_out, 1, 35, washer=True) + m4_nut(-R, 0, ss.fa_t.Value / 2, 1, 5),
+    }
+    return {n: parts[0].fuse(parts[1:]) for n, parts in hw.items()}
+
+
+PIN_LABEL = {
+    "PinA": "Pin A, turret ear / lower rod: M4x25 countersunk + nyloc (bought)",
+    "PinB": "Pin B, elbow plate / lower rod: M4x20 countersunk + nyloc (bought)",
+    "PinC": "Pin C, elbow plate / upper rod: M4x20 cap head, washer, nyloc (bought)",
+    "PinD": "Pin D, wrist fork / upper rod: M4x25 cap head, nyloc in the post (bought)",
+    "PinE": "Pin E, crank / drive rod: M4x8 countersunk + plain nut in the crank (bought)",
+    "PinF": "Pin F, forearm tail / drive rod: M4x35 cap head, washer, nyloc (bought)",
+}
+pins = {}
+for n, shp_ in pin_hardware().items():
+    o = doc.addObject("Part::Feature", n)
+    o.Shape, o.Label, o.Visibility = shp_, PIN_LABEL[n], False
+    pins[n] = o
+
+
 def moving(j2, j3):
     k = kin(j2, j3)
     vv, ww = App.Vector(-V, 0, 0), App.Vector(0, 0, W_)
@@ -370,6 +478,12 @@ def moving(j2, j3):
         "ElbowAxle": posed(elbow_axle.Shape, 0, k["E"]),
         "B609_ElbowPlate": posed(b609_ep.Shape, 0, k["E"]),
         "ElbowWashers": posed(washers(), j3, k["E"]),
+        "PinA": posed(pins["PinA"].Shape, 0, k["O"]),
+        "PinB": posed(pins["PinB"].Shape, 0, k["E"]),
+        "PinC": posed(pins["PinC"].Shape, 0, k["E"]),
+        "PinD": posed(pins["PinD"].Shape, 0, k["W"]),
+        "PinE": posed(pins["PinE"].Shape, j3 + 180, k["O"]),
+        "PinF": posed(pins["PinF"].Shape, j3, k["E"]),
         "B609_Wrist": posed(b609_wrist.Shape, j3, k["E"]),
         "B609_Elbow": posed(b609_e1.Shape.fuse(b609_e2.Shape), j2, k["E"]),
         "WristAxle": posed(wrist_axle.Shape, 0, k["W"]),
@@ -385,7 +499,7 @@ def moving(j2, j3):
 asm = doc.addObject("App::DocumentObjectGroup", "Assembly_pose")
 for n, s in moving(ss.pose_j2.Value, ss.pose_j3.Value).items():
     if n in ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle",
-             "B609_Wrist", "B609_Elbow", "B609_ElbowPlate", "ElbowWashers"):
+             "B609_Wrist", "B609_Elbow", "B609_ElbowPlate", "ElbowWashers") or n.startswith("Pin"):
         o = doc.addObject("Part::Feature", "Posed_" + n)
         o.Shape = s
         asm.addObject(o)
@@ -416,7 +530,7 @@ def export(obj, stem, rot):
 
 export(forearm, "forearm", -90)         # +y face on the bed; the tail boss on -y points up
 export(rod_drive, "rod_drive", 90)
-export(rod_low, "rod_lev_low", 90)
+export(rod_low, "rod_lev_low", -90)     # inner face up: the two countersinks open upwards
 export(rod_up, "rod_lev_up", 90)
 export(elbow_plate, "elbow_plate", 90)   # inner face on the bed, hub and rod boss up
 export(washer, "elbow_washer", 90)      # print 2
@@ -437,7 +551,8 @@ for n in ("J2_Motor", "J3_Motor"):
     body.Placement = tur.getObject(n).Placement.multiply(body.Placement)
     static[n] = body
 new = ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle",
-       "B609_Wrist", "B609_Elbow", "B609_ElbowPlate", "ElbowWashers")
+       "B609_Wrist", "B609_Elbow", "B609_ElbowPlate", "ElbowWashers",
+       "PinA", "PinB", "PinC", "PinD", "PinE", "PinF")
 # parts that are meant to touch: axles in their bores
 ok_pairs = {("ElbowAxle", "Forearm"), ("ElbowAxle", "ElbowPlate"), ("ElbowAxle", "UpperArmJ2"),
             ("ElbowAxle", "UpperArmJ3"), ("WristAxle", "Forearm"), ("WristAxle", "WristFork"),
