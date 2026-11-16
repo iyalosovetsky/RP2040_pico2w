@@ -7,16 +7,21 @@ Builds cad/forearm.FCStd plus print files laid flat:
                       clamped on the elbow axle, wrist 609Z seat
   rod_drive.stl     - J3 crank -> forearm tail, length L2, plane |y| 16.5..20.5 (-y)
   rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 17..21 (+y)
-  rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 26..30 (+y)
-  elbow_plate.stl   - solid triangle on the elbow axle (plain bushing), keeps its orientation
+  rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 29.5..33.5 (+y)
+  elbow_plate.stl   - solid triangle on the elbow axle, keeps its orientation; a 608 in its hub
+                      (7 thick, so the upper rod runs 3.5 further out than the plate's own 4 mm)
+  elbow_washer.stl  - print 2: fills the 1.5 mm between the forearm and each plate's bearing
   wrist_fork.stl    - fork on the wrist axle, keeps its orientation; its bottom bridge
                       (4x M3 inserts) takes the Z or Y tool bracket
-Bought: elbow axle D8 x 45 and wrist axle D8 x 34 - cut from an 8 mm linear rod, or M8 bolts
-with a plain shank (DIN 931: M8x55 elbow, M8x40 wrist, nyloc nuts).
+Bought: elbow axle D8 x 46.5 and wrist axle D8 x 34 - cut from an 8 mm linear rod. The elbow axle
+is a plain pin: the forearm's grub is all that holds it lengthways. A bolt with a nut does not fit
+there - the upper levelling rod passes 4.5 mm from the axis at J3 = -71.5, right past the +y end
+(a bolt's head would fit on the -y end, but an M8x55's thread starts inside the J2 plate's bearing).
+The wrist axle may be an M8x40 bolt (DIN 931) put in from +y.
 Bearings: 609Z (9 mm bore) with an 8->9 sleeve on the axle (brass tube 9x0.5, or the printed
 axle_sleeve_8x9.stl as a stop-gap), or 608ZZ (8x22x7) straight on the axle - the seats are
-the same 22x7 for both. 2 in the upper arm plates, 1 in the forearm tip. M4 pins with printed
-bushings for the rods.
+the same 22x7 for both. 2 in the upper arm plates, 1 in the forearm tip, 1 in the elbow plate.
+M4 pins with printed bushings for the rods.
 Needs upper_arm.FCStd (and the files it uses) in the same folder.
 
 Run headless:
@@ -59,18 +64,20 @@ PARAMS = [
     ("tail_boss_r", "6 mm",   "tail pin boss radius (reaches the drive rod plane)"),
     ("drv_y0",     "16.5 mm", "drive rod inner face |y| (-y side)"),
     ("low_y0",     "17 mm",   "lower levelling rod inner face |y| (+y side)"),
-    ("up_y0",      "26 mm",   "upper levelling rod inner face |y| (+y side)"),
+    ("up_y0",      "29.5 mm", "upper levelling rod inner face |y| (+y side): 1 mm outside the elbow plate's hub"),
     ("rod_t",      "4 mm",    "rod thickness"),
     ("rod_w",      "10 mm",   "rod width"),
     ("pin_d",      "4.2 mm",  "M4 pin hole"),
     ("pl_y0",      "21.5 mm", "elbow plate inner face |y| (+y)"),
     ("pl_t",       "4 mm",    "elbow plate thickness"),
-    ("pl_hub_r",   "10 mm",   "elbow plate hub radius"),
+    ("pl_hub_r",   "14 mm",   "elbow plate hub radius: 3 mm of wall round the 608"),
+    ("pl_hub_t",   "7 mm",    "elbow plate hub thickness (= 608 width, the bearing sits flush both sides)"),
+    ("wash_d",     "11.5 mm", "forearm washer OD: inside the 608's inner ring (12.1), clear of its shield"),
+    ("wash_t",     "1.4 mm",  "forearm washer thickness: the gap is 1.5 a side"),
     ("pl_arm_r",   "6 mm",    "elbow plate pin ends radius"),
     ("axle_d",     "8 mm",    "elbow / wrist axle: 8 mm linear rod or M8 bolt shank (DIN 931)"),
     ("b_bore",     "9 mm",    "bearing bore: 9 = 609Z (needs the 8->9 sleeve), 8 = 608ZZ (no sleeve)"),
     ("axle_clr",   "0.1 mm",  "axle bore clearance where it is clamped"),
-    ("bush_clr",   "0.2 mm",  "axle bore clearance where it turns (elbow plate)"),
     ("b609_d",     "22 mm",   "609Z OD"),
     ("b609_w",     "7 mm",    "609Z width"),
     ("b609_fit",   "0 mm",    "608/609 seat radial clearance; press fit, 0.1 went in freely"),
@@ -238,7 +245,9 @@ rod_drive.Label, rod_low.Label, rod_up.Label = ("Drive rod J3 (print)", "Lower l
 # ------------------------------------------------------------ elbow plate ---
 py0, py1 = f"{P}pl_y0", f"{P}pl_y0 + {P}pl_t"
 ep = fuse("EP_Solid", [
-    cyl_y("EP_Hub", f"{P}pl_hub_r", py0, py1),
+    cyl_y("EP_Hub", f"{P}pl_hub_r", py0, f"{P}pl_y0 + {P}pl_hub_t"),
+    # the upper rod runs outside the hub: its pin end sits on a boss as tall as the hub + the usual 0.5
+    cyl_y("EP_WBoss", f"{P}pl_arm_r", py0, f"{P}up_y0 - 0.5 mm", z=f"{P}lev_w"),
     cyl_y("EP_V", f"{P}pl_arm_r", py0, py1, x=f"-{P}lev_v"),
     cyl_y("EP_W", f"{P}pl_arm_r", py0, py1, z=f"{P}lev_w"),
     box("EP_BarV", f"-{P}lev_v", "0 mm", py0, py1, f"-{P}pl_arm_r", f"{P}pl_arm_r"),
@@ -248,9 +257,9 @@ ep = fuse("EP_Solid", [
            f"{P}lev_v - {P}pl_arm_r", f"{P}lev_w - {P}pl_arm_r", f"{P}pl_t"),
 ])
 elbow_plate = cut("ElbowPlate", ep, [
-    cyl_y("EP_Bore", f"{P}axle_d / 2 + {P}bush_clr", f"{py0} - 1 mm", f"{py1} + 1 mm"),
+    cyl_y("EP_Seat608", f"{P}b609_d / 2 + {P}b609_fit", f"{py0} - 1 mm", f"{P}pl_y0 + {P}pl_hub_t + 1 mm"),
     cyl_y("EP_PinV", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{py1} + 1 mm", x=f"-{P}lev_v"),
-    cyl_y("EP_PinW", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{py1} + 1 mm", z=f"{P}lev_w"),
+    cyl_y("EP_PinW", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{P}up_y0 + 1 mm", z=f"{P}lev_w"),
 ])
 elbow_plate.Label = "Elbow levelling plate (print)"
 
@@ -281,9 +290,9 @@ wrist_fork = cut("WristFork", fuse("FK_Solid", fk_parts), fk_tools)
 wrist_fork.Label = "Wrist fork (print), tool brackets bolt under it"
 
 # ------------------------------------------------------------- axles ---
-elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", "27 mm")
+elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", f"{P}pl_y0 + {P}pl_hub_t")
 wrist_axle = cyl_y("WristAxle", f"{P}axle_d / 2", "-20 mm", "14 mm")
-elbow_axle.Label, wrist_axle.Label = ("Elbow axle D8x45: 8 mm linear rod or M8x55 bolt shank",
+elbow_axle.Label, wrist_axle.Label = ("Elbow axle D8x46.5: 8 mm linear rod, held by the forearm's grub",
                                       "Wrist axle D8x34: 8 mm linear rod or M8x40 bolt shank")
 sl_o = cyl_y("Sleeve_O", f"{P}b_bore / 2 - 0.02 mm", "0 mm", f"{P}b609_w")
 sl_i = cyl_y("Sleeve_I", f"{P}axle_d / 2 + 0.05 mm", "-1 mm", f"{P}b609_w + 1 mm")
@@ -304,6 +313,13 @@ def b609(name, x, y0):
 b609_wrist = b609("B609_Wrist", f"{P}len_l3", f"{yt} - {P}b609_w")
 b609_e1 = b609("B609_ElbowJ2", "0 mm", "9 mm")
 b609_e2 = b609("B609_ElbowJ3", "0 mm", "-16 mm")
+b609_ep = b609("B609_ElbowPlate", "0 mm", py0)
+b609_ep.Label = "608 in the elbow plate's hub (bought): the plate turns on the elbow axle in it"
+# washers on the elbow axle, one each side of the forearm: they keep it centred between the plates
+# and touch only the bearings' inner rings, which turn with the axle anyway
+washer = cut("ElbowWasher", cyl_y("EW_O", f"{P}wash_d / 2", "0 mm", f"{P}wash_t"),
+             cyl_y("EW_I", f"{P}axle_d / 2 + 0.15 mm", "-1 mm", f"{P}wash_t + 1 mm"))
+washer.Label = "Forearm washer 8.3x11.5x1.4 (print 2)"
 b609_wrist.Label = "609Z wrist bearing (bought): the wrist axle turns in it"
 b609_e1.Label = b609_e2.Label = "609Z elbow bearing in the upper arm plate (bought)"
 
@@ -335,6 +351,13 @@ def posed(shape, ang_deg, at):
     return s
 
 
+def washers():
+    a, b = washer.Shape.copy(), washer.Shape.copy()
+    a.translate(App.Vector(0, ss.fa_t.Value / 2 + 0.05, 0))
+    b.translate(App.Vector(0, -ss.fa_t.Value / 2 - 0.05 - ss.wash_t.Value, 0))
+    return Part.makeCompound([a, b])
+
+
 def moving(j2, j3):
     k = kin(j2, j3)
     vv, ww = App.Vector(-V, 0, 0), App.Vector(0, 0, W_)
@@ -346,6 +369,8 @@ def moving(j2, j3):
         "RodLevLow": posed(rod_low.Shape, j2, k["O"] + vv),
         "RodLevUp": posed(rod_up.Shape, j3, k["E"] + ww),
         "ElbowAxle": posed(elbow_axle.Shape, 0, k["E"]),
+        "B609_ElbowPlate": posed(b609_ep.Shape, 0, k["E"]),
+        "ElbowWashers": posed(washers(), j3, k["E"]),
         "B609_Wrist": posed(b609_wrist.Shape, j3, k["E"]),
         "B609_Elbow": posed(b609_e1.Shape.fuse(b609_e2.Shape), j2, k["E"]),
         "WristAxle": posed(wrist_axle.Shape, 0, k["W"]),
@@ -361,12 +386,12 @@ def moving(j2, j3):
 asm = doc.addObject("App::DocumentObjectGroup", "Assembly_pose")
 for n, s in moving(ss.pose_j2.Value, ss.pose_j3.Value).items():
     if n in ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle",
-             "B609_Wrist", "B609_Elbow"):
+             "B609_Wrist", "B609_Elbow", "B609_ElbowPlate", "ElbowWashers"):
         o = doc.addObject("Part::Feature", "Posed_" + n)
         o.Shape = s
         asm.addObject(o)
 for n in (forearm, rod_drive, rod_low, rod_up, elbow_plate, wrist_fork, elbow_axle, wrist_axle,
-          b609_wrist, b609_e1, b609_e2):
+          b609_wrist, b609_e1, b609_e2, b609_ep, washer):
     n.Visibility = False
 ctx = doc.addObject("App::DocumentObjectGroup", "Context")
 for n in ("TurretBody", "J2_Motor", "J3_Motor", "Ctx_BaseHousing"):
@@ -394,7 +419,8 @@ export(forearm, "forearm", -90)         # +y face on the bed; the tail boss on -
 export(rod_drive, "rod_drive", 90)
 export(rod_low, "rod_lev_low", 90)
 export(rod_up, "rod_lev_up", 90)
-export(elbow_plate, "elbow_plate", 90)
+export(elbow_plate, "elbow_plate", 90)   # inner face on the bed, hub and rod boss up
+export(washer, "elbow_washer", 90)      # print 2
 export(sleeve, "axle_sleeve_8x9", 90)   # print 3 (only with 609Z)
 export(wrist_fork, "wrist_fork", 0)     # bridge on the bed, cheeks up (support under the clamp boss)
 
@@ -412,12 +438,13 @@ for n in ("J2_Motor", "J3_Motor"):
     body.Placement = tur.getObject(n).Placement.multiply(body.Placement)
     static[n] = body
 new = ("Forearm", "ElbowPlate", "WristFork", "RodDrive", "RodLevLow", "RodLevUp", "ElbowAxle", "WristAxle",
-       "B609_Wrist", "B609_Elbow")
+       "B609_Wrist", "B609_Elbow", "B609_ElbowPlate", "ElbowWashers")
 # parts that are meant to touch: axles in their bores
 ok_pairs = {("ElbowAxle", "Forearm"), ("ElbowAxle", "ElbowPlate"), ("ElbowAxle", "UpperArmJ2"),
             ("ElbowAxle", "UpperArmJ3"), ("WristAxle", "Forearm"), ("WristAxle", "WristFork"),
             ("B609_Wrist", "Forearm"), ("B609_Wrist", "WristAxle"), ("B609_Elbow", "ElbowAxle"),
-            ("B609_Elbow", "UpperArmJ2"), ("B609_Elbow", "UpperArmJ3")}
+            ("B609_Elbow", "UpperArmJ2"), ("B609_Elbow", "UpperArmJ3"),
+            ("B609_ElbowPlate", "ElbowPlate"), ("B609_ElbowPlate", "ElbowAxle"), ("ElbowWashers", "ElbowAxle")}
 worst = {}
 poses = 0
 # the working range, plus the limit switch trip points 1.5 deg outside it (endstop_dims.py)

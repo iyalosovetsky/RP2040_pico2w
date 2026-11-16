@@ -158,7 +158,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <ul class="parts">
         <li><i style="background:#2b3137"></i><span>4× 17HS15-1684S-PG27<small>J1 в основі, J2 і J3 співвісно на турелі, J4 на кисті</small></span></li>
         <li><i style="background:#d9a441"></i><span>1× упорний 51211, 55×90×25<small>поворот основи</small></span></li>
-        <li><i style="background:#7f77dd"></i><span>3× 608ZZ, 8×22×7 (або 609Z із втулкою 8→9)<small>лікоть ×2, кисть; осі Ø8: лінійний вал або болт M8</small></span></li>
+        <li><i style="background:#7f77dd"></i><span>4× 608ZZ, 8×22×7 (або 609Z із втулкою 8→9)<small>лікоть ×2, пластина ліктя, кисть; осі Ø8 з лінійного вала</small></span></li>
         <li><i style="background:#7f77dd"></i><span>1× 6803, 17×26×5<small>плече з боку J3, на шийці кривошипа Ø17; до доставки друкована втулка</small></span></li>
         <li><i style="background:#cf5428"></i><span>Інтерфейс інструмента 50×50, 4×M3 на 40×40<small>фланець на валу J4; кронштейн Z (вертикально) або Y (нахил −60…130°)</small></span></li>
         <li><i style="background:#1e2226"></i><span>ST3215 / мотор 775 / шпиндель Ø52<small>змінні інструменти на фланці</small></span></li>
@@ -314,11 +314,13 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 
   const fore = new THREE.Group(); sh.add(fore);
   fore.add(part('forearm', M.print, 'Передпліччя L3 (друк), хвостик 40'));
-  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø8×45: лінійний вал 8 мм або болт M8×55; затиснута в передпліччі, крутиться в 608ZZ (або 609Z з втулкою 8→9)'));
+  fore.add(part('elbow_axle', M.shaft, 'Вісь ліктя Ø8×46.5: лінійний вал 8 мм; затиснута гвинтом M3 у передпліччі, крутиться в 608ZZ щік плеча, на її кінці — пластина ліктя'));
+  fore.add(part('elbow_washers', M.print2, 'Шайби 8.3×11.5×1.4 (друк, 2 шт.): тримають передпліччя посередині між щоками'));
   fore.add(part('b609_wrist', M.b609, '608ZZ — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
   fore.add(tag(at(cylY(2, 14, M.shaft), -R, -12, 0), 'Палець M4: хвостик / тяга приводу'));
   const eplate = new THREE.Group(); sh.add(eplate);
-  eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк): тримає орієнтацію'));
+  eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк): тримає орієнтацію; маточина 7 мм під 608ZZ'));
+  eplate.add(part('b609_eplate', M.b609, '608ZZ у маточині пластини ліктя: пластина крутиться на осі ліктя'));
   const rodD = part('rod_drive', M.rod, 'Тяга приводу J3 (друк)'); sh.add(rodD);
   const rodL = part('rod_low', M.rod, 'Нижня тяга вирівнювання (друк)'); sh.add(rodL);
   const rodU = part('rod_up', M.rod, 'Верхня тяга вирівнювання (друк)'); sh.add(rodU);

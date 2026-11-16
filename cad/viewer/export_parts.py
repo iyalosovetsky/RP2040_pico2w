@@ -54,6 +54,15 @@ def elbow_b609():
     return s
 
 
+def elbow_washers():
+    """One each side of the forearm, as forearm.py's washers() puts them."""
+    p = D["forearm"].getObject("Params")
+    a, b = shp("forearm", "ElbowWasher").copy(), shp("forearm", "ElbowWasher").copy()
+    a.translate(App.Vector(0, p.fa_t.Value / 2 + 0.05, 0))
+    b.translate(App.Vector(0, -p.fa_t.Value / 2 - 0.05 - p.wash_t.Value, 0))
+    return Part.makeCompound([a, b])
+
+
 parts = {
     # world (static)
     "base_housing": shp("base", "BaseHousing"),
@@ -88,8 +97,10 @@ parts = {
     # forearm frame (origin on the elbow axle)
     "forearm": shp("forearm", "Forearm"),
     "elbow_axle": shp("forearm", "ElbowAxle"),
+    "elbow_washers": elbow_washers(),
     # elbow plate (origin on the elbow axle, keeps its orientation)
     "elbow_plate": shp("forearm", "ElbowPlate"),
+    "b609_eplate": shp("forearm", "B609_ElbowPlate"),
     # rods: along +X from pin to pin, at their own Y plane
     "rod_drive": shp("forearm", "RodDrive"),
     "rod_low": shp("forearm", "RodLevLow"),
