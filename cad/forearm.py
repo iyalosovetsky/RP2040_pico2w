@@ -8,8 +8,7 @@ Builds cad/forearm.FCStd plus print files laid flat:
   rod_drive.stl     - J3 crank -> forearm tail, length L2, plane |y| 16.5..20.5 (-y)
   rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 17..21 (+y)
   rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 29.5..33.5 (+y)
-  elbow_plate.stl   - solid triangle on the elbow axle, keeps its orientation; a 608 in its hub
-                      (7 thick, so the upper rod runs 3.5 further out than the plate's own 4 mm)
+  elbow_plate.stl   - solid triangle on the elbow axle, 7 thick, keeps its orientation; a 608 in its hub
   elbow_washer.stl  - print 2: fills the 1.5 mm between the forearm and each plate's bearing
   wrist_fork.stl    - fork on the wrist axle, keeps its orientation; its bottom bridge
                       (4x M3 inserts) takes the Z or Y tool bracket
@@ -69,9 +68,9 @@ PARAMS = [
     ("rod_w",      "10 mm",   "rod width"),
     ("pin_d",      "4.2 mm",  "M4 pin hole"),
     ("pl_y0",      "21.5 mm", "elbow plate inner face |y| (+y)"),
-    ("pl_t",       "4 mm",    "elbow plate thickness"),
-    ("pl_hub_r",   "14 mm",   "elbow plate hub radius: 3 mm of wall round the 608"),
-    ("pl_hub_t",   "7 mm",    "elbow plate hub thickness (= 608 width, the bearing sits flush both sides)"),
+    ("pl_t",       "7 mm",    "elbow plate thickness (= 608 width, the bearing sits flush both sides); the upper rod pulls "
+                              "8 mm off the plate's mid-plane, at 4 mm the neck between hub and pin bent ~5x more"),
+    ("pl_hub_r",   "15 mm",   "elbow plate hub radius: 4 mm of wall round the 608, as in the upper arm plates"),
     ("wash_d",     "11.5 mm", "forearm washer OD: inside the 608's inner ring (12.1), clear of its shield"),
     ("wash_t",     "1.4 mm",  "forearm washer thickness: the gap is 1.5 a side"),
     ("pl_arm_r",   "6 mm",    "elbow plate pin ends radius"),
@@ -245,8 +244,8 @@ rod_drive.Label, rod_low.Label, rod_up.Label = ("Drive rod J3 (print)", "Lower l
 # ------------------------------------------------------------ elbow plate ---
 py0, py1 = f"{P}pl_y0", f"{P}pl_y0 + {P}pl_t"
 ep = fuse("EP_Solid", [
-    cyl_y("EP_Hub", f"{P}pl_hub_r", py0, f"{P}pl_y0 + {P}pl_hub_t"),
-    # the upper rod runs outside the hub: its pin end sits on a boss as tall as the hub + the usual 0.5
+    cyl_y("EP_Hub", f"{P}pl_hub_r", py0, f"{P}pl_y0 + {P}pl_t"),
+    # the upper rod's pin end sits on a pad that leaves the usual 0.5 to the rod
     cyl_y("EP_WBoss", f"{P}pl_arm_r", py0, f"{P}up_y0 - 0.5 mm", z=f"{P}lev_w"),
     cyl_y("EP_V", f"{P}pl_arm_r", py0, py1, x=f"-{P}lev_v"),
     cyl_y("EP_W", f"{P}pl_arm_r", py0, py1, z=f"{P}lev_w"),
@@ -257,7 +256,7 @@ ep = fuse("EP_Solid", [
            f"{P}lev_v - {P}pl_arm_r", f"{P}lev_w - {P}pl_arm_r", f"{P}pl_t"),
 ])
 elbow_plate = cut("ElbowPlate", ep, [
-    cyl_y("EP_Seat608", f"{P}b609_d / 2 + {P}b609_fit", f"{py0} - 1 mm", f"{P}pl_y0 + {P}pl_hub_t + 1 mm"),
+    cyl_y("EP_Seat608", f"{P}b609_d / 2 + {P}b609_fit", f"{py0} - 1 mm", f"{P}pl_y0 + {P}pl_t + 1 mm"),
     cyl_y("EP_PinV", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{py1} + 1 mm", x=f"-{P}lev_v"),
     cyl_y("EP_PinW", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{P}up_y0 + 1 mm", z=f"{P}lev_w"),
 ])
@@ -290,7 +289,7 @@ wrist_fork = cut("WristFork", fuse("FK_Solid", fk_parts), fk_tools)
 wrist_fork.Label = "Wrist fork (print), tool brackets bolt under it"
 
 # ------------------------------------------------------------- axles ---
-elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", f"{P}pl_y0 + {P}pl_hub_t")
+elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", f"{P}pl_y0 + {P}pl_t")
 wrist_axle = cyl_y("WristAxle", f"{P}axle_d / 2", "-20 mm", "14 mm")
 elbow_axle.Label, wrist_axle.Label = ("Elbow axle D8x46.5: 8 mm linear rod, held by the forearm's grub",
                                       "Wrist axle D8x34: 8 mm linear rod or M8x40 bolt shank")
