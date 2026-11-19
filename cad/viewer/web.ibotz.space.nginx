@@ -1,7 +1,8 @@
 # Static pages from zen4 (the arm viewer at /roboruka/) behind the *.ibotz.space login, on ibotz2.
 # Same pattern as mon.ibotz.space: zen4 over the VPN tunnel (10.9.0.6), a static nginx container
 # (web-static, port 8091, serves ~/www) - see cad/viewer/deploy_web.sh. Access via
-# snippets/llm-auth.conf (trusted IP, Bearer token or Google session).
+# snippets/web-auth.conf (own short trusted-IP list in conf.d/web-gateway.conf, or Google session;
+# no LLM Bearer tokens — the house3d page hands out the Home Assistant token).
 #
 # Install on ibotz2:
 #   sudo install -m 644 web.ibotz.space /etc/nginx/sites-available/web.ibotz.space
@@ -27,7 +28,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     error_log  /var/log/nginx/web.ibotz.space.error.log;
     access_log /var/log/nginx/web.ibotz.space.access.log;
-    include snippets/llm-auth.conf;
+    include snippets/web-auth.conf;
 
     location = / { return 302 /roboruka/; }
     location / {
