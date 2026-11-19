@@ -319,12 +319,12 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   fore.add(part('b609_wrist', M.b609, '608ZZ — кисть, у кінці передпліччя; у ньому крутиться вісь кисті'));
   fore.add(part('pin_f', M.shaft, 'Палець F, хвостик / тяга приводу: гвинт M4×35, шайба зовні тяги, самоконтрна гайка на грані хвостика'));
   const eplate = new THREE.Group(); sh.add(eplate);
-  eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк), 7 мм: тримає орієнтацію; у маточині 608ZZ'));
+  eplate.add(part('elbow_plate', M.print2, 'Пластина ліктя (друк), 7 мм: тримає орієнтацію; у маточині 608ZZ; під нижню тягу кишеня 2 мм'));
   eplate.add(part('pin_b', M.shaft, 'Палець B, пластина ліктя / нижня тяга: гвинт M4×20 з потайною голівкою зсередини тяги, самоконтрна гайка зовні пластини'));
   eplate.add(part('pin_c', M.shaft, 'Палець C, пластина ліктя / верхня тяга: гвинт M4×20, шайба зовні тяги, самоконтрна гайка зсередини пластини'));
   eplate.add(part('b609_eplate', M.b609, '608ZZ у маточині пластини ліктя: пластина крутиться на осі ліктя'));
-  const rodD = part('rod_drive', M.rod, 'Тяга приводу J3 (друк)'); sh.add(rodD);
-  const rodL = part('rod_low', M.rod, 'Нижня тяга вирівнювання (друк)'); sh.add(rodL);
+  const rodD = part('rod_drive', M.rod, 'Тяга приводу J3 (друк): 4 мм, вушко під потай Ø13'); sh.add(rodD);
+  const rodL = part('rod_low', M.rod, 'Нижня тяга вирівнювання (друк): 4.5 мм, біля пластини ліктя 6.5 мм; вушка під потай Ø13'); sh.add(rodL);
   const rodU = part('rod_up', M.rod, 'Верхня тяга вирівнювання (друк)'); sh.add(rodU);
 
   const fork = new THREE.Group(); sh.add(fork);

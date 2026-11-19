@@ -6,7 +6,7 @@ Builds cad/forearm.FCStd plus print files laid flat:
   forearm.stl       - L3 link with the J3 tail (pin to the drive rod), elbow hub
                       clamped on the elbow axle, wrist 609Z seat
   rod_drive.stl     - J3 crank -> forearm tail, length L2, plane |y| 16.5..20.5 (-y)
-  rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 17..21 (+y)
+  rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 16.5..21 (+y), 6.5 thick at the plate
   rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 29.5..33.5 (+y)
   elbow_plate.stl   - solid triangle on the elbow axle, 7 thick, keeps its orientation; a 608 in its hub
   elbow_washer.stl  - print 2: fills the 1.5 mm between the forearm and each plate's bearing
@@ -22,6 +22,10 @@ axle_sleeve_8x9.stl as a stop-gap), or 608ZZ (8x22x7) straight on the axle - the
 the same 22x7 for both. 2 in the upper arm plates, 1 in the forearm tip, 1 in the elbow plate.
 The six rod pins are M4 screws that float in their holes, a nyloc nut sets the play (don't clamp).
 Where an end has no room it is flush: a countersunk head in the rod, a nut sunk in the part.
+A countersink takes 2.3 of the rod's thickness, so those ends get what room there is: a wider eye
+(r 6.5) on all three; the lower rod is 4.5 thick (0.5 left to the upper arm's plate, the turret's
+lug is fixed at 21) and has a 2 mm pad at the elbow plate, which is pocketed for it. The drive rod
+stays 4: plate, rod, crank and cheek fill the 10 mm there.
   A turret ear / lower rod : M4x25 countersunk from the rod's inner face, nyloc outside the cheek
   B elbow plate / lower rod: M4x20 countersunk from the rod's inner face, nyloc on the plate's outer face
   C elbow plate / upper rod: M4x20 cap head + washer outside the rod, nyloc on the plate's inner face
@@ -69,7 +73,10 @@ PARAMS = [
     ("fa_tail_r",  "9 mm",    "forearm tail end radius"),
     ("tail_boss_r", "6 mm",   "tail pin boss radius (reaches the drive rod plane)"),
     ("drv_y0",     "16.5 mm", "drive rod inner face |y| (-y side)"),
-    ("low_y0",     "17 mm",   "lower levelling rod inner face |y| (+y side)"),
+    ("low_y0",     "16.5 mm", "lower levelling rod inner face |y| (+y side): 0.5 off the upper arm's plate"),
+    ("low_t",      "4.5 mm",  "lower levelling rod thickness: up to the turret lug's face at 21"),
+    ("low_pad",    "2 mm",    "lower rod: pad round the elbow plate's pin, sits in a pocket in the plate"),
+    ("csk_eye_r",  "6.5 mm",  "rod end radius where a head is countersunk (recess is 8.4 across)"),
     ("up_y0",      "29.5 mm", "upper levelling rod inner face |y| (+y side): 1 mm outside the elbow plate's hub"),
     ("rod_t",      "4 mm",    "rod thickness"),
     ("rod_w",      "10 mm",   "rod width"),
@@ -85,6 +92,7 @@ PARAMS = [
     ("wash_d",     "11.5 mm", "forearm washer OD: inside the 608's inner ring (12.1), clear of its shield"),
     ("wash_t",     "1.4 mm",  "forearm washer thickness: the gap is 1.5 a side"),
     ("pl_arm_r",   "6 mm",    "elbow plate pin ends radius"),
+    ("pl_v_r",     "7.5 mm",  "elbow plate: radius of the end that holds the lower rod's pad"),
     ("axle_d",     "8 mm",    "elbow / wrist axle: 8 mm linear rod or M8 bolt shank (DIN 931)"),
     ("b_bore",     "9 mm",    "bearing bore: 9 = 609Z (needs the 8->9 sleeve), 8 = 608ZZ (no sleeve)"),
     ("axle_clr",   "0.1 mm",  "axle bore clearance where it is clamped"),
@@ -237,15 +245,22 @@ def csk(name, x, face, into):
     return [c, rim]
 
 
-def rod(name, length, y0, sunk=()):
-    """Flat bar along +X from pin to pin, between y0 and y0 + rod_t. sunk: (x, "lo" / "hi") for each
-    end that takes a countersunk head, in the y0 face ("lo") or the other one ("hi")."""
-    y1 = f"{y0} + {P}rod_t"
-    body = fuse(name + "_S", [box(name + "_B", "0 mm", length, y0, y1, f"-{P}rod_w / 2", f"{P}rod_w / 2"),
-                              cyl_y(name + "_E0", f"{P}rod_w / 2", y0, y1),
-                              cyl_y(name + "_E1", f"{P}rod_w / 2", y0, y1, x=length)])
-    holes = [cyl_y(name + "_H0", f"{P}pin_d / 2", f"{y0} - 1 mm", f"{y1} + 1 mm"),
-             cyl_y(name + "_H1", f"{P}pin_d / 2", f"{y0} - 1 mm", f"{y1} + 1 mm", x=length)]
+def rod(name, length, y0, t=None, sunk=(), pad=()):
+    """Flat bar along +X from pin to pin, between y0 and y0 + t (rod_t). sunk: (x, "lo" / "hi") for
+    each end that takes a countersunk head, in the y0 face ("lo") or the other one ("hi"); those
+    ends are csk_eye_r round. pad: x of each end that is low_pad thicker on the "hi" face."""
+    t = t or f"{P}rod_t"
+    y1 = f"{y0} + {t}"
+    wide = [x for x, _ in sunk]
+    eye = lambda x: f"{P}csk_eye_r" if x in wide else f"{P}rod_w / 2"
+    parts = [box(name + "_B", "0 mm", length, y0, y1, f"-{P}rod_w / 2", f"{P}rod_w / 2"),
+             cyl_y(name + "_E0", eye("0 mm"), y0, y1),
+             cyl_y(name + "_E1", eye(length), y0, y1, x=length)]
+    parts += [cyl_y(f"{name}_P{k}", f"{P}rod_w / 2", f"{y1} - 0.01 mm", f"{y1} + {P}low_pad", x=x)
+              for k, x in enumerate(pad)]
+    body = fuse(name + "_S", parts)
+    holes = [cyl_y(name + "_H0", f"{P}pin_d / 2", f"{y0} - 1 mm", f"{y1} + 4 mm"),
+             cyl_y(name + "_H1", f"{P}pin_d / 2", f"{y0} - 1 mm", f"{y1} + 4 mm", x=length)]
     for k, (x, side) in enumerate(sunk):
         holes += csk(f"{name}_K{k}", x, y0 if side == "lo" else y1, 1 if side == "lo" else -1)
     return cut(name, body, holes)
@@ -283,7 +298,8 @@ forearm.Label = "Forearm L3 (print)"
 # the drive rod's crank end and both ends of the lower rod have 0.5..1 mm to the upper arm's plates on
 # their inner faces: the screws there are countersunk into the rod
 rod_drive = rod("RodDrive", f"{P}len_l2", f"-{P}drv_y0 - {P}rod_t", sunk=(("0 mm", "hi"),))
-rod_low = rod("RodLevLow", f"{P}len_l2", f"{P}low_y0", sunk=(("0 mm", "lo"), (f"{P}len_l2", "lo")))
+rod_low = rod("RodLevLow", f"{P}len_l2", f"{P}low_y0", t=f"{P}low_t",
+              sunk=(("0 mm", "lo"), (f"{P}len_l2", "lo")), pad=(f"{P}len_l2",))
 rod_up = rod("RodLevUp", f"{P}len_l3", f"{P}up_y0")
 rod_drive.Label, rod_low.Label, rod_up.Label = ("Drive rod J3 (print)", "Lower levelling rod (print)",
                                                 "Upper levelling rod (print)")
@@ -294,7 +310,9 @@ ep = fuse("EP_Solid", [
     cyl_y("EP_Hub", f"{P}pl_hub_r", py0, f"{P}pl_y0 + {P}pl_t"),
     # the upper rod's pin end sits on a pad that leaves the usual 0.5 to the rod
     cyl_y("EP_WBoss", f"{P}pl_arm_r", py0, f"{P}up_y0 - 0.5 mm", z=f"{P}lev_w"),
-    cyl_y("EP_V", f"{P}pl_arm_r", py0, py1, x=f"-{P}lev_v"),
+    # the lower rod's pad sits in a pocket here, so this end is wider (a rim round the pocket: the
+    # pocket's roof is a bridge with the plate printed inner face down) and stands out by the pad
+    cyl_y("EP_V", f"{P}pl_v_r", py0, f"{py1} + {P}low_pad", x=f"-{P}lev_v"),
     cyl_y("EP_W", f"{P}pl_arm_r", py0, py1, z=f"{P}lev_w"),
     box("EP_BarV", f"-{P}lev_v", "0 mm", py0, py1, f"-{P}pl_arm_r", f"{P}pl_arm_r"),
     box("EP_BarW", f"-{P}pl_arm_r", f"{P}pl_arm_r", py0, py1, "0 mm", f"{P}lev_w"),
@@ -304,7 +322,8 @@ ep = fuse("EP_Solid", [
 ])
 elbow_plate = cut("ElbowPlate", ep, [
     cyl_y("EP_Seat608", f"{P}b609_d / 2 + {P}b609_fit", f"{py0} - 1 mm", f"{P}pl_y0 + {P}pl_t + 1 mm"),
-    cyl_y("EP_PinV", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{py1} + 1 mm", x=f"-{P}lev_v"),
+    cyl_y("EP_PinV", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{py1} + {P}low_pad + 1 mm", x=f"-{P}lev_v"),
+    cyl_y("EP_PadV", f"{P}rod_w / 2 + 0.6 mm", f"{py0} - 1 mm", f"{py0} + {P}low_pad", x=f"-{P}lev_v"),
     cyl_y("EP_PinW", f"{P}pin_d / 2", f"{py0} - 1 mm", f"{P}up_y0 + 1 mm", z=f"{P}lev_w"),
 ])
 elbow_plate.Label = "Elbow levelling plate (print)"
@@ -441,7 +460,7 @@ def pin_hardware():
     pl_in, pl_out = ss.pl_y0.Value, ss.pl_y0.Value + ss.pl_t.Value
     hw = {
         "PinA": m4_screw(-V, 0, low, 1, 25, sunk=True) + m4_nut(-V, 0, tp.cheek_in.Value + tp.cheek_t.Value, 1, 5),
-        "PinB": m4_screw(-V, 0, low, 1, 20, sunk=True) + m4_nut(-V, 0, pl_out, 1, 5),
+        "PinB": m4_screw(-V, 0, low, 1, 20, sunk=True) + m4_nut(-V, 0, pl_out + ss.low_pad.Value, 1, 5),
         "PinC": m4_screw(0, W_, up_out, -1, 20, washer=True) + m4_nut(0, W_, pl_in, -1, 5),
         "PinD": m4_screw(0, W_, up_out, -1, 25) + m4_nut(0, W_, ss.fk_in.Value + 0.1, 1, 5),
         "PinE": m4_screw(R, 0, drv_in, -1, 8, sunk=True) + m4_nut(R, 0, -up.cr_y0.Value, 1, 3.2),
@@ -530,9 +549,9 @@ def export(obj, stem, rot):
 
 export(forearm, "forearm", -90)         # +y face on the bed; the tail boss on -y points up
 export(rod_drive, "rod_drive", 90)
-export(rod_low, "rod_lev_low", -90)     # inner face up: the two countersinks open upwards
+export(rod_low, "rod_lev_low", 90)      # pad up; the two countersinks open on the bed (45 deg, no support)
 export(rod_up, "rod_lev_up", 90)
-export(elbow_plate, "elbow_plate", 90)   # inner face on the bed, hub and rod boss up
+export(elbow_plate, "elbow_plate", 90)   # inner face on the bed, hub and rod boss up; the pad pocket bridges
 export(washer, "elbow_washer", 90)      # print 2
 export(sleeve, "axle_sleeve_8x9", 90)   # print 3 (only with 609Z)
 export(wrist_fork, "wrist_fork", 0)     # bridge on the bed, cheeks up (support under the clamp boss)
