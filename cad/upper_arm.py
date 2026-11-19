@@ -12,7 +12,7 @@ Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
                          with support under the journal's lower part (it hangs over the cap's slot).
   hub_cap.stl          - print 2 (or cut 2 from 3 mm steel / 4 mm aluminium): flat 25 x 9 plate with
                          two 3.4 holes 17 apart. One under each saddle, on the shaft's flat; 2x M3x16
-                         (M3x12 with a metal plate) into the nuts in the saddle.
+                         (M3x12 with a 3 mm steel plate) into the nuts in the saddle.
 Limit switches (endstop_dims.py, limits.py): the J2-side plate and the crank carry two fingers each
 that sweep past a switch board lying under the shoulder - one finger per end of travel.
 Needs turret.FCStd (and through it base.FCStd, pg27.FCStd) in the same folder.
@@ -95,13 +95,14 @@ PARAMS = [
     ("tie_rib_nw", "0.3 mm",  "plate tie: ribs narrower than nominal by this (printed standing they came out too wide for the grooves)"),
     ("m3_clear",   "3.4 mm",  "M3 clearance"),
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth (heads flush: the rods pass outside the plates)"),
-    ("hub_hw",     "12.5 mm", "hub block / cap plate: half-width across the clamp screws"),
+    ("hub_hw",     "12.5 mm", "cap plate: half-length across the clamp screws"),
+    ("sad_hw",     "14 mm",   "saddle block half-width: 2.45 of wall outside each nut slot (the slot ends 11.55 out)"),
     ("hub_top",    "11 mm",   "hub saddle: height over the shaft axis (the lower levelling rod passes 12.2 above it)"),
     ("sad_low",    "2.2 mm",  "saddle reaches this far past the shaft axis: it wraps 244 deg of the shaft and stops 0.8 short of the flat (3.01)"),
     ("cap_t",      "6.5 mm",  "printed cap plate thickness (metal: 3 mm steel or 4 mm aluminium)"),
     ("cap_w",      "9 mm",    "cap plate width along the shaft"),
     ("cl_x",       "8.5 mm",  "clamp screws: distance from the shaft axis"),
-    ("cl_nut_x",   "3.6 mm",  "clamp nut slot: plastic between it and the saddle's under face"),
+    ("cl_nut_x",   "5.6 mm",  "clamp nut slot: plastic between it and the saddle's under face. This high the slot's corner is 2.4 from the bore (1.6 at 3.6) and an M3x16 still passes the nut by 0.7"),
     ("cr_y0",      "25.5 mm", "crank hub outer end |y|"),
     ("cr_t",       "4.5 mm",  "crank arm thickness (|y| 21..25.5)"),
     ("cr_w",       "16 mm",   "crank arm width"),
@@ -236,12 +237,14 @@ elb2 = cyl_y("ElbowBossJ2", f"{P}elb_boss_r", f"{P}pl_in", f"{P}pl_in + {P}elb_t
 # open underneath, where the shaft's flat looks out 0.8 mm past the saddle. A flat plate lies on
 # that flat and 2x M3 pull it up: the flat bears on the plate, the plate's screws take the torque as
 # a push on one and a pull on the other, and the shaft is pressed up into the bore - no play, and
-# nothing has to bend. Being flat, the plate can be printed or cut from sheet metal. It is under
+# nothing has to bend. The screws' pull goes from each nut round its slot into the saddle's top, through
+# the wall outside the slot and the neck between the slot and the bore: both are 2.4 (they were 0.95
+# and 1.6, too thin). Being flat, the plate can be printed or cut from sheet metal. It is under
 # the hub (arm frame -Z) because the lower levelling rod passes 12.2 mm above the axis.
 hy0, hy1 = f"{P}pl_in + {P}pl_t", f"{P}j2_hub_out"
 FLAT = f"({P}shaft_d / 2 - {P}flat_depth)"                # the shaft's flat, from its axis
-hub2 = box("HubJ2", f"2 * {P}hub_hw", f"({hy1}) - ({hy0}) + 0.01 mm", f"{P}hub_top + {P}sad_low",
-           f"-{P}hub_hw", f"({hy0}) - 0.01 mm", f"-{P}sad_low")
+hub2 = box("HubJ2", f"2 * {P}sad_hw", f"({hy1}) - ({hy0}) + 0.01 mm", f"{P}hub_top + {P}sad_low",
+           f"-{P}sad_hw", f"({hy0}) - 0.01 mm", f"-{P}sad_low")
 # limit switch fingers on the shoulder end, in the inner 3 mm of the plate: thin enough to pass
 # inside the head of the M4 pin that holds the lower levelling rod to the turret's ear
 lim2 = [finger(f"LimFingerJ2_{k}", a, 15, ES.J2_FACE, ES.J2_FACE + ES.J2_FINGER_T, ES.J2_FACE)
@@ -370,8 +373,8 @@ cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
 # the journal over 210 deg only, and the ends of that arc face just 15 deg off the flat's direction -
 # a radial clearance c let the plate move 3.9 c that way.)
 y3a, y3b = f"-{P}cr_y0", f"-{P}pl_in - {P}pl_t"
-cr_blk = box("CrankBlock", f"2 * {P}hub_hw", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}hub_top + {P}sad_low",
-             f"-{P}hub_hw", y3a, f"-{P}sad_low")
+cr_blk = box("CrankBlock", f"2 * {P}sad_hw", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}hub_top + {P}sad_low",
+             f"-{P}sad_hw", y3a, f"-{P}sad_low")
 EAR_X = f"-{P}hub_hw - 4.5 mm"
 cr_ear = [box("CrankEar_U", "4.6 mm", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}sad_low + 3 mm", EAR_X, y3a, f"-{P}sad_low"),
           box("CrankEar_L", "4.2 mm", f"({y3b}) - ({y3a}) - 0.5 mm", f"{FLAT} + {P}cap_t - {P}sad_low + 0.01 mm",
