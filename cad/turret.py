@@ -7,10 +7,9 @@ Builds cad/turret.FCStd plus print files for its two printed parts:
   turret_j1hub.stl/.step - hub on the J1 shaft with an anti-lift disc at the bottom,
                            held to the turret by 3x M3x20 from above into M3 nuts slid
                            into side slots in its flange. Print flange-down.
-  turret_j1wedge.stl/.step - taper wedge on the shaft's flat (no play), pulled up by an
-                           M3x25 from the turret top into the nut in its block. Print block-down.
-  turret_j1drill_guide.stl - centring plug to drill the wedge screw hole into a turret
-                           printed without it. Print collar-down.
+                           An M3 grub through its tube onto the shaft's flat takes out the play.
+  turret_j1hub_gauge.stl/.step - 5.6 mm fork that holds the hub at its height while the grub is
+                           tightened (a tool, not part of the arm). Print flat.
 Needs pg27.FCStd and base.FCStd in the same folder (App::Links to the motors,
 their mounting cut-outs and the base for context).
 
@@ -21,26 +20,28 @@ Anti-lift: the 51211 only takes thrust, and with the arm reaching out (J4 + tool
 ~300 mm) the overturning moment is several times what the turret's weight resists
 over the bearing's ball circle (r ~36). The hub's bottom disc runs 0.2 mm under the lip
 of the J1 keeper (base.FCStd, screwed to the seat floor), so the turret can't lift.
-J1 play: a printed D-bore on the 8 mm D-shaft always rattles, and nothing at the hub can be
-reached once the turret is on. So the hub's bore is round with a 1:10 tapered slot over the
-flat; a printed wedge sits in it and an M3x25 from the turret top (on 2 mm of washers, so
-its tip stays 1.3 mm above the shaft) pulls the wedge up into the taper. Pulling the hub up
-to the turret (step 4) only loosens the wedge, so it's tightened last.
+J1 play: a printed D-bore on the 8 mm D-shaft always rattles. So the hub's D-bore has 0.1 mm
+over the flat, and an M3x6 grub, threaded through an M3 nut in a pocket in the hub's tube,
+presses the shaft's flat and pushes its round side into the bore. (A printed 1:10 taper wedge pulled up from the
+turret top did this before: too small to print well, and it never took the play out.)
+The grub sits in the tube between the keeper's lip (top 93.2) and the hub flange (99), so it
+can only be reached before the bearing goes on - which also fixes the hub's height on the
+shaft. The gauge sets that height 0.2 mm low, so the turret screws pull the hub up to the
+turret rather than holding the turret off its bearing.
 Assembly order:
   1. J1 into the base (4x M3x8 from above).
-  2. M3 nuts into the 3 side slots of the hub flange and into the side pocket of the wedge
-     block. Wedge into the hub from below (block first, up the bore), hub onto the J1 shaft
-     with a fingertip under the wedge until the shaft tip carries its block. The hub rests
-     on the motor screw heads for now.
+  2. M3 nuts into the 3 side slots of the hub flange, and one into the side pocket in the tube;
+     start the M3x6 grub into that nut from outside, not into the bore yet. Hub onto the
+     J1 shaft with the grub facing the flat.
   3. Both keeper halves around the hub disc, 4x M3x10 into the inserts in the seat floor
-     (lift the hub a little on the shaft to get them in; the housing washer goes on after).
-  4. 51211 housing washer (over the keeper foot), ball cage, shaft washer, then the turret;
+     (lift the hub a little on the shaft to get them in).
+  4. Gauge fork onto the keeper lip round the hub tube, open side towards the grub; let the
+     hub flange sit on it. Tighten the grub (1.5 mm hex key, straight in from the side) until
+     J1 has no play by hand. Pull the gauge out.
+  5. 51211 housing washer (over the keeper foot), ball cage, shaft washer, then the turret;
      turn it until its 3 holes line up with the hub nuts and pull the hub up with 3x M3x20.
-  5. M3x25 + 2 mm of washers through the turret centre into the wedge nut; tighten until J1
-     has no play by hand (the taper multiplies the pull 10x - snug, not hard).
-  A turret printed with blind insert pockets: drill those through Ø3.4 from below. The centre
-  hole: screw the hub to the turret on the bench, push the drill guide up the hub bore from
-  below and drill Ø3.4 through.
+  The turret's centre hole is left from the wedge screw; nothing goes in it now.
+  A turret printed with blind insert pockets: drill those through Ø3.4 from below.
 
 The J2/J3 motors hang 74 mm out from the cheeks on 4x M3 into the gearbox, so each one
 also lies in a cradle that grows out of the plate: floor on the bed, two side walls fused
@@ -90,7 +91,7 @@ PARAMS = [
     ("lev_x",      "=-30 mm",  "levelling offset V: lug pin X from the shoulder axis"),
     ("lug_pin_r",  "6 mm",    "radius of the cheek ear / pin boss around the rod pin"),
     ("pin_d",      "4.2 mm",  "M4 pin hole"),
-    ("hub_d",      "20 mm",   "J1 hub OD (M3 heads on the roof sit at r >= 10.75)"),
+    ("hub_d",      "22 mm",   "J1 hub tube OD (keeper lip r 12; the grub nut needs the wall)"),
     ("hub_bot",    "84 mm",   "J1 hub bottom: seat floor 82, J1 screw heads up to 82.8"),
     ("hub_disc_r", "17.5 mm", "J1 hub anti-lift disc radius (keeper wall r 18, lip r 12)"),
     ("hub_disc_t", "4 mm",    "J1 hub anti-lift disc thickness (top 88, keeper lip 88.2)"),
@@ -101,21 +102,16 @@ PARAMS = [
     ("nut_t",      "2.7 mm",  "M3 nut pocket height (nut 2.4)"),
     ("hub_nut_top", "2 mm",   "hub flange: plastic over the nuts (M3x20 tip at 102, nut 102.6..105)"),
     ("shaft_top",  "97.7 mm", "J1 shaft tip (base.FCStd shaft_top)"),
-    ("wg_k",       "0.1",     "J1 wedge taper 1:10 (self-locking; 1 mm of lift = 0.1 mm squeeze)"),
-    ("wg_t_top",   "1.4 mm",  "J1 wedge thickness level with the shaft tip"),
-    ("wg_len",     "12 mm",   "J1 wedge bar below the block (shaft flat ~15 long)"),
-    ("wg_lift",    "1.5 mm",  "J1 wedge block above the shaft tip at zero play (it drops onto the tip loose)"),
-    ("wg_w",       "5.7 mm",  "J1 wedge width (slot 6.0, shaft flat 5.3 wide)"),
-    ("wg_slot_w",  "6 mm",    "J1 wedge slot width in the hub"),
-    ("wg_blk_r",   "3.9 mm",  "J1 wedge block radius (hub bore r 4.04)"),
-    ("wg_floor",   "1 mm",    "J1 wedge block: floor under the nut"),
-    ("wg_ceil",    "1.6 mm",  "J1 wedge block: plastic over the nut"),
+    ("grub_z",     "95.3 mm", "J1 grub axis: over the keeper lip top 93.2, under the flange 99, 2.4 below the shaft tip"),
+    ("grub_nut_x", "4.8 mm",  "J1 grub nut pocket: inner face from the J1 axis (flat at 3.01, bore r 4.04)"),
+    ("gauge_t",    "5.6 mm",  "J1 hub gauge: keeper lip top 93.2 to flange underside 99 is 5.8 - 0.2 low"),
     ("m3_clear",   "3.4 mm",  "M3 clearance"),
     ("m3_head_d",  "6.5 mm",  "M3 head counterbore"),
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth"),
     ("shaft_d",    "7.98 mm", "PG27 shaft (pg27.FCStd)"),
     ("flat_depth", "0.98 mm", "D-flat depth: 7.0 mm across the flat on the 7.98 shaft (measured)"),
-    ("d_clr",      "0.05 mm", "hub bore clearance (the wedge takes the play out)"),
+    ("d_clr",      "0.05 mm", "hub bore clearance (the grub takes the play out)"),
+    ("flat_clr",   "0.1 mm",  "hub D-bore: flat clearance (the grub pushes the shaft's flat away; the round side takes it)"),
     ("face_off",   "0 mm",    "spare: move the J2/J3 faces outward"),
     ("motor_sq",   "42.3 mm", "NEMA17 body square (pg27.FCStd)"),
     ("gb_d",       "35.9 mm", "PG27 gearbox OD (pg27.FCStd)"),
@@ -138,9 +134,6 @@ rows = PARAMS + [
     ("shoulder_z", "=plate_top + axis_up", "shoulder axis height above the table (IK D1)"),
     ("face_y", "=cheek_in + cheek_t + face_off", "J2/J3 gearbox face |y|"),
     ("flat_x", "=shaft_d / 2 - flat_depth", "J1 shaft flat: distance from the axis"),
-    ("wg_blk_bot", "=shaft_top + wg_lift", "J1 wedge block bottom (zero play)"),
-    ("wg_blk_top", "=wg_blk_bot + wg_floor + nut_t + wg_ceil", "J1 wedge block top (turret underside 107)"),
-    ("wg_bot", "=wg_blk_bot - wg_len", "J1 wedge bar bottom (zero play)"),
 ]
 for i, (alias, value, note) in enumerate(rows, start=2):
     ss.set(f"A{i}", alias)
@@ -314,30 +307,34 @@ lug_pin = cyl("LugPin", f"{P}pin_d / 2", f"{P}lug_t + {P}cheek_t + 2 mm", f"{P}s
 inserts = [cyl(f"HubScrewHole{k}", f"{P}m3_clear / 2", f"{P}plate_t + 1 mm", f"{P}bear_top - 0.5 mm",
                f"{P}hub_scr_r * cos({90 + 120 * k} deg)", f"{P}hub_scr_r * sin({90 + 120 * k} deg)")
            for k in range(3)]
+# centre hole: left from the old wedge screw (the printed turret has it), unused now
 inserts.append(cyl("WedgeScrewHole", f"{P}m3_clear / 2", f"{P}plate_t + 1 mm", f"{P}bear_top - 0.5 mm"))
 tools = fuse("TurretTools", [recess, mc_j2, mc_j3, lug_pin] + inserts + cradle_cuts)
 turret = cut("TurretBody", body_solid, tools)
 turret.Label = "Turret body (print)"
 
 # ------------------------------------------------------------- J1 hub ---
-# Round bore + a tapered slot over the shaft's flat holding the J1 wedge: the wedge's inner face
-# lies on the flat, its outer face on the slot's 1:10 incline, which narrows upward. A screw from
-# the turret top pulls the wedge up by its block (over the shaft tip), squeezing the flat - no play,
-# and re-tightenable from above. The 3 turret screws go into M3 nuts slid into side slots in the
-# flange (a nut under plastic can't pull out the way a heat insert on the face did).
-def x_out(z):
-    """the slot's incline at height z (zero play)"""
-    return f"({P}flat_x + {P}wg_t_top - (({z}) - {P}shaft_top) * {P}wg_k)"
+# D-bore (the shaft's flat faces +X); an M3 grub along +X runs through an M3 nut slid sideways
+# (from +Y) into a pocket in the tube, through the bore's flat, and presses the shaft's flat. The 3 turret screws go into M3 nuts slid
+# into side slots in the flange (a nut under plastic can't pull out the way a heat insert did).
+def along_x(o, x, y, z, spin=0):
+    """turn a Z-standing primitive onto +X (local Z -> X, local Y stays Y), then place it"""
+    o.Placement.Rotation = App.Rotation(Y, 90).multiply(App.Rotation(App.Vector(0, 0, 1), spin))
+    place(o, x, y, z)
+    return o
 
 
 hub_fl = cyl("HubFlange", f"{P}hub_fl_d / 2", f"{P}hub_fl_t", f"{P}bear_top - {P}hub_fl_t")
 hub_tube = cyl("HubTube", f"{P}hub_d / 2", f"{P}bear_top - {P}hub_fl_t - {P}hub_bot + 0.01 mm", f"{P}hub_bot")
 hub_disc = cyl("HubDisc", f"{P}hub_disc_r", f"{P}hub_disc_t", f"{P}hub_bot")
 hub_solid = fuse("HubSolid", [hub_fl, hub_tube, hub_disc])
-bore = cyl("HubBore", f"{P}shaft_d / 2 + {P}d_clr", f"{P}bear_top - {P}hub_bot + 1 mm", f"{P}hub_bot - 0.5 mm")
-z0, z1 = f"{P}hub_bot - 1 mm", f"{P}bear_top + 1 mm"
-wslot = taper("HubWedgeSlot", f"{P}flat_x - 0.2 mm", x_out(z0), x_out(z1), f"{P}wg_slot_w / 2", z0, z1)
-hub_holes = [bore, wslot]
+bore_c = cyl("HubBoreRound", f"{P}shaft_d / 2 + {P}d_clr", f"{P}bear_top - {P}hub_bot + 1 mm", f"{P}hub_bot - 0.5 mm")
+bore_f = box("HubBoreFlat", f"{P}flat_x + {P}flat_clr + 10 mm", "20 mm", f"{P}bear_top - {P}hub_bot + 1 mm",
+             "-10 mm", "-10 mm", f"{P}hub_bot - 0.5 mm")
+bore = doc.addObject("Part::MultiCommon", "HubBore")      # D-bore: the flat stops the hub turning
+bore.Shapes = [bore_c, bore_f]
+hide(bore_c, bore_f)
+hub_holes = [bore]
 nut_z = f"{P}bear_top - {P}hub_nut_top - {P}nut_t"
 for k in range(3):
     ang = 90 + 120 * k
@@ -346,43 +343,36 @@ for k in range(3):
                          f"{P}bear_top - {P}hub_fl_t - 0.5 mm", x, y))
     hub_holes += nut_slot(f"HubNut{k}", f"{P}hub_scr_r", ang, f"{P}nut_af", f"{P}nut_t", nut_z,
                           f"{P}hub_fl_d / 2 + 1 mm")
+# grub: hole from the bore out through the tube, nut pocket with its flats up/down, slot open to +Y
+grub = along_x(doc.addObject("Part::Cylinder", "HubGrub"), f"{P}flat_x - 0.5 mm", "0 mm", f"{P}grub_z")
+expr(grub, "Radius", f"{P}m3_clear / 2")
+expr(grub, "Height", f"{P}hub_d / 2 - {P}flat_x + 1.5 mm")
+g_hex = doc.addObject("Part::Prism", "HubGrubNut_Hex")
+g_hex.Polygon = 6
+expr(g_hex, "Circumradius", f"{P}nut_af / sqrt(3)")
+expr(g_hex, "Height", f"{P}nut_t")
+along_x(g_hex, f"{P}grub_nut_x", "0 mm", f"{P}grub_z", spin=30)
+g_slot = box("HubGrubNut_Slot", f"{P}nut_t", f"{P}hub_d / 2 + 1 mm", f"{P}nut_af",
+             f"{P}grub_nut_x", "0 mm", f"{P}grub_z - {P}nut_af / 2")
+hub_holes += [grub, g_hex, g_slot]
 hub = cut("J1Hub", hub_solid, fuse("HubTools", hub_holes))
-hub.Label = "J1 hub (print)"
+hub.Label = "J1 hub (print flange-down)"
 
-# the wedge, shown at zero play: bar on the flat + block over the shaft tip with a side-loaded M3 nut
-c = "0.02 mm"
-wg_bar = taper("WedgeBar", f"{P}flat_x + {c}", f"{x_out(P + 'wg_bot')} - {c}", f"{x_out(P + 'wg_blk_top')} - {c}",
-               f"{P}wg_w / 2", f"{P}wg_bot", f"{P}wg_blk_top")
-wg_cyl = cyl("WedgeBlockCyl", f"{P}wg_blk_r", f"{P}wg_blk_top - {P}wg_blk_bot", f"{P}wg_blk_bot")
-wg_trim = taper("WedgeBlockTrim", "-10 mm", f"{x_out(P + 'wg_blk_bot')} - {c}", f"{x_out(P + 'wg_blk_top')} - {c}",
-                "10 mm", f"{P}wg_blk_bot", f"{P}wg_blk_top")
-wg_blk = doc.addObject("Part::MultiCommon", "WedgeBlock")
-wg_blk.Shapes = [wg_cyl, wg_trim]
-hide(wg_cyl, wg_trim)
-wg_nut_z = f"{P}wg_blk_bot + {P}wg_floor"
-wg_cuts = [hexagon("WedgeNut_Hex", f"{P}nut_af", f"{P}nut_t", wg_nut_z),
-           box("WedgeNut_Slot", "10 mm", f"{P}nut_af", f"{P}nut_t", "-10 mm", f"-{P}nut_af / 2", wg_nut_z),
-           cyl("WedgeScrew", f"{P}m3_clear / 2", f"{P}wg_blk_top - {P}wg_blk_bot + 1 mm", f"{P}wg_blk_bot - 0.5 mm")]
-wedge = cut("J1Wedge", fuse("WedgeSolid", [wg_bar, wg_blk]), fuse("WedgeTools", wg_cuts))
-wedge.Label = "J1 wedge (print block-down)"
+# height gauge for step 4: a fork on the keeper lip round the hub tube, open towards the grub (+X);
+# shown in place, under the flange, though it comes out before the bearing goes on
+lip_top = f"{P}roof_top - {P}seat_h + 11.2 mm"      # seat floor 82 + keeper lip 6.2 + 5
+gauge = cut("J1HubGauge", cyl("GaugeDisc", "28 mm", f"{P}gauge_t", lip_top),
+            fuse("GaugeTools", [cyl("GaugeBore", f"{P}hub_d / 2 + 0.3 mm", f"{P}gauge_t + 2 mm", f"{lip_top} - 1 mm"),
+                                box("GaugeMouth", "30 mm", f"{P}hub_d + 0.6 mm", f"{P}gauge_t + 2 mm",
+                                    "0 mm", f"-{P}hub_d / 2 - 0.3 mm", f"{lip_top} - 1 mm")]))
+gauge.Label = "J1 hub height gauge (tool, print flat; out before the bearing goes on)"
+hide(gauge)
 
-# centring plug for drilling the wedge screw hole through an already printed turret: hub screwed
-# to the turret on the bench, plug pushed up the hub bore from below, drill through it (not assembled)
-guide = cut("J1DrillGuide",
-            fuse("GuideSolid", [cyl("GuidePlug", f"{P}shaft_d / 2 + {P}d_clr - 0.1 mm", "22 mm", "-58 mm"),
-                                cyl("GuideCollar", "7 mm", "2 mm", "-60 mm")]),
-            cyl("GuideHole", f"{P}m3_clear / 2", "26 mm", "-61 mm"))
-guide.Label = "Drill guide for the wedge screw hole (print collar-down)"
-hide(guide)   # parked under the table, out of the assembly
-
-# screw heads on the plate top (context + interference sweeps of the arm): 3x M3x20 into the hub
-# nuts, and the wedge screw M3x25 on 2 mm of washers in the middle
+# screw heads on the plate top (context + interference sweeps of the arm): 3x M3x20 into the hub nuts
 hub_heads = fuse("J1HubScrews", [cyl(f"HubScrewHead{k}", "2.75 mm", "3 mm", f"{P}plate_top",
                                      f"{P}hub_scr_r * cos({90 + 120 * k} deg)",
-                                     f"{P}hub_scr_r * sin({90 + 120 * k} deg)") for k in range(3)]
-                 + [cyl("WedgeWashers", "3.5 mm", "2 mm", f"{P}plate_top"),
-                    cyl("WedgeScrewHead", "2.75 mm", "3 mm", f"{P}plate_top + 2 mm")])
-hub_heads.Label = "J1 screws: 3x M3x20 (hub), M3x25 + 2 mm washers (wedge)"
+                                     f"{P}hub_scr_r * sin({90 + 120 * k} deg)") for k in range(3)])
+hub_heads.Label = "J1 screws: 3x M3x20 (hub)"
 
 # ------------------------------------------------- motors and context ---
 j2 = link("J2_Motor", pg.getObject("PG27"), X, 90, "0 mm", f"{P}face_y", f"{P}shoulder_z")
@@ -400,13 +390,12 @@ if bad:
     sys.exit(f"recompute failed: {bad}")
 doc.save()
 
-for part, stem in ((turret, "turret_body"), (hub, "turret_j1hub"), (wedge, "turret_j1wedge"),
-                   (guide, "turret_j1drill_guide")):
+for part, stem in ((turret, "turret_body"), (hub, "turret_j1hub"), (gauge, "turret_j1hub_gauge")):
     Import.export([part], os.path.join(here, stem + ".step"))
     Mesh.export([part], os.path.join(here, stem + ".stl"))
 
 print("shoulder_z (IK D1) =", ss.get("shoulder_z"), " face_y =", ss.get("face_y"))
-for o in (turret, hub, wedge, guide):
+for o in (turret, hub, gauge):
     s = o.Shape
     print(f"{o.Name:10s} vol {s.Volume / 1000:6.1f} cm3 valid {s.isValid()} solids {len(s.Solids)} bb {s.BoundBox}")
 
@@ -420,5 +409,5 @@ for a, b in ((turret, j2), (turret, j3), (turret, hub), (turret, ctx_objs["Beari
              (turret, ctx_objs["BaseHousing"]), (hub, ctx_objs["J1_Motor"]),
              (hub, ctx_objs["BaseHousing"]), (hub, ctx_objs["Bearing_51211"]), (hub, ctx_objs["J1Keeper"]),
              (turret, ctx_objs["J1Keeper"]), (hub_heads, j2), (hub_heads, j3),
-             (wedge, hub), (wedge, turret), (wedge, ctx_objs["J1_Motor"])):
+             (gauge, hub), (gauge, ctx_objs["J1Keeper"]), (gauge, ctx_objs["J1_Motor"])):
     print(f"overlap {a.Name} / {b.Label}: {overlap(a, b)} mm3")

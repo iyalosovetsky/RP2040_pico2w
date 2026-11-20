@@ -80,7 +80,6 @@ parts = {
     "turret_body": shp("turret", "TurretBody"),
     "j1_hub": shp("turret", "J1Hub"),
     "j1_hub_screws": shp("turret", "J1HubScrews"),
-    "j1_wedge": shp("turret", "J1Wedge"),
     "limit_plate": shp("limits", "LimitPlate"),
     "limit_flag": shp("limits", "LimitFlag"),
     "endstops": compound("limits", ["EndstopJ2", "EndstopJ3"]),

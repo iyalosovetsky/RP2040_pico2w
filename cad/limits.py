@@ -27,7 +27,7 @@ the flag hangs from the bracket's arm behind the turret and passes 1.5 mm over t
 Fitting:
   1. Take out the two hub screws at the front (x = +-13, y = -7.5), put the bracket down between
      the cheeks and put the screws back as M3x25 (the M3x20 ones are 1.5 mm short now). The third
-     hub screw and the wedge screw stay as they are; the wedge screw can still be reached.
+     hub screw stays as it is.
   2. An M3 nut pushed sideways into each of the four channels under the board seats (they hold
      it by its flats), the boards on top, parts up, with
      2x M3x6 each (M3x8 bottoms out), loose.
@@ -174,7 +174,7 @@ z0, z1 = TOP, TOP + BASE_T
 solids = [box(-20, 20, -CHEEK + 0.2, CHEEK - 0.2, z0, z1),                    # between the cheeks: locates it in y
           box(-X_END - 0.6, -20 + 0.01, Y2 - ES.BOARD_W - 0.6, Y2 + 0.6, z0, z1),          # tongue under the J2 board
           box(20 - 0.01, X_END + 0.6, Y3 - 0.6, Y3 + ES.BOARD_W + 0.6, z0, z1)]  # tongue under the J3 board
-cuts = [cyl(4.5, 0, 0, z0 - 1, z1 + 1)]                                        # wedge screw + its washers
+cuts = [cyl(4.5, 0, 0, z0 - 1, z1 + 1)]                                        # over the turret's centre hole (old wedge screw)
 for k in range(3):
     a = math.radians(90 + 120 * k)
     x, y = HUB_R * math.cos(a), HUB_R * math.sin(a)

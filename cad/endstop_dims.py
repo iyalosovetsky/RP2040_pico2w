@@ -36,7 +36,7 @@ TERM_Y = 6.7                                  # switch terminals' solder starts 
 
 # ---- where the boards sit (turret frame, relative to the shoulder axis) ----
 PCB_DEPTH = 24.0        # PCB top face below the shoulder axis
-TIP_END = 4.0           # the board's switch end from the J1 axis (clear of the wedge screw's washers)
+TIP_END = 4.0           # the board's switch end from the J1 axis (clear of the turret's centre hole)
 STANDOFF = 1.5          # finger face to the board's lever edge
 ADJ = (-0.5, 1.0)       # slots: towards the finger / away from it
 J2_FACE, J2_FINGER_T = 9.0, 3.0     # J2 fingers: on the +y plate, y 9..12 (its inner face works the lever)
