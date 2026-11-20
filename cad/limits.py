@@ -8,7 +8,8 @@ Builds cad/limits.FCStd and the print files
   limit_flag.stl/.step   - J1 flag: a saddle that slides onto the end of that arm, M3x12 + nut.
                            Print on its outer face.
   limit_collar_front.stl - half collar round the base housing with the seat for the J1 board,
-  limit_collar_rear.stl  - the plain half; 2x M3x20 + nuts pull them together. Print as modelled.
+  limit_collar_rear.stl  - the other half with the pad for the SKR Pico's plate (electronics.py);
+                           4x M3x20 + nuts pull them together. Print both as modelled.
 Needs upper_arm.FCStd (and the files it uses) in the same folder; endstop_dims.py holds the
 board's dimensions and the installation numbers, read that first.
 
@@ -20,7 +21,7 @@ Layout (turret frame, shoulder axis along Y at z = shoulder_z): both boards lie 
 its lever edge to +y; the fingers on the J2-side plate (y 9..12) pass 1.5 mm from that edge.
 J3's board is the same thing turned half a turn: in front, lever edge to -y, worked by the fingers
 on the crank's root ring (y -20.5..-25.5). One switch per joint trips at both ends of travel.
-J1's board stands on a collar clamped round the base housing just under its top, lever edge up;
+J1's board stands on a collar clamped round the base housing (z 44..84), lever edge up;
 the flag hangs from the bracket's arm behind the turret and passes 1.5 mm over that edge.
 
 Fitting:
@@ -36,7 +37,7 @@ Fitting:
   4. Leave 0.5 mm between the crank and the J3 cheek when clamping the crank: the fingers pass
      0.9 mm from the board seats.
   5. J1: flag onto the arm's end from behind (M3x12 down into the nut under the arm). The two collar
-     halves round the housing with their tops 1 mm under its top edge, 2x M3x20 + nuts, board on the
+     halves round the housing with their tops 1 mm under its top edge, 4x M3x20 + nuts, board on the
      front half with 2x M3x6 (or M3x8) into nuts dropped into the channels from above. Turn the
      collar until the board is opposite the flag with the arm pointing where "straight ahead" should
      be, set the board's height the same way as in 3, tighten everything.
@@ -217,8 +218,10 @@ SEAT_X = ES.J1_PCB_X - ES.BOARD_T                       # the PCB's back
 ring = Part.makeCylinder(HR + CT, CZ1 - CZ0, V(0, 0, CZ0))
 ears = [box(-8, 8, sg * (HR + 2), sg * (HR + 15), CZ0, CZ1) if sg > 0 else box(-8, 8, -(HR + 15), -(HR + 2), CZ0, CZ1)
         for sg in (1, -1)]
-riser = box(48.5, SEAT_X, Y0_J1 - 0.6, Y0_J1 + ES.BOARD_L + 0.6, CZ0, ES.J1_EDGE + 0.6)
-col = ring.fuse(ears + [riser])
+riser = box(48.5, SEAT_X, Y0_J1 - 0.6, Y0_J1 + ES.BOARD_L + 0.6, CZ1 - 14.0, ES.J1_EDGE + 0.6)
+# the SKR Pico's pad at the back: electronics.py screws the board plate to its flat face
+pad = box(-ES.SKR_PAD_X, -40, -ES.SKR_PAD_W, ES.SKR_PAD_W, CZ0, ES.SKR_PAD_Z1)
+col = ring.fuse(ears + [riser, pad])
 col = col.cut(Part.makeCylinder(HR, BODY_H + 0.6 - CZ0 + 1, V(0, 0, CZ0 - 1)))      # the housing; above it the seat may reach in
 ccuts = [box(-0.5, 0.5, -HR - 20, HR + 20, CZ0 - 1, ES.J1_EDGE + 2),                 # split into halves
          # room for the solder joints behind the PCB: under the seat strip, and behind the header
@@ -230,8 +233,12 @@ for hx, hy in ES.HOLES:
               box(48, SEAT_X + 1, y - SLOT_W / 2, y + SLOT_W / 2, z - ES.ADJ[1] - SLOT_W / 2, z - ES.ADJ[0] + SLOT_W / 2)]  # slot, right through
 for sg in (1, -1):
     y = sg * (HR + 8.5)
-    ccuts += [Part.makeCylinder(1.7, 20, V(-10, y, (CZ0 + CZ1) / 2), V(1, 0, 0)),
-              box(-9, -5.2, y - 2.85, y + 2.85, (CZ0 + CZ1) / 2 - 3.3, (CZ0 + CZ1) / 2 + 3.3)]   # nut pocket in the rear half
+    for z in ES.J1_COLLAR_SCR_Z:
+        ccuts += [Part.makeCylinder(1.7, 20, V(-10, y, z), V(1, 0, 0)),
+                  box(-9, -5.2, y - 2.85, y + 2.85, z - 3.3, z + 3.3)]   # nut pocket in the rear half
+    y = sg * ES.SKR_SCR_Y
+    ccuts += [Part.makeCylinder(1.7, ES.SKR_PAD_X - 48, V(-ES.SKR_PAD_X - 1, y, ES.SKR_SCR_Z), V(1, 0, 0)),
+              box(-ES.SKR_PAD_X + 3.4, -ES.SKR_PAD_X + 6.0, y - 2.95, y + 2.95, ES.SKR_SCR_Z - 3.3, ES.SKR_PAD_Z1 + 1)]   # pad nut, from above
 col = col.cut(ccuts[0].fuse(ccuts[1:])).removeSplitter()
 halves = sorted(col.Solids, key=lambda h: -h.BoundBox.XMax)
 if len(halves) != 2:

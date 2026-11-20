@@ -1,13 +1,10 @@
 """
 electronics.py - mount for the BTT SKR Pico V1.0 control board on the base housing.
 
-Builds cad/electronics.FCStd and the print files
-  skr_collar_rear.stl/.step  - half collar round the base housing with a pad for the board plate
-  skr_collar_front.stl/.step - the plain half; 2x M3x16 + nuts pull them together (as the J1 collar)
-  skr_plate.stl/.step        - flat plate with four standoffs for the board; 2x M3x12 into nuts in
-                               the pad. Print it back face down, standoffs up.
-The collar halves print as modelled (bottom face on the bed).
-Needs base, turret, limits and pg27 .FCStd in the same folder.
+Builds cad/electronics.FCStd and the print file
+  skr_plate.stl/.step - flat plate with four standoffs for the board; 2x M3x12 into nuts in the pad
+                        on the J1 collar's rear half (limits.py). Print it back face down, standoffs up.
+Needs base, turret, limits and pg27 .FCStd in the same folder; the shared numbers are in endstop_dims.py.
 
 Run headless:
     <FreeCAD.AppImage> freecadcmd cad/electronics.py --pass cad/electronics.FCStd
@@ -21,13 +18,13 @@ J1 switch), the motor edge up, the parts outward, with room for the plugs at eve
   - above: the motor plugs end 18 mm over the edge at z 98; the J1 flag that sweeps round the
     housing is at r 57..68, the board at r >= 71
   - below: the endstop plugs reach down to z 6, 1 mm over the table flange, clear of the gussets
-  - the collar sits between the gussets' tops (z 35) and the J1 collar (z 70), its pad carries the plate
-Turning the collar on the housing sets the board's angle; it only clamps by friction like the J1 one.
+  - one collar (limits.py) holds both the J1 switch at the front and this board at the back: it reaches
+    down to z 44, over the gussets (z 35); the pad for the plate is on its rear half
+The J1 switch sets the collar's angle (limits.py, fitting step 5); the board just comes half a turn round.
 
 Fitting:
-  1. M3 nuts into the pockets: two in the rear half's ears (from the back), two in the pad (from above).
-  2. Collar halves round the housing, M3x16 from the front half into the ear nuts, loose; turn it so the
-     pad faces straight back (the J1 cable window is at the front), tighten.
+  1. Two M3 nuts into the pad's slots from above, before the collar goes round the housing.
+  2. Collar on and set as limits.py says.
   3. Plate on the pad, 2x M3x12 cap heads from the front into the pad nuts.
   4. Board on the standoffs, motor plugs up, USB-C to the right seen from behind: 4x M2.5x8 straight
      into the 2.2 holes (self-tapping in PETG; don't over-tighten).
@@ -44,6 +41,9 @@ import Mesh
 
 out = os.path.abspath(next(a for a in sys.argv if a.endswith(".FCStd")))
 here = os.path.dirname(out)
+sys.path.insert(0, here)
+import endstop_dims as ES  # noqa: E402
+
 for f in ("pg27", "base", "turret", "upper_arm", "limits"):
     App.openDocument(os.path.join(here, f + ".FCStd"))
 pgd, bas, tur, lim = (App.getDocument(n) for n in ("pg27", "base", "turret", "limits"))
@@ -66,13 +66,12 @@ PLUG = 18.0                            # plug + start of the wire's bend, past t
 HEAD_OUT = 3.5                         # the headers stand this far past the PCB's edge
 
 # placement (world = base frame): the PCB's back face at x = -PCB_X, centred on y = 0, z PCB_Z0..+56
-COL_Z0, COL_Z1, COL_T = 44.0, 56.0, 4.0
-PAD_X, PAD_W = 62.0, 20.0              # pad's flat face at x = -PAD_X, |y| <= PAD_W
+PAD_X = ES.SKR_PAD_X                   # pad's flat face (J1 collar, rear half) at x = -PAD_X
 PL_T, ST_H, ST_R = 4.0, 5.0, 3.5       # plate, standoffs
 PCB_X = PAD_X + PL_T + ST_H            # 71
 PCB_Z0 = 24.0
 PCB_Z1 = PCB_Z0 + B_W
-SCR_Y, SCR_Z = 12.0, (COL_Z0 + COL_Z1) / 2
+SCR_Y, SCR_Z = ES.SKR_SCR_Y, ES.SKR_SCR_Z
 
 
 def box(x0, x1, y0, y1, z0, z1):
@@ -126,26 +125,6 @@ keep = Part.makeCompound([
 ])
 show("SkrKeepOut", keep, "SKR Pico: room for its parts, plugs and solder joints (check only)", vis=False)
 
-# ---------------------------------------------------------------- collar ---
-ring = cyl(HR + COL_T, 0, 0, COL_Z0, COL_Z1)
-ears = [box(-8, 8, HR + 2, HR + 15, COL_Z0, COL_Z1), box(-8, 8, -HR - 15, -HR - 2, COL_Z0, COL_Z1)]
-pad = box(-PAD_X, -40, -PAD_W, PAD_W, COL_Z0, COL_Z1)
-col = ring.fuse(ears + [pad])
-cuts = [cyl(HR, 0, 0, COL_Z0 - 1, COL_Z1 + 1), box(-0.5, 0.5, -HR - 20, HR + 20, COL_Z0 - 1, COL_Z1 + 1)]
-for sg in (1, -1):
-    y = sg * (HR + 8.5)
-    cuts += [cyl_x(1.7, -10, 10, y, SCR_Z),
-             box(-9, -5.2, y - 2.85, y + 2.85, SCR_Z - 3.3, SCR_Z + 3.3)]          # nut, from the back
-    y = sg * SCR_Y
-    cuts += [cyl_x(1.7, -PAD_X - 1, -48, y, SCR_Z),
-             box(-PAD_X + 4.4, -PAD_X + 7.0, y - 2.95, y + 2.95, SCR_Z - 3.3, COL_Z1 + 1)]   # nut, from above
-col = col.cut(cuts[0].fuse(cuts[1:])).removeSplitter()
-halves = sorted(col.Solids, key=lambda h: h.BoundBox.XMin)
-if len(halves) != 2:
-    sys.exit(f"collar: expected 2 solids, got {len(halves)}")
-cr = show("SkrCollarRear", halves[0], "SKR collar, rear half with the plate pad (print)")
-cf = show("SkrCollarFront", halves[1], "SKR collar, front half (print)")
-
 # ----------------------------------------------------------------- plate ---
 PY0, PY1 = uv(B_L, 0)[0] + 17.5, B_L / 2      # under the hole pairs, clear of the terminals' solder
 plate = box(-PAD_X - PL_T, -PAD_X, PY0, PY1, PCB_Z0, PCB_Z1)
@@ -176,10 +155,8 @@ def export(shape, stem, rot=None):
     doc.removeObject(stem)
 
 
-export(halves[0], "skr_collar_rear")
-export(halves[1], "skr_collar_front")
 export(plate, "skr_plate", (V(0, 1, 0), 90))      # back face (x = -PAD_X) on the bed, standoffs up
-for o in (cr, cf, pl):
+for o in (pl,):
     print(f"{o.Name} vol {o.Shape.Volume / 1000:.2f} cm3 valid {o.Shape.isValid()} solids {len(o.Shape.Solids)}")
 
 # ---------------------------------------------------------------- checks ---
@@ -189,7 +166,7 @@ heads = Part.makeCompound([cyl(4.3, bp.screw_r.Value * math.cos(math.radians(45 
 static = {"BaseHousing": housing, "TableScrewHeads": heads,
           "LimitCollarFront": lim.getObject("LimitCollarFront").Shape,
           "LimitCollarRear": lim.getObject("LimitCollarRear").Shape, "EndstopJ1": lim.getObject("EndstopJ1").Shape}
-mine = {"SkrCollarRear": halves[0], "SkrCollarFront": halves[1], "SkrPlate": plate, "SkrPico": board, "SkrKeepOut": keep}
+mine = {"SkrPlate": plate, "SkrPico": board, "SkrKeepOut": keep}
 print("static fit:")
 bad = 0
 for a in mine:
@@ -202,9 +179,10 @@ for a in mine:
             print(f"  overlap {a} x {b}: {v:.1f} mm3")
 if not bad:
     print("  none")
-gap = {a: min(mine[a].distToShape(static[b])[0] for b in ("LimitCollarRear", "LimitCollarFront", "EndstopJ1"))
+gap = {a: min(mine[a].distToShape(static[b])[0] for b in ("LimitCollarFront", "EndstopJ1", "BaseHousing"))
        for a in ("SkrPlate", "SkrKeepOut")}
-print("gap to the J1 collar / board: " + ", ".join(f"{a} {d:.2f} mm" for a, d in gap.items()))
+print("gap to the housing, the J1 board and the collar's front half: " + ", ".join(f"{a} {d:.2f} mm" for a, d in gap.items()))
+print(f"plate on the pad: {plate.distToShape(static['LimitCollarRear'])[0]:.2f} mm")
 d_t = mine["SkrKeepOut"].distToShape(heads)[0]
 print(f"gap from the plugs to the table screw heads: {d_t:.2f} mm")
 

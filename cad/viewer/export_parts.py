@@ -70,7 +70,6 @@ parts = {
     "j1_keeper": shp("base", "J1Keeper"),
     "limit_collar": compound("limits", ["LimitCollarFront", "LimitCollarRear"]),
     "endstop_j1": shp("limits", "EndstopJ1"),
-    "skr_collar": compound("electronics", ["SkrCollarRear", "SkrCollarFront"]),
     "skr_plate": shp("electronics", "SkrPlate"),
     "skr_pico": shp("electronics", "SkrPico"),
     # PG27, one mesh reused for all four joints (its own frame: gearbox face at 0, shaft +Z)

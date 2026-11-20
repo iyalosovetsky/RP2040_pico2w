@@ -56,7 +56,12 @@ J1_EDGE = 98.5            # lever edge above the table; the free lever stays 1.3
 J1_HINGE_Y = -(LEV_TIP_X - LEV_HINGE_X + LEV_PRESS) / 2   # lever placed so both trip points are the same angle
 J1_FLAG_R = (57.0, 68.0)  # flag, radially: the lever strip is at 60.3..64.4
 J1_FLAG_W = 15.0          # and along its path
-J1_COLLAR_T, J1_COLLAR_H = 4.0, 14.0
+J1_COLLAR_T, J1_COLLAR_H = 4.0, 40.0   # collar round the base housing, z 44..84: it carries the SKR Pico too
+J1_COLLAR_SCR_Z = (77.0, 50.0)          # the two M3 per side that pull its halves together
+# SKR Pico board on the collar's rear half (electronics.py builds the plate and the board)
+SKR_PAD_X, SKR_PAD_W = 62.0, 20.0       # pad's flat face at x = -SKR_PAD_X, |y| <= SKR_PAD_W
+SKR_PAD_Z1 = 56.0                       # pad from the collar's bottom up to here; its nut slots open on top
+SKR_SCR_Y, SKR_SCR_Z = 12.0, 50.0       # plate screws, M3x12 into nuts in the pad
 
 J1_LIM = (-171.0, 171.0)  # where limits.py finds the J1 switch pressed
 
