@@ -59,7 +59,9 @@ GUS_TOP = FL_T + bp.gus_h.Value        # gussets end here
 # board (SKR Pico V1.0)
 B_L, B_W, B_T = 85.0, 56.0, 1.6
 HOLES = [(u, v) for u in (3.5, 61.5) for v in (3.5, 52.5)]   # from the Pi-header edge, from the motor edge
-PARTS_H = 11.0                         # tallest parts (screw terminals, capacitors) over the PCB
+PARTS_H = 13.0                         # tallest parts over the PCB: the screw terminals (power, HB, HE), measured
+SINK_H = 11.0                          # driver heatsinks over the PCB, measured
+PINS_H = 2.0                           # terminal pins under the PCB, measured
 PLUG = 18.0                            # plug + start of the wire's bend, past the edge
 HEAD_OUT = 3.5                         # the headers stand this far past the PCB's edge
 
@@ -107,9 +109,11 @@ headers = [box(x_f - hdr, x_f, *sorted(uv(5.5, 0)[0:1] + uv(76.0, 0)[0:1]), PCB_
            box(x_f - hdr, x_f, *sorted(uv(7.0, 0)[0:1] + uv(62.0, 0)[0:1]), PCB_Z0 - HEAD_OUT, PCB_Z0 + 6),   # endstops, TH
            box(x_f - hdr, x_f, B_L / 2 - 6, B_L / 2 + HEAD_OUT, *sorted((uv(0, 5.0)[1], uv(0, 50.0)[1]))),     # Pi, fans
            box(x_f - hdr, x_f, -B_L / 2 - HEAD_OUT, -B_L / 2 + 8, *sorted((uv(0, 2.0)[1], uv(0, 25.0)[1])))]  # USB-C, laser
-terms = box(x_f - 10, x_f, -B_L / 2 - 1, -B_L / 2 + 8, PCB_Z0 + 1, PCB_Z0 + 33)                               # HE, HB, power
-caps = [cyl_x(3.15, x_f - 9, x_f, y, z) for y, z in (uv(u, 13.0) for u in (14.5, 29.5, 44.5, 59.5))]
-board = Part.makeCompound([pcb] + headers + [terms] + caps)
+terms = box(x_f - PARTS_H, x_f, -B_L / 2 - 1, -B_L / 2 + 8, PCB_Z0 + 1, PCB_Z0 + 33)                          # HE, HB, power
+sinks = [box(x_f - SINK_H, x_f, *sorted((uv(u - 4.5, 0)[0], uv(u + 4.5, 0)[0])), *sorted((uv(0, 11.5)[1], uv(0, 20.5)[1])))
+         for u in (12.6, 25.8, 38.9, 52.1)]                                                             # TMC2209s
+caps = [cyl_x(3.15, x_f - 9, x_f, y, z) for y, z in (uv(u, 9.5) for u in (19.2, 32.4, 45.5, 63.5))]
+board = Part.makeCompound([pcb] + headers + [terms] + caps + sinks)
 show("SkrPico", board, "BTT SKR Pico V1.0 (bought), dummy")
 # keep-out for the checks: the parts over the PCB, the plugs at all four edges, the solder under it
 keep = Part.makeCompound([
@@ -118,7 +122,7 @@ keep = Part.makeCompound([
     box(x_f - hdr - 1, x_f, *sorted(uv(7.0, 0)[0:1] + uv(62.0, 0)[0:1]), PCB_Z0 - PLUG, PCB_Z0),
     box(x_f - hdr - 1, x_f, B_L / 2, B_L / 2 + PLUG, *sorted((uv(0, 5.0)[1], uv(0, 50.0)[1]))),
     box(x_f - 10, x_f, -B_L / 2 - PLUG, -B_L / 2, PCB_Z0, PCB_Z1),
-    box(x_b, x_b + 2.5, -B_L / 2, B_L / 2, PCB_Z0, PCB_Z1),
+    box(x_b, x_b + PINS_H + 0.5, -B_L / 2, B_L / 2, PCB_Z0, PCB_Z1),
 ])
 show("SkrKeepOut", keep, "SKR Pico: room for its parts, plugs and solder joints (check only)", vis=False)
 
