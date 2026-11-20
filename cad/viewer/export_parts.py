@@ -20,7 +20,7 @@ import Part
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAD = os.path.dirname(HERE)
-DOCS = ("pg27", "base", "turret", "upper_arm", "forearm", "tools", "limits")
+DOCS = ("pg27", "base", "turret", "upper_arm", "forearm", "tools", "limits", "electronics")
 for f in DOCS:
     App.openDocument(os.path.join(CAD, f + ".FCStd"))
 D = {n: App.getDocument(n) for n in DOCS}
@@ -70,6 +70,9 @@ parts = {
     "j1_keeper": shp("base", "J1Keeper"),
     "limit_collar": compound("limits", ["LimitCollarFront", "LimitCollarRear"]),
     "endstop_j1": shp("limits", "EndstopJ1"),
+    "skr_collar": compound("electronics", ["SkrCollarRear", "SkrCollarFront"]),
+    "skr_plate": shp("electronics", "SkrPlate"),
+    "skr_pico": shp("electronics", "SkrPico"),
     # PG27, one mesh reused for all four joints (its own frame: gearbox face at 0, shaft +Z)
     "pg27_body": shp("pg27", "Motor_NEMA17"),
     "pg27_gear": compound("pg27", ["Flange", "Gearbox", "Boss", "Gearbox_CapScrews"]),

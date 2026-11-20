@@ -94,3 +94,10 @@ for hx, hy in ES.HOLES:
 CZ1 = BODY_H - 1.0; CZ0 = CZ1 - ES.J1_COLLAR_H
 for sg in (1, -1):
     check("collar rear ear %+d" % sg, cr, V(-5.2 - 1.3, sg * (HR + 8.5), (CZ0 + CZ1) / 2), "x", (1, 0, 0), travel=6)
+# electronics: SKR Pico collar (positions from electronics.py)
+el = App.openDocument("%s/electronics.FCStd" % C)
+er = el.getObject("SkrCollarRear").Shape
+EZ = (44.0 + 56.0) / 2
+for sg in (1, -1):
+    check("skr collar rear ear %+d" % sg, er, V(-5.2 - 1.3, sg * (HR + 8.5), EZ), "x", (1, 0, 0), travel=6)
+    check("skr collar pad %+d" % sg, er, V(-62.0 + 5.7, sg * 12.0, EZ), "x", (0, 0, -1), travel=10)

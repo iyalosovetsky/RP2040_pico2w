@@ -163,6 +163,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
         <li><i style="background:#7f77dd"></i><span>1× 6803, 17×26×5<small>плече з боку J3, на шийці кривошипа Ø17; до доставки друкована втулка</small></span></li>
         <li><i style="background:#cf5428"></i><span>Інтерфейс інструмента 50×50, 4×M3 на 40×40<small>фланець на валу J4; кронштейн Z (вертикально) або Y (нахил −60…130°)</small></span></li>
         <li><i style="background:#1e2226"></i><span>ST3215 / мотор 775 / шпиндель Ø52<small>змінні інструменти на фланці</small></span></li>
+        <li><i style="background:#1f2924"></i><span>BTT SKR Pico V1.0<small>на хомуті ззаду основи: 2×M3×16 і 2×M3×12 з гайками, 4×M2.5×8 у пластик</small></span></li>
         <li><i style="background:#5b7c96"></i><span>Друковані ланки<small>плече, передпліччя, кривошип, тяги, пластини</small></span></li>
       </ul>
     </section>
@@ -230,7 +231,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const M = {
     // same colours as in the .FCStd files
     print: mat(0x5c7d96), print2: mat(0x99b3c7), turret: mat(0x7a96ad), base: mat(0x5c7d96), rod: mat(0x1c9e75),
-    crank: mat(0xd95c30), keeper: mat(0x4d9e85), pcb: mat(0xb3261e), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
+    crank: mat(0xd95c30), keeper: mat(0x4d9e85), pcb: mat(0xb3261e), skr: mat(0x1f2924), body: mat(0x2b3036, { metalness: 0.2, roughness: 0.6 }), gear: mat(0xbabfc7, { metalness: 0.4, roughness: 0.45 }),
     shaft: mat(0xdbdee0, { metalness: 0.6, roughness: 0.35 }), b609: mat(0x8078de, { metalness: 0.3, roughness: 0.45 }),
     thrust: mat(0xd9a340, { metalness: 0.4, roughness: 0.4 }), servo: mat(0x1e2226), finger: mat(0xcf5428),
     toolBody: mat(0x3a4148, { metalness: 0.5, roughness: 0.4 }), spBody: mat(0xc8ccd0, { metalness: 0.7, roughness: 0.3 })
@@ -285,6 +286,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   root.add(part('j1_keeper', M.keeper, 'Утримувач J1 (друк, 2 половинки, 4×M3×10): губа над диском маточини, турель не перекидається'));
   root.add(part('limit_collar', M.keeper, 'Хомут кінцевика J1 (друк, 2 половини, 2×M3×20 + гайки): затискається навколо корпусу основи, поворотом хомута задається середина ходу J1'));
   root.add(part('endstop_j1', M.pcb, 'Кінцевик J1: плата стоїть на хомуті, важіль угору; прапорець турелі натискає його на ±171°'));
+  root.add(part('skr_collar', M.keeper, 'Хомут плати керування (друк, 2 половини, 2×M3×16 + гайки): затискається навколо корпусу основи ззаду, між косинками й хомутом J1'));
+  root.add(part('skr_plate', M.print2, 'Пластина плати (друк, лягає на бобишку хомута, 2×M3×12 у гайки); 4 стійки під M2.5×8'));
+  root.add(part('skr_pico', M.skr, 'BTT SKR Pico V1.0, 85×56: роз\'єми двигунів угору, кінцевики вниз, USB-C і живлення праворуч, якщо дивитись ззаду'));
   root.add(pg27('J1 — 17HS15-1684S-PG27, поворот основи', CAD.motors.J1));
 
   const turret = new THREE.Group(); root.add(turret);
