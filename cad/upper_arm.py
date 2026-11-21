@@ -5,8 +5,8 @@ Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
   upper_arm_j2.stl     - J2-side plate: saddle that wraps the J2 shaft, elbow 609Z seat, two limit
                          switch fingers. Print inner face down.
   upper_arm_j3.stl     - J3-side plate, 6803 seat on the crank's journal + elbow 609Z seat
-  upper_arm_tie.stl    - print 3: blocks across the gap between the plates; two ribs on each face
-                         sit in two grooves in each plate, 2x M3x12 per plate into nuts in the tie
+  upper_arm_tie.stl    - print 3: flat blocks across the gap between the plates, 2x M3x12 per plate
+                         into nuts in the tie (the plates' grooves stay empty)
   j3_crank.stl         - crank: saddle that wraps the J3 shaft, round D17 journal for the J3-side
                          plate's 6803, 40 mm arm, both limit switch fingers. Print outer face down,
                          with support under the journal's lower part (it hangs over the cap's slot).
@@ -85,14 +85,12 @@ PARAMS = [
     ("sp_x2",      "90 mm",   "plate tie 3 centre (forearm folded to 30 deg still clears)"),
     ("web_len",    "16 mm",   "plate tie: length along the link"),
     ("web_hw",     "14 mm",   "plate tie: half-height across the link (plate half-width 18)"),
-    ("web_key",    "1.5 mm",  "plate tie: rib height = groove depth in each plate"),
+    ("web_key",    "1.5 mm",  "plate tie: groove depth in each plate (the ties no longer have ribs)"),
     ("web_fit",    "0.1 mm",  "plate tie: groove clearance per side"),
     ("web_rib_w",  "4 mm",    "plate tie: rib width - narrow, so the groove's roof bridges cleanly with the plate printed inner face down"),
     ("web_rib_x",  "5 mm",    "plate tie: the two ribs' centres either side of the tie's middle (the M3 holes are between them)"),
     ("web_scr_z",  "8 mm",    "plate tie: 2 M3 per plate at +-this across the link"),
     ("tie_end",    "0.3 mm",  "plate tie: shorter than the grooves by this at each end (first-layer flare, top skin)"),
-    ("tie_rib_in", "0.4 mm",  "plate tie: ribs lower than the grooves are deep by this (the groove's roof is a bridge and sags)"),
-    ("tie_rib_nw", "0.3 mm",  "plate tie: ribs narrower than nominal by this (printed standing they came out too wide for the grooves)"),
     ("m3_clear",   "3.4 mm",  "M3 clearance"),
     ("m3_head_h",  "3.2 mm",  "M3 head counterbore depth (heads flush: the rods pass outside the plates)"),
     ("hub_hw",     "12.5 mm", "cap plate: half-length across the clamp screws"),
@@ -308,23 +306,18 @@ for k, x in enumerate(TIES):
 plate_j3 = cut("UpperArmJ3", j3_solid, j3_tools)
 plate_j3.Label = "Upper arm, J3 side (print)"
 
-# plate ties: a block across the gap with two ribs on each face sitting in two grooves in each plate
-# (the form fit takes the racking, not the screws), 2 M3x12 from each plate into nuts in the tie.
-# Ribs, not one wide tenon: the plates print inner face down, and a 4 mm groove bridges cleanly where
-# a 13 mm pocket sags. They run the tie's whole height, so the tie prints standing with no overhang.
-# The tie is a little smaller than the grooves all round (tie_end, tie_rib_in, tie_rib_nw): the plates
-# are printed already, and the first tie did not go in.
+# plate ties: a flat block across the gap, 2 M3x12 from each plate into nuts in the tie; the clamping
+# and the elbow axle take the racking. The ties used to carry two ribs on each face, sitting in the
+# plates' grooves, but a tie with ribs cannot go in: the grooves stop short of the plate's edges, so
+# the ribs would have to slide in across the plates' faces, which needs the plates 2.2 mm further
+# apart - and on the shafts they can only part by 1.0 (each saddle / the crank is 0.5 mm off its
+# cheek). The plates are printed with the grooves; they stay empty. The tie stays 0.3 mm shorter
+# than the grooves at each end (tie_end), as before.
 spacers = []
 TIE_HW = f"({P}web_hw - {P}tie_end)"
-RIB_W = f"({P}web_rib_w - {P}tie_rib_nw)"
-RIB_H = f"({P}web_key - {P}tie_rib_in)"
 for k, x in enumerate(TIES):
     body = box(f"TieBody{k}", f"{P}web_len", f"2 * {P}pl_in", f"2 * {TIE_HW}",
                f"{x} - {P}web_len / 2", f"-{P}pl_in", f"-{TIE_HW}")
-    keys = [box(f"TieKey{k}_{t}{j}", RIB_W, f"{RIB_H} + 0.01 mm", f"2 * {TIE_HW}",
-                f"{x} + {sx} * {P}web_rib_x - {RIB_W} / 2", y0, f"-{TIE_HW}")
-            for t, y0 in (("P", f"{P}pl_in - 0.01 mm"), ("N", f"-{P}pl_in - {RIB_H}"))
-            for j, sx in enumerate((1, -1))]
     holes = []
     for j, (z, sz) in enumerate(((f"{P}web_scr_z", 1), (f"-{P}web_scr_z", -1))):
         holes.append(cyl_y(f"TieHole{k}_{j}", f"{P}m3_clear / 2", f"-{P}pl_in - {P}web_key - 1 mm",
@@ -335,7 +328,7 @@ for k, x in enumerate(TIES):
             holes.append(box(f"TieNut{k}_{j}{t}", f"{P}nut_w + 0.3 mm", f"{P}nut_t", f"{P}web_hw",
                              f"{x} - ({P}nut_w + 0.3 mm) / 2", yn,
                              f"{z} - {P}nut_w / 2" if sz > 0 else f"{z} + {P}nut_w / 2 - {P}web_hw"))
-    s = cut(f"Spacer{k}", fuse(f"TieSolid{k}", [body] + keys), holes)
+    s = cut(f"Spacer{k}", body, holes)
     s.Label = f"Plate tie {k + 1} (print, 4x M3x12 + nuts)"
     spacers.append(s)
 
@@ -432,7 +425,7 @@ def export(part, stem, rot):
 
 export(plate_j2, "upper_arm_j2", 90)      # inner face (y = +pl_in) on the bed
 export(plate_j3, "upper_arm_j3", -90)     # inner face (y = -pl_in) on the bed
-export(spacers[0], "upper_arm_tie", 0)   # print 3; standing on its edge, ribs upright on the two sides
+export(spacers[0], "upper_arm_tie", 0)   # print 3; standing on its edge, as before
 export(crank, "j3_crank", 90)             # hub/arm outer face (y = -cr_y0) on the bed
 export(cap_j2, "hub_cap", 0)               # print 2, flat (the crank's plate is the same part)
 export(temp_bush, "temp_bushing_6803", 90)
