@@ -330,7 +330,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const rodU = part('rod_up', M.rod, 'Верхня тяга вирівнювання (друк)'); sh.add(rodU);
 
   const fork = new THREE.Group(); sh.add(fork);
-  fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн'));
+  fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн. Вісь гвинт M3 вдавлює у V-паз'));
   fork.add(part('pin_d', M.shaft, 'Палець D, вилка кисті / верхня тяга: гвинт M4×25 зовні тяги без шайби, самоконтрна гайка втоплена в стовпчик'));
   fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×34: лінійний вал 8 мм або болт M8×40; затиснута у вилці, крутиться в 608ZZ (або 609Z з втулкою)'));
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis

@@ -13,7 +13,8 @@ Builds cad/forearm.FCStd plus print files laid flat:
   elbow_plate.stl   - solid triangle on the elbow axle, 7 thick, keeps its orientation; a 608 in its hub
   elbow_washer.stl  - print 2: fills the 1.5 mm between the forearm and each plate's bearing
   wrist_fork.stl    - fork on the wrist axle, keeps its orientation; its bottom bridge
-                      (4x M3 inserts) takes the Z or Y tool bracket
+                      (4x M3 inserts) takes the Z or Y tool bracket. Its grub pushes the axle
+                      into a V too, all through both cheeks and the clamp boss
 Bought: elbow axle D8 x 46.5 and wrist axle D8 x 34 - cut from an 8 mm linear rod. The elbow axle
 is a plain pin: the forearm's grub is all that holds it lengthways. A bolt with a nut does not fit
 there - the upper levelling rod passes 4.5 mm from the axis at J3 = -71.5, right past the +y end
@@ -98,7 +99,7 @@ PARAMS = [
     ("axle_d",     "8 mm",    "elbow / wrist axle: 8 mm linear rod or M8 bolt shank (DIN 931)"),
     ("b_bore",     "9 mm",    "bearing bore: 9 = 609Z (needs the 8->9 sleeve), 8 = 608ZZ (no sleeve)"),
     ("axle_clr",   "0.1 mm",  "axle bore clearance where it is clamped"),
-    ("v_room",     "0.2 mm",  "forearm's V-seat: the round part of the bore is this much wider than the V's flanks are off the axle"),
+    ("v_room",     "0.2 mm",  "V-seats (forearm, wrist fork): the round part of the bore is this much wider than the V's flanks are off the axle"),
     ("b609_d",     "22 mm",   "609Z OD"),
     ("b609_w",     "7 mm",    "609Z width"),
     ("b609_fit",   "0 mm",    "608/609 seat radial clearance; press fit, 0.1 went in freely"),
@@ -364,7 +365,10 @@ fk_parts += [
     cyl_y("FK_ClampBoss", "11 mm", f"-{P}fk_in - {P}fk_t - 6 mm", f"-{P}fk_in - {P}fk_t + 0.01 mm"),
 ]
 fk_tools = [
-    cyl_y("FK_Bore", f"{P}axle_d / 2 + {P}axle_clr", f"-{P}fk_in - {P}fk_t - 7 mm", f"{P}fk_in + {P}fk_t + 1 mm"),
+    # the same V-seat as the forearm's: the grub is near one end, and in a round bore the axle
+    # could pivot on its tip, with only the far cheek's clearance to stop it
+    v_bore("FK_Bore", f"{P}axle_d / 2 + {P}axle_clr", f"{P}axle_d / 2 + {P}axle_clr + {P}v_room",
+           f"-{P}fk_in - {P}fk_t - 7 mm", f"{P}fk_in + {P}fk_t + 1 mm"),
     cyl_y("FK_PostPin", f"{P}pin_d / 2", f"{P}fk_in - 1 mm", f"{P}up_y0 + 1 mm", z=f"{P}lev_w"),
     # the forearm passes 1 mm from the post's inner end: the nyloc nut sits inside it
     hex_y("FK_PostNut", f"{P}m4_nut_w", f"{P}fk_in - 1 mm", f"{P}fk_in + {P}m4_nyl_h", z=f"{P}lev_w"),
