@@ -4,7 +4,9 @@ levelling plate and the wrist fork (scheme C parallelogram).
 
 Builds cad/forearm.FCStd plus print files laid flat:
   forearm.stl       - L3 link with the J3 tail (pin to the drive rod), elbow hub
-                      clamped on the elbow axle, wrist 609Z seat
+                      clamped on the elbow axle, wrist 609Z seat. The grub pushes the axle into
+                      a V along the whole hub: in a round bore one grub in the middle let the
+                      forearm swing sideways on the axle (a few mm at the wrist).
   rod_drive.stl     - J3 crank -> forearm tail, length L2, plane |y| 16.5..20.5 (-y)
   rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 16.5..21 (+y), 6.5 thick at the plate
   rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 29.5..33.5 (+y)
@@ -96,6 +98,7 @@ PARAMS = [
     ("axle_d",     "8 mm",    "elbow / wrist axle: 8 mm linear rod or M8 bolt shank (DIN 931)"),
     ("b_bore",     "9 mm",    "bearing bore: 9 = 609Z (needs the 8->9 sleeve), 8 = 608ZZ (no sleeve)"),
     ("axle_clr",   "0.1 mm",  "axle bore clearance where it is clamped"),
+    ("v_room",     "0.2 mm",  "forearm's V-seat: the round part of the bore is this much wider than the V's flanks are off the axle"),
     ("b609_d",     "22 mm",   "609Z OD"),
     ("b609_w",     "7 mm",    "609Z width"),
     ("b609_fit",   "0 mm",    "608/609 seat radial clearance; press fit, 0.1 went in freely"),
@@ -199,6 +202,22 @@ def grub_up(name, x, y, z0, z1, face_y):
     return [hole, nut]
 
 
+def v_bore(name, r_flank, r_round, y0, y1):
+    """Bore along Y for an axle that a grub along +Z pushes down: a 90 deg V below (its flanks
+    r_flank off the axis, at +-45 deg off -Z) inside a round bore r_round. The axle bears on
+    the two flanks along the whole bore, so it cannot pivot on the grub's tip."""
+    v = doc.addObject("Part::Box", name + "_V")
+    for k in ("Length", "Height"):
+        expr(v, k, "30 mm")
+    expr(v, "Width", f"({y1}) - ({y0})")
+    v.Placement.Rotation = App.Rotation(App.Vector(0, 1, 0), -45)   # local x -> up-right, z -> up-left
+    place(v, "0 mm", y0, f"-({r_flank}) * sqrt(2)")
+    o = doc.addObject("Part::MultiCommon", name)
+    o.Shapes = [v, cyl_y(name + "_R", r_round, y0, y1)]
+    hide(*o.Shapes)
+    return o
+
+
 def gusset(name, rot, base, leg_a, leg_b, t):
     """Right-triangle plate: a Part::Wedge with its top edge collapsed. Wedge local frame:
     legs along +x (leg_a) and +y (leg_b), thickness along +z; rot/base put it in place."""
@@ -285,7 +304,8 @@ expr(seat_roof, "Height", f"{P}b609_d / 2 + {P}b609_fit - {P}lip_hole_d / 2")
 seat_roof.Placement.Rotation = YROT
 place(seat_roof, f"{P}len_l3", f"{yt} - {P}b609_w + {P}seat_roof - ({P}b609_d / 2 + {P}b609_fit - {P}lip_hole_d / 2)")
 fa_tools = [
-    cyl_y("FA_ElbowBore", f"{P}axle_d / 2 + {P}axle_clr", f"-{yt} - 1 mm", f"{yt} + 1 mm"),
+    v_bore("FA_ElbowBore", f"{P}axle_d / 2 + {P}axle_clr", f"{P}axle_d / 2 + {P}axle_clr + {P}v_room",
+           f"-{yt} - 1 mm", f"{yt} + 1 mm"),
     cyl_y("FA_Seat609", f"{P}b609_d / 2 + {P}b609_fit", f"{yt} - {P}b609_w + {P}seat_roof - 0.01 mm", f"{yt} + 1 mm", x=f"{P}len_l3"),
     cyl_y("FA_Lip", f"{P}lip_hole_d / 2", f"-{yt} - 1 mm", f"{yt} - {P}b609_w - 3 mm", x=f"{P}len_l3"),
     seat_roof,
