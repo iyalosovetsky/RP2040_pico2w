@@ -5,8 +5,8 @@ Builds cad/turret.FCStd plus print files for its two printed parts:
   turret_body.stl/.step  - plate + two motor cheeks + levelling lug + motor cradles.
                            Print plate-down (the bearing recess opens onto the bed).
   turret_j1hub.stl/.step - hub on the J1 shaft with an anti-lift disc at the bottom,
-                           held to the turret by 3x M3x20 from above into M3 nuts slid
-                           into side slots in its flange. Print flange-down.
+                           held to the turret by 3x M3x20 from above into M3 nuts pulled
+                           into hex seats from the flange's underside. Print flange-down.
                            An M3 grub through its tube onto the shaft's flat takes out the play.
   turret_j1hub_gauge.stl/.step - 5.6 mm fork that holds the hub at its height while the grub is
                            tightened (a tool, not part of the arm). Print flat.
@@ -30,9 +30,14 @@ shaft. The gauge sets that height 0.2 mm low, so the turret screws pull the hub 
 turret rather than holding the turret off its bearing.
 Assembly order:
   1. J1 into the base (4x M3x8 from above).
-  2. M3 nuts into the 3 side slots of the hub flange, and one into the side pocket in the tube;
-     start the M3x6 grub into that nut from outside, not into the bore yet. Hub onto the
-     J1 shaft with the grub facing the flat.
+  2. On the bench, hub upside down (disc up):
+     - flange nuts: drop an M3 nut into each of the 3 hex holes in the flange's underside,
+       push an M3x20 down through it from the flange top, and screw it in until it has pulled
+       the nut into its tight seat (5.5 across flats); take the screw out - the nut stays.
+     - grub nut: drop an M3 nut down the slot in the disc next to the bore; it stops on the
+       pocket's V roof, on the grub's axis. Start the M3x6 grub into it from the side, a few
+       turns, not into the bore yet - it now keeps the nut in.
+     Hub onto the J1 shaft with the grub facing the flat.
   3. Both keeper halves around the hub disc, 4x M3x10 into the inserts in the seat floor
      (lift the hub a little on the shaft to get them in).
   4. Gauge fork onto the keeper lip round the hub tube, open side towards the grub; let the
@@ -99,6 +104,8 @@ PARAMS = [
     ("hub_fl_t",   "8 mm",    "J1 hub flange thickness (heat inserts from the top)"),
     ("hub_scr_r",  "15 mm",   "3x M3 hub screws radius"),
     ("nut_af",     "5.6 mm",  "M3 nut pocket across flats (nut 5.5)"),
+    ("nut_way_af", "5.8 mm",  "hub flange nut hole from the underside up to the seat (nut drops in)"),
+    ("nut_seat_af", "5.5 mm", "hub flange nut seat: tight, the screw pulls the nut in and it stays"),
     ("nut_t",      "2.7 mm",  "M3 nut pocket height (nut 2.4)"),
     ("hub_nut_top", "2 mm",   "hub flange: plastic over the nuts (M3x20 tip at 102, nut 102.6..105)"),
     ("shaft_top",  "97.7 mm", "J1 shaft tip (base.FCStd shaft_top)"),
@@ -194,19 +201,6 @@ def hexagon(name, af, h, z, x="0 mm", y="0 mm", rot=0):
     o.Placement.Rotation = App.Rotation(App.Vector(0, 0, 1), rot)
     place(o, x, y, z)
     return o
-
-
-def nut_slot(name, r, ang, af, h, z, out):
-    """Hex pocket centred at radius r / angle ang plus a slot of width af running outward to
-    radius out, so the nut slides in from the side and stops centred on the screw."""
-    o = doc.addObject("Part::Box", name + "_Slot")
-    expr(o, "Length", f"{out} - {r}")
-    expr(o, "Width", af)
-    expr(o, "Height", h)
-    o.Placement.Rotation = App.Rotation(App.Vector(0, 0, 1), ang)
-    place(o, f"{r} * cos({ang} deg) + {af} / 2 * sin({ang} deg)",
-          f"{r} * sin({ang} deg) - {af} / 2 * cos({ang} deg)", z)
-    return [hexagon(name + "_Hex", af, h, z, f"{r} * cos({ang} deg)", f"{r} * sin({ang} deg)", ang), o]
 
 
 def hide(*objs):
@@ -314,9 +308,11 @@ turret = cut("TurretBody", body_solid, tools)
 turret.Label = "Turret body (print)"
 
 # ------------------------------------------------------------- J1 hub ---
-# D-bore (the shaft's flat faces +X); an M3 grub along +X runs through an M3 nut slid sideways
-# (from +Y) into a pocket in the tube, through the bore's flat, and presses the shaft's flat. The 3 turret screws go into M3 nuts slid
-# into side slots in the flange (a nut under plastic can't pull out the way a heat insert did).
+# D-bore (the shaft's flat faces +X); an M3 grub along +X runs through an M3 nut, through the bore's
+# flat, and presses the shaft's flat. The grub nut drops in through a slot from the disc's underside.
+# The 3 turret screws go into M3 nuts in hex holes from the flange's underside: a loose way in, then
+# a tight seat under 2 mm of plastic, which the screw pulls the nut into on the bench (the nut pulls
+# up into plastic under load, so it can't come out the way a heat insert on the face did).
 def along_x(o, x, y, z, spin=0):
     """turn a Z-standing primitive onto +X (local Z -> X, local Y stays Y), then place it"""
     o.Placement.Rotation = App.Rotation(Y, 90).multiply(App.Rotation(App.Vector(0, 0, 1), spin))
@@ -341,9 +337,11 @@ for k in range(3):
     x, y = f"{P}hub_scr_r * cos({ang} deg)", f"{P}hub_scr_r * sin({ang} deg)"
     hub_holes.append(cyl(f"HubScrew{k}", f"{P}m3_clear / 2", f"{P}hub_fl_t + 1 mm",
                          f"{P}bear_top - {P}hub_fl_t - 0.5 mm", x, y))
-    hub_holes += nut_slot(f"HubNut{k}", f"{P}hub_scr_r", ang, f"{P}nut_af", f"{P}nut_t", nut_z,
-                          f"{P}hub_fl_d / 2 + 1 mm")
-# grub: hole from the bore out through the tube, nut pocket with its flats up/down, slot open to +Y
+    hub_holes += [hexagon(f"HubNut{k}_Seat", f"{P}nut_seat_af", f"{P}nut_t", nut_z, x, y, ang),
+                  hexagon(f"HubNut{k}_Way", f"{P}nut_way_af", f"{nut_z} - {P}bear_top + {P}hub_fl_t + 0.5 mm",
+                          f"{P}bear_top - {P}hub_fl_t - 0.5 mm", x, y, ang)]
+# grub: hole from the bore out through the tube; nut pocket with its corners up/down and a slot
+# down through the disc, so the nut drops in with the hub upside down and lands on the grub's axis
 grub = along_x(doc.addObject("Part::Cylinder", "HubGrub"), f"{P}flat_x - 0.5 mm", "0 mm", f"{P}grub_z")
 expr(grub, "Radius", f"{P}m3_clear / 2")
 expr(grub, "Height", f"{P}hub_d / 2 - {P}flat_x + 1.5 mm")
@@ -351,9 +349,9 @@ g_hex = doc.addObject("Part::Prism", "HubGrubNut_Hex")
 g_hex.Polygon = 6
 expr(g_hex, "Circumradius", f"{P}nut_af / sqrt(3)")
 expr(g_hex, "Height", f"{P}nut_t")
-along_x(g_hex, f"{P}grub_nut_x", "0 mm", f"{P}grub_z", spin=30)
-g_slot = box("HubGrubNut_Slot", f"{P}nut_t", f"{P}hub_d / 2 + 1 mm", f"{P}nut_af",
-             f"{P}grub_nut_x", "0 mm", f"{P}grub_z - {P}nut_af / 2")
+along_x(g_hex, f"{P}grub_nut_x", "0 mm", f"{P}grub_z")
+g_slot = box("HubGrubNut_Slot", f"{P}nut_t", f"{P}nut_af", f"{P}grub_z - {P}hub_bot + 1 mm",
+             f"{P}grub_nut_x", f"-{P}nut_af / 2", f"{P}hub_bot - 1 mm")
 hub_holes += [grub, g_hex, g_slot]
 hub = cut("J1Hub", hub_solid, fuse("HubTools", hub_holes))
 hub.Label = "J1 hub (print flange-down)"

@@ -45,14 +45,14 @@ def axis_point(doc, hole, pocket):
 docs = {n: App.openDocument("%s/%s.FCStd" % (C, n)) for n in ("pg27", "base", "turret", "upper_arm", "forearm", "tools", "limits")}
 fa, tl, lim, ua = docs["forearm"], docs["tools"], docs["limits"], docs["upper_arm"]
 
-# J1 hub: the grub nut (thread along x, slid in from +y) and the 3 flange nuts (slid in radially)
+# J1 hub: the grub nut and the 3 flange nuts all go in from below (thread along x / z)
 tu = docs["turret"]; tq = tu.getObject("Params"); hub = tu.getObject("J1Hub").Shape
-check("J1 hub grub", hub, V(tq.grub_nut_x.Value + tq.nut_t.Value / 2, 0, tq.grub_z.Value), "x", (0, -1, 0))
+check("J1 hub grub", hub, V(tq.grub_nut_x.Value + tq.nut_t.Value / 2, 0, tq.grub_z.Value), "x", (0, 0, 1))
 hz = tq.bear_top.Value - tq.hub_nut_top.Value - tq.nut_t.Value / 2
 for k in range(3):
     a = math.radians(90 + 120 * k)
     check("J1 hub flange %d" % k, hub, V(tq.hub_scr_r.Value * math.cos(a), tq.hub_scr_r.Value * math.sin(a), hz), "z",
-          (-math.cos(a), -math.sin(a), 0), travel=8)
+          (0, 0, 1), travel=8)
 
 # forearm and wrist fork: grub nut slots (thread along z, pushed in along y from the open face)
 for tag, part, h, p in (("forearm elbow grub", "Forearm", "FA_Grub_H", "FA_Grub_N"), ("wrist fork grub", "WristFork", "FK_Grub_H", "FK_Grub_N")):
