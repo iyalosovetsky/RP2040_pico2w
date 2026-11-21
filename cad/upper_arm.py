@@ -14,6 +14,10 @@ Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
   hub_cap.stl          - print 2 (or cut 2 from 3 mm steel / 4 mm aluminium): flat 25 x 9 plate with
                          two 3.4 holes 17 apart. One under each saddle, on the shaft's flat; 2x M3x16
                          (M3x12 with a 3 mm steel plate) into the nuts in the saddle.
+  hub_cap_jig.stl      - tool, print 1: drill and marking jig for cutting the cap plates from a steel
+                         sheet. Put its corner fences on a corner of the sheet, drill the two holes
+                         (3.4) through it, draw along its two free edges, cut along the lines.
+                         With 2 mm steel the screws are M3x12 or M3x14 (M3x16 bottoms out).
 Limit switches (endstop_dims.py, limits.py): the J2-side plate and the crank carry two fingers each
 that sweep past a switch board lying under the shoulder - one finger per end of travel.
 Needs turret.FCStd (and through it base.FCStd, pg27.FCStd) in the same folder.
@@ -103,6 +107,11 @@ PARAMS = [
     ("cap_t",      "6.5 mm",  "printed cap plate thickness (metal: 3 mm steel or 4 mm aluminium)"),
     ("cap_w",      "9 mm",    "cap plate width along the shaft"),
     ("cl_x",       "8.5 mm",  "clamp screws: distance from the shaft axis"),
+    ("jig_h",      "12 mm",   "cap drill jig: height of the block over the sheet (drill guide length)"),
+    ("jig_hole",   "3.5 mm",  "cap drill jig: guide hole for the 3.4 drill (a printed hole comes out a little small)"),
+    ("jig_fence",  "4 mm",    "cap drill jig: corner fence thickness"),
+    ("jig_lip",    "1.8 mm",  "cap drill jig: fences reach this far down the sheet's edges (less than the 2 mm sheet, so the jig sits on the sheet, not the bench)"),
+    ("jig_reach",  "35 mm",   "cap drill jig: fences run this far along the sheet's edges from its corner"),
     ("cl_nut_x",   "5.6 mm",  "clamp nut slot: plastic between it and the saddle's under face. This high the slot's corner is 2.4 from the bore (1.6 at 3.6) and an M3x16 still passes the nut by 0.7"),
     ("cr_y0",      "25.5 mm", "crank hub outer end |y|"),
     ("cr_t",       "4.5 mm",  "crank arm thickness (|y| 21..25.5)"),
@@ -409,6 +418,37 @@ cp.Placement.Rotation.Axis = App.Vector(0, 1, 0)
 expr(cp, ".Placement.Rotation.Angle", f"-({P}pose_j3 + 180 deg)")
 expr(cp, ".Placement.Base.z", f"{P}shoulder_z")
 
+# ---------------------------------------------------- cap drill jig ---
+# A tool for cutting the cap plates from a steel sheet, in its own frame: the sheet's top face at
+# z = 0, the sheet at x, y >= 0 with its corner on the origin. The block over the sheet is the cap's
+# outline exactly (2 hub_hw x cap_w): its two free edges are the cut lines to draw. Two fences hang
+# jig_lip down the sheet's edges and run along them past the block, which squares the jig on the
+# corner; outside the sheet they cover nothing that has to be drawn.
+JL, JW = f"2 * {P}hub_hw", f"{P}cap_w"
+jig_solid = fuse("CapJigSolid", [
+    box("CapJigBlock", JL, JW, f"{P}jig_h", "0 mm", "0 mm", "0 mm"),
+    box("CapJigFenceX", f"{P}jig_fence", f"{P}jig_reach + {P}jig_fence", f"{P}jig_h + {P}jig_lip",
+        f"-{P}jig_fence", f"-{P}jig_fence", f"-{P}jig_lip"),
+    box("CapJigFenceY", f"{P}jig_reach + {P}jig_fence", f"{P}jig_fence", f"{P}jig_h + {P}jig_lip",
+        f"-{P}jig_fence", f"-{P}jig_fence", f"-{P}jig_lip")])
+jig_tools = []
+for k, x in enumerate((f"{P}hub_hw - {P}cl_x", f"{P}hub_hw + {P}cl_x")):
+    o = doc.addObject("Part::Cylinder", f"CapJigHole{k}")
+    expr(o, "Radius", f"{P}jig_hole / 2"); expr(o, "Height", f"{P}jig_h + 2 mm")
+    place(o, x, f"{P}cap_w / 2", "-1 mm")
+    c = doc.addObject("Part::Cone", f"CapJigChamfer{k}")     # lead-in for the drill
+    expr(c, "Radius1", f"{P}jig_hole / 2"); expr(c, "Radius2", f"{P}jig_hole / 2 + 1 mm"); expr(c, "Height", "1.01 mm")
+    place(c, x, f"{P}cap_w / 2", f"{P}jig_h - 1 mm")
+    jig_tools += [o, c]
+# relief in the fences' inside corner for a burr or a rounded corner of the sheet
+o = doc.addObject("Part::Cylinder", "CapJigCornerRelief")
+expr(o, "Radius", "1 mm"); expr(o, "Height", f"{P}jig_lip + 1 mm")
+place(o, "-0.3 mm", "-0.3 mm", f"-{P}jig_lip - 0.5 mm")
+jig_tools.append(o)
+cap_jig = cut("HubCapJig", jig_solid, jig_tools)
+cap_jig.Label = "Hub cap drill / marking jig (tool, print)"
+cap_jig.Visibility = False
+
 # ----------------------------------------------------------- context ---
 ctx = doc.addObject("App::DocumentObjectGroup", "Turret_context")
 for n in ("TurretBody", "J1Hub", "J1HubScrews", "J2_Motor", "J3_Motor", "Ctx_BaseHousing", "Ctx_Bearing_51211", "Ctx_J1_Motor"):
@@ -442,8 +482,9 @@ export(spacers[0], "upper_arm_tie1", 0)  # print 1; the same, no ribs
 export(crank, "j3_crank", 90)             # hub/arm outer face (y = -cr_y0) on the bed
 export(cap_j2, "hub_cap", 0)               # print 2, flat (the crank's plate is the same part)
 export(temp_bush, "temp_bushing_6803", 90)
+export(cap_jig, "hub_cap_jig", 180)        # top face on the bed: the guide holes print round, the fences point up
 
-for o in (plate_j2, cap_j2, plate_j3, *spacers, crank, crank_cap, temp_bush):
+for o in (plate_j2, cap_j2, plate_j3, *spacers, crank, crank_cap, temp_bush, cap_jig):
     s = o.Shape
     print(f"{o.Name:12s} vol {s.Volume / 1000:6.2f} cm3 valid {s.isValid()} solids {len(s.Solids)}")
 
