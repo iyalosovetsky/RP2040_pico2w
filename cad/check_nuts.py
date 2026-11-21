@@ -55,7 +55,7 @@ for k in range(3):
           (0, 0, 1), travel=8)
 
 # forearm and wrist fork: grub nut slots (thread along z, pushed in along y from the open face)
-for tag, part, h, p in (("forearm elbow grub", "Forearm", "FA_Grub_H", "FA_Grub_N"), ("wrist fork grub", "WristFork", "FK_Grub_H", "FK_Grub_N")):
+for tag, part, h, p in (("forearm elbow grub +y", "Forearm", "FA_Grub0_H", "FA_Grub0_N"), ("forearm elbow grub -y", "Forearm", "FA_Grub1_H", "FA_Grub1_N"), ("wrist fork grub", "WristFork", "FK_Grub_H", "FK_Grub_N")):
     c, pb = axis_point(fa, h, p)
     sh = fa.getObject(part).Shape
     opn = 1 if abs(pb.YMax - c.y) > abs(pb.YMin - c.y) else -1

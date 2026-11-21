@@ -4,9 +4,11 @@ levelling plate and the wrist fork (scheme C parallelogram).
 
 Builds cad/forearm.FCStd plus print files laid flat:
   forearm.stl       - L3 link with the J3 tail (pin to the drive rod), elbow hub
-                      clamped on the elbow axle, wrist 609Z seat. The grub pushes the axle into
-                      a V along the whole hub: in a round bore one grub in the middle let the
-                      forearm swing sideways on the axle (a few mm at the wrist).
+                      clamped on the elbow axle, wrist 609Z seat. Two grubs, one near each
+                      face, push the axle into a V along the whole hub: in a round bore one
+                      grub in the middle let the forearm swing sideways on the axle (a few mm
+                      at the wrist), and one grub over a V still lets the axle rock on it
+                      end to end.
   rod_drive.stl     - J3 crank -> forearm tail, length L2, plane |y| 16.5..20.5 (-y)
   rod_lev_low.stl   - turret lug -> elbow plate, length L2, plane 16.5..21 (+y), 6.5 thick at the plate
   rod_lev_up.stl    - elbow plate -> wrist fork, length L3, plane 29.5..33.5 (+y)
@@ -16,7 +18,7 @@ Builds cad/forearm.FCStd plus print files laid flat:
                       (4x M3 inserts) takes the Z or Y tool bracket. Its grub pushes the axle
                       into a V too, all through both cheeks and the clamp boss
 Bought: elbow axle D8 x 46.5 and wrist axle D8 x 34 - cut from an 8 mm linear rod. The elbow axle
-is a plain pin: the forearm's grub is all that holds it lengthways. A bolt with a nut does not fit
+is a plain pin: the forearm's grubs are all that holds it lengthways. A bolt with a nut does not fit
 there - the upper levelling rod passes 4.5 mm from the axis at J3 = -71.5, right past the +y end
 (a bolt's head would fit on the -y end, but an M8x55's thread starts inside the J2 plate's bearing).
 The wrist axle may be an M8x40 bolt (DIN 931) put in from +y.
@@ -115,6 +117,7 @@ PARAMS = [
     ("fk_gus_x",   "30 mm",   "wrist fork gusset: run along the cheek top, forward of the post"),
     ("ins_d",      "4.2 mm",  "M3 heat insert hole (tool bracket)"),
     ("grub_d",     "3.2 mm",  "M3 grub"),
+    ("fa_grub_y",  "4 mm",    "forearm's two elbow grubs at +-this along the axle (hub |y| < 7.5; each nut slot opens on its own face)"),
     ("nut_w",      "5.7 mm",  "M3 nut across flats"),
     ("nut_t",      "2.6 mm",  "M3 nut trap"),
     ("pose_j2",    "60 deg",  "display pose"),
@@ -311,7 +314,8 @@ fa_tools = [
     cyl_y("FA_Lip", f"{P}lip_hole_d / 2", f"-{yt} - 1 mm", f"{yt} - {P}b609_w - 3 mm", x=f"{P}len_l3"),
     seat_roof,
     cyl_y("FA_TailPin", f"{P}pin_d / 2", f"-{P}drv_y0 - 1 mm", f"{yt} + 1 mm", x=f"-{P}R"),
-] + grub_up("FA_Grub", "0 mm", "0 mm", f"{P}axle_d / 2 - 0.5 mm", f"{P}fa_end_r + 1 mm", f"{yt}")
+] + grub_up("FA_Grub0", "0 mm", f"{P}fa_grub_y", f"{P}axle_d / 2 - 0.5 mm", f"{P}fa_end_r + 1 mm", f"{yt}") \
+  + grub_up("FA_Grub1", "0 mm", f"-{P}fa_grub_y", f"{P}axle_d / 2 - 0.5 mm", f"{P}fa_end_r + 1 mm", f"-{yt}")
 forearm = cut("Forearm", fuse("FA_Solid", fa_parts), fa_tools)
 forearm.Label = "Forearm L3 (print)"
 
