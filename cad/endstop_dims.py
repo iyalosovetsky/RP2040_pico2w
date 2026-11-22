@@ -13,10 +13,14 @@ Board frame: x along the board from the connector end, y across it from the leve
 z up from the PCB's top face.
 
 How a switch is worked: the board lies flat under the shoulder, lever edge along the
-arm's plane. A finger on the rotating part sweeps past that edge at STANDOFF and pushes
-the lever flat against the switch - it comes in along the lever, never straight at it,
-and simply runs on past if the joint overshoots. The fingers are deep enough to be level
-with the lever before they reach its free end or the 3 mm of it next to the hinge.
+arm's plane. One switch has to stop its joint at both ends, so a finger reaches it from one
+side at one end and from the other side at the other - and a finger that meets the lever from
+its free end jams into it end-on (the user caught that on the printed bracket). So the fingers
+never touch the lever: a printed slider sits in a channel in the bracket across the lever edge,
+its back on the middle of the lever, its nose - a V with a flat top - in the fingers' path. A
+finger coming from either side runs up the V, pushes the slider in and with it the lever, and
+just runs on along the flat top if the joint overshoots. The finger's face is STANDOFF from the
+lever edge; the lever's free end stays well short of it.
 """
 import math
 
@@ -34,10 +38,31 @@ PLUG_H = 18.0                                 # plug + lead bend above the PCB
 SOLDER = 2.0                                  # solder joints under the PCB
 TERM_Y = 6.7                                  # switch terminals' solder starts here
 
+
+
+def lever_out(x):
+    """how far the free lever stands out past the lever edge at board x"""
+    return LEV_HINGE_OUT + (x - LEV_HINGE_X) * (LEV_TIP_OUT - LEV_HINGE_OUT) / (LEV_TIP_X - LEV_HINGE_X)
+
+
+# ---- the slider between the fingers and the lever (board frame; limit_slider.stl, one per switch) ----
+SL_XC = 30.65             # its middle, where its rib presses the lever: 9.55 from the hinge; with the flat it puts
+                          # the trip points where the fingers were made for (J2_LIM etc.)
+SL_REST = 3.2             # rib's back from the lever edge with nothing on the nose: a lip in the channel stops it there
+SL_PRESSED = 1.3          # with a finger on the nose (the switch clicks at about 1.9, bottoms out at about 0.5)
+SL_RIB, SL_RIB_W = 1.0, 1.6       # the rib that touches the lever: only there, the lever rises towards its free end
+SL_TALL, SL_BODY = 1.0, 2.0       # body behind the nose; its first SL_TALL mm is full height and stops against the lip
+SL_NOSE, SL_FLAT, SL_ANG = 2.4, 1.4, 35.0   # V nose: depth, flat top, flanks this far off the finger's path
+SL_Z0, SL_Z1, SL_ZN = 0.6, 5.3, 4.3         # bottom, top of the full-height part, top of the nose (above the PCB)
+SL_HW = SL_FLAT / 2 + SL_NOSE / math.tan(math.radians(SL_ANG))   # half width of the body
+STANDOFF = SL_PRESSED + SL_RIB + SL_BODY + SL_NOSE   # finger face to the board's lever edge
+# the lever was taken as clicked when held down to 1.5 out at LEV_PRESS from the hinge; same angle at SL_XC
+_CLICK_RAD = (lever_out(LEV_HINGE_X + LEV_PRESS) - 1.5) / LEV_PRESS
+SL_CLICK = SL_REST - (lever_out(SL_XC) - _CLICK_RAD * (SL_XC - LEV_HINGE_X))   # push on the nose that clicks it
+
 # ---- where the boards sit (turret frame, relative to the shoulder axis) ----
 PCB_DEPTH = 24.0        # PCB top face below the shoulder axis
 TIP_END = 4.0           # the board's switch end from the J1 axis (clear of the turret's centre hole)
-STANDOFF = 1.5          # finger face to the board's lever edge
 ADJ = (-0.5, 1.0)       # slots: towards the finger / away from it
 J2_FACE, J2_FINGER_T = 9.0, 3.0     # J2 fingers: on the +y plate, y 9..12 (its inner face works the lever)
 J3_FACE, J3_FINGER_T = -20.5, 5.0   # J3 fingers: on the crank's root ring, y -20.5..-25.5
@@ -52,7 +77,8 @@ J3_LIM = (-71.5, 36.5)
 # turret, behind the J1 axis when the arm points forward) passes STANDOFF above that edge. It gets to
 # the board from either side after a little under half a turn, so the one switch stops J1 both ways.
 J1_PCB_X = 59.1           # PCB top (component) face: its back sits on a flat 1.5 mm proud of the collar
-J1_EDGE = 98.5            # lever edge above the table; the free lever stays 1.3 mm under the motor cradles
+J1_FLAG_Z0 = 100.0        # the flag's underside (the flag passes STANDOFF over the lever edge)
+J1_EDGE = J1_FLAG_Z0 - STANDOFF   # lever edge above the table
 J1_HINGE_Y = -(LEV_TIP_X - LEV_HINGE_X + LEV_PRESS) / 2   # lever placed so both trip points are the same angle
 J1_FLAG_R = (57.0, 68.0)  # flag, radially: the lever strip is at 60.3..64.4
 J1_FLAG_W = 15.0          # and along its path
@@ -105,6 +131,8 @@ J3_FINGERS = (_finger(LEV_HINGE - LEV_PRESS, J3_LIM[0] + 180, False),  # low lim
 
 if __name__ == "__main__":
     print("lever: tip", LEV_TIP, "hinge", LEV_HINGE, "depth", LEV_DEPTH)
+    print("slider: standoff", STANDOFF, "half width", round(SL_HW, 2), "click after", round(SL_CLICK, 2),
+          "of", SL_REST - SL_PRESSED, "lever at its rib", round(lever_out(SL_XC), 2), "J1 edge", J1_EDGE)
     print("J2 fingers (arm frame):", [round(a, 1) for a in J2_FINGERS])
     print("J3 fingers (crank frame):", [round(a % 360, 1) for a in J3_FINGERS])
     for n, lim in (("J1", J1_LIM), ("J2", J2_LIM), ("J3", J3_LIM)):

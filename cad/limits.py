@@ -10,6 +10,8 @@ Builds cad/limits.FCStd and the print files
   limit_collar_front.stl - half collar round the base housing with the seat for the J1 board,
   limit_collar_rear.stl  - the other half with the pad for the SKR Pico's plate (electronics.py);
                            4x M3x20 + nuts pull them together. Print both as modelled.
+  limit_slider.stl       - the slider between a finger and a switch lever, 3 of them (J1, J2, J3).
+                           Print on its flat underside.
 Needs upper_arm.FCStd (and the files it uses) in the same folder; endstop_dims.py holds the
 board's dimensions and the installation numbers, read that first.
 
@@ -18,29 +20,34 @@ Run headless:
 
 Layout (turret frame, shoulder axis along Y at z = shoulder_z): both boards lie flat, parts up,
 24 mm under the axis - below everything that turns there. J2's board is behind the J1 axis with
-its lever edge to +y; the fingers on the J2-side plate (y 9..12) pass 1.5 mm from that edge.
+its lever edge to +y; the fingers on the J2-side plate (y 9..12) pass 6.7 mm from that edge.
 J3's board is the same thing turned half a turn: in front, lever edge to -y, worked by the fingers
 on the crank's root ring (y -20.5..-25.5). One switch per joint trips at both ends of travel.
 J1's board stands on a collar clamped round the base housing (z 44..84), lever edge up;
-the flag hangs from the bracket's arm behind the turret and passes 1.5 mm over that edge.
+the flag hangs from the bracket's arm behind the turret and passes 6.7 mm over that edge.
+No finger touches a lever: each one runs onto the V nose of a slider that sits in a channel
+across the lever edge and pushes the middle of the lever (endstop_dims.py says why).
 
 Fitting:
   1. Take out the two hub screws at the front (x = +-13, y = -7.5), put the bracket down between
      the cheeks and put the screws back as M3x25 (the M3x20 ones are 1.5 mm short now). The third
      hub screw stays as it is.
-  2. An M3 nut pushed sideways into each of the four channels under the board seats (they hold
-     it by its flats), the boards on top, parts up, with
-     2x M3x6 each (M3x8 bottoms out), loose.
-  3. Arm on. Push a finger of the plate / the crank over the lever by hand and slide the board
-     towards it until its LED comes on, then about 1 mm more; the lever must still have a little
-     travel left when the finger is over it. Tighten.
+  2. A slider into each of the two channels from the board's side, nose first, flat face down; the
+     lip at the far end stops it. An M3 nut pushed sideways into each of the four channels under
+     the board seats (they hold it by its flats; the one by the slider goes in through the block
+     from the finger's side), the boards on top, parts up, with 2x M3x6 each (M3x8 bottoms out), loose.
+  3. Arm on. Turn the joint by hand until a finger sits on the flat top of the slider's nose. Slide
+     the board away from the finger until the LED goes out, then back until it comes on, then 0.5 mm
+     more; tighten. Turn the finger off the nose: the LED must go out (if not, the board is too
+     close and the slider can't come back - move it 0.3 mm away).
   4. Leave 0.5 mm between the crank and the J3 cheek when clamping the crank: the fingers pass
      0.9 mm from the board seats.
   5. J1: flag onto the arm's end from behind (M3x12 down into the nut under the arm). The two collar
-     halves round the housing with their tops 1 mm under its top edge, 4x M3x20 + nuts, board on the
-     front half with 2x M3x6 (or M3x8) into nuts dropped into the channels from above. Turn the
-     collar until the board is opposite the flag with the arm pointing where "straight ahead" should
-     be, set the board's height the same way as in 3, tighten everything.
+     halves round the housing with their tops 1 mm under its top edge, 4x M3x20 + nuts. The third
+     slider up into the channel above the board seat, nose up, then the board on the front half with
+     2x M3x6 (or M3x8) into nuts dropped into the channels from above. Turn the collar until the
+     board is opposite the flag with the arm pointing where "straight ahead" should be, set the
+     board's height the same way as in 3, tighten everything.
 """
 
 import math
@@ -117,10 +124,40 @@ def board_parts():
     plug = box(cx0, cx1, -cy1, -cy0, ch, ES.PLUG_H)
     solder = box(x0, x1, -ES.TERM_Y - 3, -ES.TERM_Y, -ES.BOARD_T - ES.SOLDER, -ES.BOARD_T).fuse(
         box(cx0, cx1, -cy1, -cy0, -ES.BOARD_T - ES.SOLDER, -ES.BOARD_T))
-    # the part of the free lever that a finger has to be over for the switch to have clicked
-    probe = box(ES.LEV_HINGE_X + ES.LEV_PRESS, ES.LEV_TIP_X, ES.STANDOFF, ES.LEV_TIP_OUT,
-                (ES.LEV_Z0 + ES.LEV_Z1) / 2 - 0.5, (ES.LEV_Z0 + ES.LEV_Z1) / 2 + 0.5)
-    return {"pcb": pcb, "sw": sw, "lever": lever, "conn": conn, "plug": plug, "solder": solder, "probe": probe}
+    rest, pressed = slider(ES.SL_REST), slider(ES.SL_PRESSED)
+    # a finger reaching into this tip of the free slider's nose has pushed it in far enough to click
+    probe = rest.common(box(ES.SL_XC - 10, ES.SL_XC + 10, ES.STANDOFF + ES.SL_CLICK, ES.STANDOFF + 10, -1, 10))
+    return {"pcb": pcb, "sw": sw, "lever": lever, "conn": conn, "plug": plug, "solder": solder, "probe": probe,
+            "slider": rest, "slider_in": pressed}
+
+
+def slider(b):
+    """the slider, board frame, with its rib's back b from the lever edge"""
+    xc, hw, z0, z1, zn = ES.SL_XC, ES.SL_HW, ES.SL_Z0, ES.SL_Z1, ES.SL_ZN
+    y1 = b + ES.SL_RIB                       # rib -> body
+    yt = y1 + ES.SL_TALL                     # full height -> nose height
+    yn = y1 + ES.SL_BODY                     # body -> V
+    s = box(xc - ES.SL_RIB_W / 2, xc + ES.SL_RIB_W / 2, b, y1 + 0.01, z0, z1).fuse(box(xc - hw, xc + hw, y1, yt, z0, z1))
+    f = ES.SL_FLAT / 2
+    pts = [V(xc - hw, yt - 0.01, z0), V(xc + hw, yt - 0.01, z0), V(xc + hw, yn, z0), V(xc + f, yn + ES.SL_NOSE, z0),
+           V(xc - f, yn + ES.SL_NOSE, z0), V(xc - hw, yn, z0)]
+    s = s.fuse(Part.Face(Part.makePolygon(pts + pts[:1])).extrude(V(0, 0, zn - z0)))
+    return s.removeSplitter()
+
+
+def guide(zb):
+    """block that carries a slider (board frame, from zb up) and the channel to cut out of it: the slider
+    goes in from the board's side before the board does; the lip over its nose keeps it from coming out
+    the other way, the lever from going back"""
+    xc, hw, z0, z1, zn = ES.SL_XC, ES.SL_HW + 0.2, ES.SL_Z0, ES.SL_Z1, ES.SL_ZN
+    lip = ES.SL_REST + ES.SL_RIB + ES.SL_TALL
+    mouth = ES.STANDOFF - 0.5
+    x0 = ES.LEV_HINGE_X - 0.5
+    block = box(x0 - 1.5, xc + hw + 1.5, 0.6, mouth, zb, z1 + 0.3 + 1.5)
+    chan = box(xc - hw, xc + hw, -1, lip, z0 - 0.3, z1 + 0.3).fuse([
+        box(xc - hw, xc + hw, lip - 0.01, mouth + 1, z0 - 0.3, zn + 0.3),
+        box(x0, xc, -1, ES.lever_out(xc - hw) + 0.6, z0 - 0.3, z1 + 0.3)])   # the lever between the hinge and the slider
+    return block, chan
 
 
 def place(shape, j3):
@@ -146,6 +183,8 @@ M_J1 = App.Matrix(0, 0, 1, ES.J1_PCB_X, 1, 0, 0, Y0_J1, 0, 1, 0, ES.J1_EDGE, 0, 
 boards["J1"] = {k: v.transformGeometry(M_J1) for k, v in bp.items()}
 show("EndstopJ1", Part.makeCompound([boards["J1"][k] for k in ("pcb", "sw", "lever", "conn")]),
      "J1 limit switch board (bought)")
+for tag in boards:
+    show(f"Slider{tag}", boards[tag]["slider"], f"{tag} limit switch slider (print, limit_slider.stl)")
 
 # ---------------------------------------------------------- the bracket ---
 def half(sgn):
@@ -162,7 +201,7 @@ def half(sgn):
     pad = bx(xb(0.3), xb(2.8), yb(ES.BOARD_W - 1.0), yb(1.0), TOP + BASE_T - 0.01, SEAT)
     cuts = []
     for hx, hy in ES.HOLES:
-        cuts.append(bx(xb(hx) - CH_W / 2, xb(hx) + CH_W / 2, yb(ES.TERM_Y - 0.7) - 1, yb(-0.6) + 1,
+        cuts.append(bx(xb(hx) - CH_W / 2, xb(hx) + CH_W / 2, yb(ES.TERM_Y - 0.7) - 1, yb(0.5 - ES.STANDOFF) + 1,
                        TOP + BASE_T, TOP + BASE_T + CH_H))
         # slot: the screw can move ADJ[0] towards the finger (-y on the board) and ADJ[1] away
         cuts.append(bx(xb(hx) - SLOT_W / 2, xb(hx) + SLOT_W / 2, yb(hy + ES.ADJ[1]) - SLOT_W / 2,
@@ -186,6 +225,10 @@ for sgn in (1, -1):
     s, c = half(sgn)
     solids += s
     cuts += c
+g_blk, g_chan = guide(TOP + BASE_T - 0.01 - PCB_TOP)
+for j3 in (False, True):
+    solids.append(place(g_blk, j3))
+    cuts.append(place(g_chan, j3))
 # J1: arm out over the rear edge of the turret plate; its thick end carries the flag
 FR0, FR1 = ES.J1_FLAG_R
 ARM_W, BOSS_T = 10.0, 5.0
@@ -221,15 +264,17 @@ ears = [box(-8, 8, sg * (HR + 2), sg * (HR + 15), CZ0, CZ1) if sg > 0 else box(-
 riser = box(48.5, SEAT_X, Y0_J1 - 0.6, Y0_J1 + ES.BOARD_L + 0.6, CZ1 - 14.0, ES.J1_EDGE + 0.6)
 # the SKR Pico's pad at the back: electronics.py screws the board plate to its flat face
 pad = box(-ES.SKR_PAD_X, -40, -ES.SKR_PAD_W, ES.SKR_PAD_W, CZ0, ES.SKR_PAD_Z1)
-col = ring.fuse(ears + [riser, pad])
+j1_blk, j1_chan = guide(48.5 - ES.J1_PCB_X)
+col = ring.fuse(ears + [riser, pad, j1_blk.transformGeometry(M_J1)])
 col = col.cut(Part.makeCylinder(HR, BODY_H + 0.6 - CZ0 + 1, V(0, 0, CZ0 - 1)))      # the housing; above it the seat may reach in
 ccuts = [box(-0.5, 0.5, -HR - 20, HR + 20, CZ0 - 1, ES.J1_EDGE + 2),                 # split into halves
+         j1_chan.transformGeometry(M_J1),
          # room for the solder joints behind the PCB: under the seat strip, and behind the header
-         box(SEAT_X - 2.5, SEAT_X + 1, Y0_J1 + 3.2, Y0_J1 + ES.BOARD_L + 1, CZ1, ES.J1_EDGE - ES.TERM_Y + 0.7),
-         box(SEAT_X - 2.5, SEAT_X + 1, Y0_J1 + 3.2, Y0_J1 + 12.4, CZ1, ES.J1_EDGE - 1.0)]
+         box(SEAT_X - 2.5, SEAT_X + 1, Y0_J1 + 3.2, Y0_J1 + ES.BOARD_L + 1, ES.J1_EDGE - ES.TERM_Y - 4.0, ES.J1_EDGE - ES.TERM_Y + 0.7),
+         box(SEAT_X - 2.5, SEAT_X + 1, Y0_J1 + 3.2, Y0_J1 + 12.4, ES.J1_EDGE - ES.CONN[3] - 1.0, ES.J1_EDGE - 1.0)]
 for hx, hy in ES.HOLES:
     y, z = Y0_J1 + hx, ES.J1_EDGE - hy
-    ccuts += [box(SEAT_X - 2.0 - CH_H, SEAT_X - 2.0, y - CH_W / 2, y + CH_W / 2, z - ES.ADJ[1] - 3.6, ES.J1_EDGE + 2),   # nut channel, open on top
+    ccuts += [box(SEAT_X - 2.0 - CH_H, SEAT_X - 2.0, y - CH_W / 2, y + CH_W / 2, z - ES.ADJ[1] - 3.6, ES.J1_FLAG_Z0 + 1),   # nut channel, open on top
               box(48, SEAT_X + 1, y - SLOT_W / 2, y + SLOT_W / 2, z - ES.ADJ[1] - SLOT_W / 2, z - ES.ADJ[0] + SLOT_W / 2)]  # slot, right through
 for sg in (1, -1):
     y = sg * (HR + 8.5)
@@ -272,6 +317,7 @@ export(plate, "limit_plate")
 export(flag, "limit_flag", (V(0, 1, 0), -90))     # outer face (the one away from the turret) on the bed
 export(halves[0], "limit_collar_front")
 export(halves[1], "limit_collar_rear")
+export(bp["slider"], "limit_slider")      # on its flat underside
 for o in (fl, cf, cr):
     print(f"{o.Name} vol {o.Shape.Volume / 1000:.2f} cm3 valid {o.Shape.isValid()} solids {len(o.Shape.Solids)}")
 print(f"LimitPlate vol {plate.Volume / 1000:.2f} cm3 valid {plate.isValid()} solids {len(plate.Solids)}")
@@ -291,6 +337,8 @@ static = {"LimitPlate": plate, "TurretBody": tur.getObject("TurretBody").Shape,
           "J1HubScrews": tur.getObject("J1HubScrews").Shape}
 for tag in boards:
     static[f"Endstop{tag}"] = Part.makeCompound([boards[tag][k] for k in ("pcb", "sw", "conn", "plug", "solder")])
+    static[f"Slider{tag}"] = boards[tag]["slider"]
+    static[f"SliderIn{tag}"] = boards[tag]["slider_in"]
 static.update({"LimitFlag": flag, "LimitCollarFront": halves[0], "LimitCollarRear": halves[1],
                "BaseHousing": bas.getObject("BaseHousing").Shape})
 
@@ -302,7 +350,11 @@ for a, b in (("LimitPlate", "TurretBody"), ("EndstopJ2", "LimitPlate"),
              ("EndstopJ3", "LimitPlate"), ("EndstopJ2", "J1HubScrews"), ("EndstopJ3", "J1HubScrews"),
              ("EndstopJ2", "EndstopJ3"), ("LimitFlag", "LimitPlate"), ("LimitFlag", "TurretBody"),
              ("LimitCollarFront", "BaseHousing"), ("LimitCollarRear", "BaseHousing"),
-             ("LimitCollarFront", "LimitCollarRear"), ("EndstopJ1", "LimitCollarFront"), ("EndstopJ1", "BaseHousing")):
+             ("LimitCollarFront", "LimitCollarRear"), ("EndstopJ1", "LimitCollarFront"), ("EndstopJ1", "BaseHousing"),
+             ("SliderJ2", "LimitPlate"), ("SliderInJ2", "LimitPlate"), ("SliderJ3", "LimitPlate"), ("SliderInJ3", "LimitPlate"),
+             ("SliderJ1", "LimitCollarFront"), ("SliderInJ1", "LimitCollarFront"),
+             ("SliderJ2", "EndstopJ2"), ("SliderInJ2", "EndstopJ2"), ("SliderJ3", "EndstopJ3"), ("SliderInJ3", "EndstopJ3"),
+             ("SliderJ1", "EndstopJ1"), ("SliderInJ1", "EndstopJ1")):
     v = static[a].common(static[b]).Volume
     if v > 0.01:
         bad += 1
@@ -321,13 +373,14 @@ for tag, shape, lo, hi, off in (("J2", arm, ES.J2_LIM[0] - 3, ES.J2_LIM[1] + 3, 
         mv = posed(shape, ang + off)
         if i % 4 == 0:   # every 2 deg is plenty for the solids
             for sn, st in static.items():
-                if sn in ("TurretBody", "BaseHousing", "LimitCollarFront", "LimitCollarRear", "EndstopJ1"):
+                if sn in ("TurretBody", "BaseHousing", "LimitCollarFront", "LimitCollarRear", "EndstopJ1",
+                          "SliderJ1", "SliderInJ1", "SliderJ2", "SliderJ3"):
                     continue   # the turret: upper_arm.py checks it; the rest belongs to J1, below
                 v = mv.common(st).Volume
                 if v > 0.01 and v > worst.get((tag, sn), (0, 0))[0]:
                     worst[(tag, sn)] = (v, ang)
         for bt in boards:
-            if mv.common(boards[bt]["probe"]).Volume > 0.05:
+            if mv.common(boards[bt]["probe"]).Volume > 0.001:
                 pressed[tag].append((bt, ang))
 # J1: everything on the turret against everything on the base, a full turn
 pgd = App.getDocument("pg27")
@@ -337,7 +390,7 @@ for n in ("J2_Motor", "J3_Motor"):
     body.Placement = tur.getObject(n).Placement.multiply(body.Placement)
     onturret.append(body)
 onturret = Part.makeCompound(onturret)
-onbase = {k: static[k] for k in ("LimitCollarFront", "LimitCollarRear", "EndstopJ1")}
+onbase = {k: static[k] for k in ("LimitCollarFront", "LimitCollarRear", "EndstopJ1", "SliderInJ1")}
 j1_pressed = []
 for i in range(int(360 / STEP) + 1):
     ang = -180 + i * STEP
@@ -351,14 +404,14 @@ for i in range(int(360 / STEP) + 1):
     if abs(ang) > 150:
         fm = flag.copy()
         fm.rotate(V(0, 0, 0), V(0, 0, 1), ang)
-        if fm.common(boards["J1"]["probe"]).Volume > 0.05:
+        if fm.common(boards["J1"]["probe"]).Volume > 0.001:
             j1_pressed.append(ang)
 print("interference sweep (arm and crank against the boards, the bracket, the hub screws; the turret a full turn over the J1 collar):")
 if not worst:
     print("  none")
 for (tag, sn), (v, ang) in worst.items():
     print(f"  {tag} parts x {sn}: {v:.1f} mm3 at {tag}={ang}")
-print("switch pressed (finger over the working part of the lever):")
+print("switch pressed (finger far enough onto the slider's nose to click it):")
 for tag in ("J2", "J3"):
     own = sorted(a for b, a in pressed[tag] if b == tag)
     other = [a for b, a in pressed[tag] if b != tag]
