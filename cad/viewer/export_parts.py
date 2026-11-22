@@ -71,6 +71,7 @@ parts = {
     "limit_collar": compound("limits", ["LimitCollarFront", "LimitCollarRear"]),
     "endstop_j1": shp("limits", "EndstopJ1"),
     "slider_j1": shp("limits", "SliderJ1"),
+    "cover_j1": shp("limits", "CoverJ1"),
     "skr_plate": shp("electronics", "SkrPlate"),
     "skr_pico": shp("electronics", "SkrPico"),
     # PG27, one mesh reused for all four joints (its own frame: gearbox face at 0, shaft +Z)
@@ -85,6 +86,7 @@ parts = {
     "limit_flag": shp("limits", "LimitFlag"),
     "endstops": compound("limits", ["EndstopJ2", "EndstopJ3"]),
     "sliders": compound("limits", ["SliderJ2", "SliderJ3"]),
+    "covers": compound("limits", ["CoverJ2", "CoverJ3"]),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
     "ua_j2_cap": shp("upper_arm", "UpperArmJ2Cap"),

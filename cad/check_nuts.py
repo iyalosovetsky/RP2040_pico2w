@@ -96,7 +96,7 @@ for hx, hy in ES.HOLES:
     for adj in (ES.ADJ[0], 0, ES.ADJ[1]):
         x, y = hx - X_END, Y2 - (hy + adj)
         check("limit_plate J2 hole %g adj %+g" % (hx, adj), plate, V(x, y, zc), "z", (0, 0, 1), travel=5)
-        check("limit_plate J3 hole %g adj %+g" % (hx, adj), plate, V(-x, MIR - y, zc), "z", (0, 0, 1), travel=5)
+        check("limit_plate J3 hole %g adj %+g" % (hx, adj), plate, V(-x + ES.J3_SHIFT, MIR - y, zc), "z", (0, 0, 1), travel=5)
 FX = -(ES.J1_FLAG_R[0] + ES.J1_FLAG_R[1]) / 2
 check("limit_plate flag nut (under arm)", plate, V(FX, 0, TOP + 1.4), "z", (0, 0, 1))
 cf, cr = lim.getObject("LimitCollarFront").Shape, lim.getObject("LimitCollarRear").Shape

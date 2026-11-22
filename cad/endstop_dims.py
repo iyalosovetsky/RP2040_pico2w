@@ -48,25 +48,42 @@ def lever_out(x):
 # ---- the slider between the fingers and the lever (board frame; limit_slider.stl, one per switch) ----
 SL_XC = 30.65             # its middle, where its rib presses the lever: 9.55 from the hinge; with the flat it puts
                           # the trip points where the fingers were made for (J2_LIM etc.)
-SL_REST = 3.2             # rib's back from the lever edge with nothing on the nose: its key stops at the slot's end
+SL_REST = 3.2             # rib's back from the lever edge with nothing on the nose: its shoulders stop it there
 SL_PRESSED = 1.3          # with a finger on the nose (the switch clicks at about 1.9, bottoms out at about 0.5)
 SL_RIB, SL_RIB_W = 1.0, 1.6       # the rib that touches the lever: only there, the lever rises towards its free end
 SL_BODY = 2.0                     # body behind the nose
 SL_NOSE, SL_FLAT, SL_ANG = 2.4, 1.4, 35.0   # V nose: depth, flat top, flanks this far off the finger's path
-SL_Z0, SL_Z1 = 0.6, 4.3                     # its underside and top above the PCB (the lever strip 1.2..4.6); printed top face down
-# dovetail key under the body, in a slot in the channel floor: keeps the slider down (a finger drags
-# it up on one side) without a roof over the channel, and its end is the stop at SL_REST
-SL_KEY_Y = (1.0, 2.2)     # from the rib's back
-SL_KEY_W = 3.0            # neck width; the flanks widen at 45 deg down to SL_KEY_D below the floor
-SL_KEY_D = 1.5
+SL_Z0, SL_ZN, SL_Z1 = 0.6, 4.3, 5.7        # underside, top of the nose, top of the rest (above the PCB; the lever
+                                            # strip is at 1.2..4.6). Printed on its flat underside
+SL_SHOULDER = (0.6, 1.0)  # shoulders behind the body: this long, standing out this far each side; they stop it
+                          # against the step in the channel, so it can't come out towards the fingers
+# the cover: a flat plate over the switch and the back of the slider (a finger drags the slider up on one
+# side), held by the board's own screw in hole 17 (M3x16) through a boss down to the PCB - no screw or nut of
+# its own. It stops short of hole 36: over the J3 board the J3-side arm plate's and the crank's rings
+# (r 19.2 round the shoulder axis) pass 16.5 under the axis there; hole 36 keeps its M3x8 on the PCB
+COVER_Z = (6.0, 7.5)      # above the PCB: clear of the switch body (5.8); the slider stops 0.3 under it
+COVER_X = (14.0, 31.6)
+COVER_Y0 = -5.7           # back edge over the PCB (the LED and the solder side stay uncovered)
+COVER_BOSS_D = 6.0
 SL_HW = SL_FLAT / 2 + SL_NOSE / math.tan(math.radians(SL_ANG))   # half width of the body
 STANDOFF = SL_PRESSED + SL_RIB + SL_BODY + SL_NOSE   # finger face to the board's lever edge
 # the lever was taken as clicked when held down to 1.5 out at LEV_PRESS from the hinge; same angle at SL_XC
 _CLICK_RAD = (lever_out(LEV_HINGE_X + LEV_PRESS) - 1.5) / LEV_PRESS
-SL_CLICK = SL_REST - (lever_out(SL_XC) - _CLICK_RAD * (SL_XC - LEV_HINGE_X))   # push on the nose that clicks it
+
+
+def sl_click(xc):
+    """push on the nose that clicks the switch, for a slider at board x xc"""
+    return SL_REST - (lever_out(xc) - _CLICK_RAD * (xc - LEV_HINGE_X))
+
+
+SL_CLICK = sl_click(SL_XC)
 
 # ---- where the boards sit (turret frame, relative to the shoulder axis) ----
 PCB_DEPTH = 24.0        # PCB top face below the shoulder axis
+J3_SHIFT = -1.5         # the J3 board sits this much further in (towards the J1 axis) than the J2 board's mirror
+                        # image: the hub screw at (13, -7.5) needs the room beside its hole-36 nut. Its slider is
+                        # where the J2 one is mirrored (the crank's fingers are made for that), so on the J3
+                        # board it presses the lever 1.5 mm nearer the hinge
 TIP_END = 4.0           # the board's switch end from the J1 axis (clear of the turret's centre hole)
 ADJ = (-0.5, 1.0)       # slots: towards the finger / away from it
 J2_FACE, J2_FINGER_T = 9.0, 3.0     # J2 fingers: on the +y plate, y 9..12 (its inner face works the lever)
