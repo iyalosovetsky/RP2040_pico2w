@@ -16,11 +16,15 @@ How a switch is worked: the board lies flat under the shoulder, lever edge along
 arm's plane. One switch has to stop its joint at both ends, so a finger reaches it from one
 side at one end and from the other side at the other - and a finger that meets the lever from
 its free end jams into it end-on (the user caught that on the printed bracket). So the fingers
-never touch the lever: a printed slider sits in a channel in the bracket across the lever edge,
-its back on the middle of the lever, its nose - a V with a flat top - in the fingers' path. A
-finger coming from either side runs up the V, pushes the slider in and with it the lever, and
-just runs on along the flat top if the joint overshoots. The finger's face is STANDOFF from the
-lever edge; the lever's free end stays well short of it.
+never touch the lever: a printed rocker lies along the lever edge, turning on a pin at its
+connector end, its rib on the middle of the lever, its nose - a V with a flat top - in the
+fingers' path. A finger coming from either side runs up the V, turns the rocker in and with it
+the lever, and just runs on along the flat top if the joint overshoots.
+
+The first pusher slid straight in a channel. It jammed: wide and short, a finger pushing its V
+from the side cocked it. And the real lever is longer than the shop photo made it, with a hooked
+end (the user's photo, 2026-11-22): the hook reached under the channel's far wall and the wall
+held the lever down. A rocker needs no side walls; nothing stands beside the lever's far end now.
 """
 import math
 
@@ -29,10 +33,13 @@ BOARD_L, BOARD_W, BOARD_T = 39.4, 16.4, 1.6   # measured
 HOLE_D = 3.0
 HOLES = ((17.0, 2.7), (36.0, 2.7))            # the pair 19 mm apart, either side of the switch
 SW = (20.3, 32.9, -0.2, 6.3, 5.8)             # switch body: x0, x1, y0, y1, height
-LEV_HINGE_X, LEV_TIP_X = 21.1, 33.1           # lever: hinged at the connector side, free end at the board's end
-LEV_HINGE_OUT, LEV_TIP_OUT = 0.3, 4.2         # how far it stands out past the lever edge (free)
+LEV_HINGE_X, LEV_HINGE_OUT = 21.1, 0.3       # lever: hinged at the connector side, this far out past the lever edge
+LEV_HOOK_X, LEV_HOOK_R = 36.5, 1.0            # the real lever (user's photo): straight to here, where a hook stands
+                                              # out this much more; it ends at about 37.5
 LEV_Z0, LEV_Z1 = 1.2, 4.6                     # the lever strip's width, above the PCB
-LEV_PRESS = 6.9                               # the switch has clicked once the lever is held down this far from the hinge
+# what the fingers were made for, from the shop photo (12 mm lever, LEV_PRESS from the hinge clicks it):
+# keep them, upper_arm.py's printed fingers come from these
+LEV_TIP_X, LEV_PRESS = 33.1, 6.9
 CONN = (3.6, 10.4, 1.9, 14.5, 7.0)            # JST-XH header: x0, x1, y0, y1, height
 PLUG_H = 18.0                                 # plug + lead bend above the PCB
 SOLDER = 2.0                                  # solder joints under the PCB
@@ -40,50 +47,48 @@ TERM_Y = 6.7                                  # switch terminals' solder starts 
 
 
 
-def lever_out(x):
-    """how far the free lever stands out past the lever edge at board x"""
-    return LEV_HINGE_OUT + (x - LEV_HINGE_X) * (LEV_TIP_OUT - LEV_HINGE_OUT) / (LEV_TIP_X - LEV_HINGE_X)
-
-
-# ---- the slider between the fingers and the lever (board frame; limit_slider.stl, one per switch) ----
-SL_XC = 30.65             # its middle, where its rib presses the lever: 9.55 from the hinge; with the flat it puts
-                          # the trip points where the fingers were made for (J2_LIM etc.)
-SL_REST = 3.2             # rib's back from the lever edge with nothing on the nose: its shoulders stop it there
-SL_PRESSED = 1.3          # with a finger on the nose (the switch clicks at about 1.9, bottoms out at about 0.5)
-SL_RIB, SL_RIB_W = 1.0, 1.6       # the rib that touches the lever: only there, the lever rises towards its free end
-SL_BODY = 2.0                     # body behind the nose
+# ---- the rocker between the fingers and the lever (board frame; limit_rocker.stl for J1 and J2,
+# limit_rocker_j3.stl for J3, whose nose sits 1.5 nearer the pin) ----
+SL_XC = 30.65             # middle of the nose, and of the rib that presses the lever: puts the trip points where
+                          # the fingers were made for (J2_LIM etc.)
+STANDOFF = 6.7            # finger face to the board's lever edge: the fingers and the board seats are made for it
+SL_PIVOT = (15.5, 3.5)    # the pin: board x, and out from the lever edge - the same on every board
+SL_PIN_D, SL_HOLE_D, SL_BOSS_R = 3.0, 3.4, 2.6
+SL_PRESSED = 1.3          # rib's back from the lever edge with a finger on the nose flat (rocker square to the board)
+SL_TRAVEL = 1.9           # the nose's travel from rest to a finger on it (J3's shorter rocker: 1.7)
+SL_OVER = 0.5             # the board is set so that the rib is this far past the click with a finger on the nose
+SL_RIB, SL_RIB_W = 1.2, 1.6       # the rib that touches the lever: the bar behind it stays clear of the lever
 SL_NOSE, SL_FLAT, SL_ANG = 2.4, 1.4, 35.0   # V nose: depth, flat top, flanks this far off the finger's path
-SL_Z0, SL_ZN, SL_Z1 = 0.6, 4.3, 5.7        # underside, top of the nose, top of the rest (above the PCB; the lever
+SL_BAR = STANDOFF - SL_PRESSED - SL_RIB - SL_NOSE   # the bar behind the nose, along the lever edge
+SL_Z0, SL_ZN, SL_Z1 = 0.6, 4.3, 5.6        # underside, top of the nose, top of the rest (above the PCB; the lever
                                             # strip is at 1.2..4.6). Printed on its flat underside
-SL_SHOULDER = (0.6, 1.0)  # shoulders behind the body: this long, standing out this far each side; they stop it
-                          # against the step in the channel, so it can't come out towards the fingers
-# the cover: a flat plate over the switch and the back of the slider (a finger drags the slider up on one
-# side), held by the board's own screw in hole 17 (M3x16) through a boss down to the PCB - no screw or nut of
-# its own. It stops short of hole 36: over the J3 board the J3-side arm plate's and the crank's rings
+SL_FLOOR = 0.2            # top of the bracket's floor under the rocker; the cover's underside is 0.4 over the rocker
+SL_HW = SL_FLAT / 2 + SL_NOSE / math.tan(math.radians(SL_ANG))   # half width of the nose's base
+SL_REST_ANG = math.degrees(SL_TRAVEL / (SL_XC - SL_PIVOT[0]))    # rocker turned out this far at rest (the cover's stop)
+
+
+def sl_click_ang(xc):
+    """rocker angle (deg, out from square) at which the switch clicks, for a nose at board x xc"""
+    return math.degrees(SL_OVER / (xc - SL_PIVOT[0]))
+
+
+# the cover: a flat plate over the switch and the rocker, held by the board's own screw in hole 17 (M3x16) through a
+# boss down to the PCB - no screw or nut of its own. Under it: the rocker's pin, which reaches into a slot in the
+# bracket's floor (that stops the cover turning round its screw; the slot lets the board be set), and a stop for
+# the rocker at rest. It stops short of hole 36: over the J3 board the J3-side arm plate's and the crank's rings
 # (r 19.2 round the shoulder axis) pass 16.5 under the axis there; hole 36 keeps its M3x8 on the PCB
-COVER_Z = (6.0, 7.5)      # above the PCB: clear of the switch body (5.8); the slider stops 0.3 under it
-COVER_X = (14.0, 31.6)
+COVER_Z = (6.0, 7.5)      # above the PCB: clear of the switch body (5.8)
+COVER_X = (13.0, 31.6)
 COVER_Y0 = -5.7           # back edge over the PCB (the LED and the solder side stay uncovered)
 COVER_BOSS_D = 6.0
-SL_HW = SL_FLAT / 2 + SL_NOSE / math.tan(math.radians(SL_ANG))   # half width of the body
-STANDOFF = SL_PRESSED + SL_RIB + SL_BODY + SL_NOSE   # finger face to the board's lever edge
-# the lever was taken as clicked when held down to 1.5 out at LEV_PRESS from the hinge; same angle at SL_XC
-_CLICK_RAD = (lever_out(LEV_HINGE_X + LEV_PRESS) - 1.5) / LEV_PRESS
-
-
-def sl_click(xc):
-    """push on the nose that clicks the switch, for a slider at board x xc"""
-    return SL_REST - (lever_out(xc) - _CLICK_RAD * (xc - LEV_HINGE_X))
-
-
-SL_CLICK = sl_click(SL_XC)
+COVER_STOP_X = (2.8, 5.8)  # the stop, from the pin
 
 # ---- where the boards sit (turret frame, relative to the shoulder axis) ----
 PCB_DEPTH = 24.0        # PCB top face below the shoulder axis
 J3_SHIFT = -1.5         # the J3 board sits this much further in (towards the J1 axis) than the J2 board's mirror
-                        # image: the hub screw at (13, -7.5) needs the room beside its hole-36 nut. Its slider is
-                        # where the J2 one is mirrored (the crank's fingers are made for that), so on the J3
-                        # board it presses the lever 1.5 mm nearer the hinge
+                        # image: the hub screw at (13, -7.5) needs the room beside its hole-36 nut. Its rocker's
+                        # nose is where the J2 one is mirrored (the crank's fingers are made for that), so on the
+                        # J3 board it is 1.5 mm nearer the pin and presses the lever 1.5 mm nearer the hinge
 TIP_END = 4.0           # the board's switch end from the J1 axis (clear of the turret's centre hole)
 ADJ = (-0.5, 1.0)       # slots: towards the finger / away from it
 J2_FACE, J2_FINGER_T = 9.0, 3.0     # J2 fingers: on the +y plate, y 9..12 (its inner face works the lever)
@@ -101,7 +106,7 @@ J3_LIM = (-71.5, 36.5)
 J1_PCB_X = 59.1           # PCB top (component) face: its back sits on a flat 1.5 mm proud of the collar
 J1_FLAG_Z0 = 100.0        # the flag's underside (the flag passes STANDOFF over the lever edge)
 J1_EDGE = J1_FLAG_Z0 - STANDOFF   # lever edge above the table
-J1_HINGE_Y = -(LEV_TIP_X - LEV_HINGE_X + LEV_PRESS) / 2   # lever placed so both trip points are the same angle
+J1_HINGE_Y = -(LEV_TIP_X - LEV_HINGE_X + LEV_PRESS) / 2   # board placed so both trip points are the same angle
 J1_FLAG_R = (57.0, 68.0)  # flag, radially: the lever strip is at 60.3..64.4
 J1_FLAG_W = 15.0          # and along its path
 J1_COLLAR_T, J1_COLLAR_H = 4.0, 40.0   # collar round the base housing, z 44..84: it carries the SKR Pico too
@@ -153,8 +158,8 @@ J3_FINGERS = (_finger(LEV_HINGE - LEV_PRESS, J3_LIM[0] + 180, False),  # low lim
 
 if __name__ == "__main__":
     print("lever: tip", LEV_TIP, "hinge", LEV_HINGE, "depth", LEV_DEPTH)
-    print("slider: standoff", STANDOFF, "half width", round(SL_HW, 2), "click after", round(SL_CLICK, 2),
-          "of", SL_REST - SL_PRESSED, "lever at its rib", round(lever_out(SL_XC), 2), "J1 edge", J1_EDGE)
+    print("rocker: standoff", STANDOFF, "bar", round(SL_BAR, 2), "rest angle", round(SL_REST_ANG, 2),
+          "click at", round(sl_click_ang(SL_XC), 2), "J3", round(sl_click_ang(SL_XC + J3_SHIFT), 2), "J1 edge", J1_EDGE)
     print("J2 fingers (arm frame):", [round(a, 1) for a in J2_FINGERS])
     print("J3 fingers (crank frame):", [round(a % 360, 1) for a in J3_FINGERS])
     for n, lim in (("J1", J1_LIM), ("J2", J2_LIM), ("J3", J3_LIM)):
