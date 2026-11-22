@@ -11,7 +11,7 @@ Builds cad/limits.FCStd and the print files
   limit_collar_rear.stl  - the other half with the pad for the SKR Pico's plate (electronics.py);
                            4x M3x20 + nuts pull them together. Print both as modelled.
   limit_slider.stl       - the slider between a finger and a switch lever, 3 of them (J1, J2, J3).
-                           Print on its flat underside.
+                           Print on its flat top face, the dovetail key up (45 deg flanks).
 Needs upper_arm.FCStd (and the files it uses) in the same folder; endstop_dims.py holds the
 board's dimensions and the installation numbers, read that first.
 
@@ -32,10 +32,11 @@ Fitting:
   1. Take out the two hub screws at the front (x = +-13, y = -7.5), put the bracket down between
      the cheeks and put the screws back as M3x25 (the M3x20 ones are 1.5 mm short now). The third
      hub screw stays as it is.
-  2. A slider into each of the two channels from the board's side, nose first, flat face down; the
-     lip at the far end stops it. An M3 nut pushed sideways into each of the four channels under
-     the board seats (they hold it by its flats; the one by the slider goes in through the block
-     from the finger's side), the boards on top, parts up, with 2x M3x6 each (M3x8 bottoms out), loose.
+     Before that: an M3 nut into each of the four pockets in the bracket's underside (they hold it by
+     its flats; the turret plate keeps it in).
+  2. A slider into each of the two channels from the board's side, nose first, its key in the slot
+     in the floor; the slot's end stops it. The boards on top, parts up, 2x M3x8 each (not longer:
+     a longer one stands on the turret plate before it is tight), loose.
   3. Arm on. Turn the joint by hand until a finger sits on the flat top of the slider's nose. Slide
      the board away from the finger until the LED goes out, then back until it comes on, then 0.5 mm
      more; tighten. Turn the finger off the nose: the LED must go out (if not, the board is too
@@ -44,7 +45,7 @@ Fitting:
      0.9 mm from the board seats.
   5. J1: flag onto the arm's end from behind (M3x12 down into the nut under the arm). The two collar
      halves round the housing with their tops 1 mm under its top edge, 4x M3x20 + nuts. The third
-     slider up into the channel above the board seat, nose up, then the board on the front half with
+     slider up into the channel above the board seat from below, nose up, key in the slot, then the board on the front half with
      2x M3x6 (or M3x8) into nuts dropped into the channels from above. Turn the collar until the
      board is opposite the flag with the arm pointing where "straight ahead" should be, set the
      board's height the same way as in 3, tighten everything.
@@ -82,6 +83,7 @@ PCB_TOP = SH_Z - ES.PCB_DEPTH
 SEAT = PCB_TOP - ES.BOARD_T           # the boards rest on this
 BASE_T, POCKET = 2.5, 1.0             # bracket floor; depth of the pockets under the two hub screw heads
 CH_W, CH_H = 5.9, 2.9                 # nut channel: holds the nut by its flats (5.5), so it cannot turn
+NUT_TOP, NUT_C = 3.4, 3.4             # board nut pockets: open underneath, this deep; nut corner + clearance
 SLOT_W = 3.3
 X_END = ES.TIP_END + ES.BOARD_L       # the boards' connector end, |x|
 Y2 = ES.J2_FACE - ES.STANDOFF         # J2 board's lever edge
@@ -133,30 +135,38 @@ def board_parts():
 
 def slider(b):
     """the slider, board frame, with its rib's back b from the lever edge"""
-    xc, hw, z0, z1, zn = ES.SL_XC, ES.SL_HW, ES.SL_Z0, ES.SL_Z1, ES.SL_ZN
+    xc, hw, z0, z1 = ES.SL_XC, ES.SL_HW, ES.SL_Z0, ES.SL_Z1
     y1 = b + ES.SL_RIB                       # rib -> body
-    yt = y1 + ES.SL_TALL                     # full height -> nose height
     yn = y1 + ES.SL_BODY                     # body -> V
-    s = box(xc - ES.SL_RIB_W / 2, xc + ES.SL_RIB_W / 2, b, y1 + 0.01, z0, z1).fuse(box(xc - hw, xc + hw, y1, yt, z0, z1))
     f = ES.SL_FLAT / 2
-    pts = [V(xc - hw, yt - 0.01, z0), V(xc + hw, yt - 0.01, z0), V(xc + hw, yn, z0), V(xc + f, yn + ES.SL_NOSE, z0),
+    pts = [V(xc - hw, y1, z0), V(xc + hw, y1, z0), V(xc + hw, yn, z0), V(xc + f, yn + ES.SL_NOSE, z0),
            V(xc - f, yn + ES.SL_NOSE, z0), V(xc - hw, yn, z0)]
-    s = s.fuse(Part.Face(Part.makePolygon(pts + pts[:1])).extrude(V(0, 0, zn - z0)))
+    s = Part.Face(Part.makePolygon(pts + pts[:1])).extrude(V(0, 0, z1 - z0))
+    s = s.fuse([box(xc - ES.SL_RIB_W / 2, xc + ES.SL_RIB_W / 2, b, y1 + 0.01, z0, z1), key(b, 0)])
     return s.removeSplitter()
 
 
+def key(b, gap):
+    """dovetail under the slider (gap = 0) or the slot for it (gap = clearance, from the floor down)"""
+    xc, k, fl = ES.SL_XC, ES.SL_KEY_W / 2 + gap, ES.SL_Z0 - 0.3          # fl: the channel floor
+    zb = fl - ES.SL_KEY_D - (0.3 if gap else 0)
+    ztop = ES.SL_Z0 + 0.01 if not gap else fl + 0.01
+    pts = [V(xc - k, 0, ztop), V(xc + k, 0, ztop), V(xc + k, 0, fl), V(xc + k + fl - zb, 0, zb),
+           V(xc - k - (fl - zb), 0, zb), V(xc - k, 0, fl)]
+    y0, y1 = (b + ES.SL_KEY_Y[0], b + ES.SL_KEY_Y[1]) if not gap else (-1, b)
+    return Part.Face(Part.makePolygon(pts + pts[:1])).extrude(V(0, y1 - y0, 0)).translated(V(0, y0, 0))
+
+
 def guide(zb):
-    """block that carries a slider (board frame, from zb up) and the channel to cut out of it: the slider
-    goes in from the board's side before the board does; the lip over its nose keeps it from coming out
-    the other way, the lever from going back"""
-    xc, hw, z0, z1, zn = ES.SL_XC, ES.SL_HW + 0.2, ES.SL_Z0, ES.SL_Z1, ES.SL_ZN
-    lip = ES.SL_REST + ES.SL_RIB + ES.SL_TALL
+    """block that carries a slider (board frame, from zb up) and the channel to cut out of it, open on top:
+    the slider goes in from the board's side before the board does; its key's end stops at the slot's end"""
+    xc, hw, z0, z1 = ES.SL_XC, ES.SL_HW + 0.2, ES.SL_Z0, ES.SL_Z1
     mouth = ES.STANDOFF - 0.5
     x0 = ES.LEV_HINGE_X - 0.5
-    block = box(x0 - 1.5, xc + hw + 1.5, 0.6, mouth, zb, z1 + 0.3 + 1.5)
-    chan = box(xc - hw, xc + hw, -1, lip, z0 - 0.3, z1 + 0.3).fuse([
-        box(xc - hw, xc + hw, lip - 0.01, mouth + 1, z0 - 0.3, zn + 0.3),
-        box(x0, xc, -1, ES.lever_out(xc - hw) + 0.6, z0 - 0.3, z1 + 0.3)])   # the lever between the hinge and the slider
+    block = box(x0 - 1.5, xc + hw + 1.5, 0.6, mouth, zb, z1)
+    chan = box(xc - hw, xc + hw, -1, mouth + 1, z0 - 0.3, z1 + 1).fuse([
+        box(x0, xc, -1, ES.lever_out(xc - hw) + 0.6, z0 - 0.3, z1 + 1),   # the lever between the hinge and the slider
+        key(ES.SL_REST + ES.SL_KEY_Y[1], 0.2)])
     return block, chan
 
 
@@ -188,8 +198,11 @@ for tag in boards:
 
 # ---------------------------------------------------------- the bracket ---
 def half(sgn):
-    """Seat block, nut channels, slots and the rest pad of the J2 board (sgn = 1); the J3 side
-    is that turned half a turn."""
+    """Seat block, nut pockets, slots and the rest pad of the J2 board (sgn = 1); the J3 side
+    is that turned half a turn. The nuts go into pockets in the bracket's underside before it goes
+    on the turret (the turret plate then holds them in); they slide along with the screw when the
+    board is set, and the flats stop them turning. M3x8 reaches 2 mm into the nut; a longer screw
+    only meets the turret plate."""
     def bx(x0, x1, y0, y1, z0, z1):
         if sgn > 0:
             return box(x0, x1, y0, y1, z0, z1)
@@ -197,22 +210,25 @@ def half(sgn):
 
     xb = lambda x: x - X_END              # board x -> turret x  # noqa: E731
     yb = lambda y: Y2 - y                 # board y -> turret y  # noqa: E731
-    block = bx(xb(13.0), xb(ES.BOARD_L), yb(ES.TERM_Y - 0.7), yb(-0.6), TOP + BASE_T - 0.01, SEAT)
+    block = bx(xb(13.0), xb(ES.BOARD_L), yb(ES.TERM_Y - 0.7), yb(-1.6), TOP + BASE_T - 0.01, SEAT)
     pad = bx(xb(0.3), xb(2.8), yb(ES.BOARD_W - 1.0), yb(1.0), TOP + BASE_T - 0.01, SEAT)
-    cuts = []
+    solids, cuts = [block, pad], []
     for hx, hy in ES.HOLES:
-        cuts.append(bx(xb(hx) - CH_W / 2, xb(hx) + CH_W / 2, yb(ES.TERM_Y - 0.7) - 1, yb(0.5 - ES.STANDOFF) + 1,
-                       TOP + BASE_T, TOP + BASE_T + CH_H))
+        y0, y1 = yb(hy + ES.ADJ[1]) - NUT_C, yb(hy + ES.ADJ[0]) + NUT_C       # the nut's travel, corners along y
+        # roof over the pocket where it runs out from under the seat block (towards the solder side)
+        solids.append(bx(xb(hx) - CH_W / 2 - 1.5, xb(hx) + CH_W / 2 + 1.5, y0 - 1.2, yb(ES.TERM_Y - 0.7) + 0.01,
+                         TOP + BASE_T - 0.01, TOP + NUT_TOP + 1.2))
+        cuts.append(bx(xb(hx) - CH_W / 2, xb(hx) + CH_W / 2, y0, y1, TOP - 1, TOP + NUT_TOP))
         # slot: the screw can move ADJ[0] towards the finger (-y on the board) and ADJ[1] away
         cuts.append(bx(xb(hx) - SLOT_W / 2, xb(hx) + SLOT_W / 2, yb(hy + ES.ADJ[1]) - SLOT_W / 2,
-                       yb(hy + ES.ADJ[0]) + SLOT_W / 2, TOP + BASE_T + CH_H - 1, SEAT + 1))
-    return [block, pad], cuts
+                       yb(hy + ES.ADJ[0]) + SLOT_W / 2, TOP + NUT_TOP - 0.5, SEAT + 1))
+    return solids, cuts
 
 
 z0, z1 = TOP, TOP + BASE_T
 solids = [box(-20, 20, -CHEEK + 0.2, CHEEK - 0.2, z0, z1),                    # between the cheeks: locates it in y
-          box(-X_END - 0.6, -20 + 0.01, Y2 - ES.BOARD_W - 0.6, Y2 + 0.6, z0, z1),          # tongue under the J2 board
-          box(20 - 0.01, X_END + 0.6, Y3 - 0.6, Y3 + ES.BOARD_W + 0.6, z0, z1)]  # tongue under the J3 board
+          box(-X_END - 0.6, -20 + 0.01, Y2 - ES.BOARD_W - 0.6, Y2 + 1.6, z0, z1),          # tongue under the J2 board
+          box(20 - 0.01, X_END + 0.6, Y3 - 1.6, Y3 + ES.BOARD_W + 0.6, z0, z1)]  # tongue under the J3 board
 cuts = [cyl(4.5, 0, 0, z0 - 1, z1 + 1)]                                        # over the turret's centre hole (old wedge screw)
 for k in range(3):
     a = math.radians(90 + 120 * k)
@@ -317,7 +333,7 @@ export(plate, "limit_plate")
 export(flag, "limit_flag", (V(0, 1, 0), -90))     # outer face (the one away from the turret) on the bed
 export(halves[0], "limit_collar_front")
 export(halves[1], "limit_collar_rear")
-export(bp["slider"], "limit_slider")      # on its flat underside
+export(bp["slider"], "limit_slider", (V(1, 0, 0), 180))      # top face on the bed, the dovetail key up
 for o in (fl, cf, cr):
     print(f"{o.Name} vol {o.Shape.Volume / 1000:.2f} cm3 valid {o.Shape.isValid()} solids {len(o.Shape.Solids)}")
 print(f"LimitPlate vol {plate.Volume / 1000:.2f} cm3 valid {plate.isValid()} solids {len(plate.Solids)}")

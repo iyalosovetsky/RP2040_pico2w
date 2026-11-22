@@ -91,12 +91,12 @@ X_END = ES.TIP_END + ES.BOARD_L
 Y2, Y3 = ES.J2_FACE - ES.STANDOFF, ES.J3_FACE + ES.STANDOFF
 MIR = Y2 + Y3
 plate = lim.getObject("LimitPlate").Shape
-zc = TOP + 2.5 + 2.9 / 2
+zc = TOP + 3.4 - 1.2     # pockets open underneath, the nut pulled up to the top
 for hx, hy in ES.HOLES:
     for adj in (ES.ADJ[0], 0, ES.ADJ[1]):
         x, y = hx - X_END, Y2 - (hy + adj)
-        check("limit_plate J2 hole %g adj %+g" % (hx, adj), plate, V(x, y, zc), "z", (0, -1, 0))
-        check("limit_plate J3 hole %g adj %+g" % (hx, adj), plate, V(-x, MIR - y, zc), "z", (0, 1, 0))
+        check("limit_plate J2 hole %g adj %+g" % (hx, adj), plate, V(x, y, zc), "z", (0, 0, 1), travel=5)
+        check("limit_plate J3 hole %g adj %+g" % (hx, adj), plate, V(-x, MIR - y, zc), "z", (0, 0, 1), travel=5)
 FX = -(ES.J1_FLAG_R[0] + ES.J1_FLAG_R[1]) / 2
 check("limit_plate flag nut (under arm)", plate, V(FX, 0, TOP + 1.4), "z", (0, 0, 1))
 cf, cr = lim.getObject("LimitCollarFront").Shape, lim.getObject("LimitCollarRear").Shape

@@ -48,12 +48,17 @@ def lever_out(x):
 # ---- the slider between the fingers and the lever (board frame; limit_slider.stl, one per switch) ----
 SL_XC = 30.65             # its middle, where its rib presses the lever: 9.55 from the hinge; with the flat it puts
                           # the trip points where the fingers were made for (J2_LIM etc.)
-SL_REST = 3.2             # rib's back from the lever edge with nothing on the nose: a lip in the channel stops it there
+SL_REST = 3.2             # rib's back from the lever edge with nothing on the nose: its key stops at the slot's end
 SL_PRESSED = 1.3          # with a finger on the nose (the switch clicks at about 1.9, bottoms out at about 0.5)
 SL_RIB, SL_RIB_W = 1.0, 1.6       # the rib that touches the lever: only there, the lever rises towards its free end
-SL_TALL, SL_BODY = 1.0, 2.0       # body behind the nose; its first SL_TALL mm is full height and stops against the lip
+SL_BODY = 2.0                     # body behind the nose
 SL_NOSE, SL_FLAT, SL_ANG = 2.4, 1.4, 35.0   # V nose: depth, flat top, flanks this far off the finger's path
-SL_Z0, SL_Z1, SL_ZN = 0.6, 5.3, 4.3         # bottom, top of the full-height part, top of the nose (above the PCB)
+SL_Z0, SL_Z1 = 0.6, 4.3                     # its underside and top above the PCB (the lever strip 1.2..4.6); printed top face down
+# dovetail key under the body, in a slot in the channel floor: keeps the slider down (a finger drags
+# it up on one side) without a roof over the channel, and its end is the stop at SL_REST
+SL_KEY_Y = (1.0, 2.2)     # from the rib's back
+SL_KEY_W = 3.0            # neck width; the flanks widen at 45 deg down to SL_KEY_D below the floor
+SL_KEY_D = 1.5
 SL_HW = SL_FLAT / 2 + SL_NOSE / math.tan(math.radians(SL_ANG))   # half width of the body
 STANDOFF = SL_PRESSED + SL_RIB + SL_BODY + SL_NOSE   # finger face to the board's lever edge
 # the lever was taken as clicked when held down to 1.5 out at LEV_PRESS from the hinge; same angle at SL_XC
