@@ -13,7 +13,7 @@ import endstop_dims as ES
 V = App.Vector
 AX = {"x": V(1, 0, 0), "y": V(0, 1, 0), "z": V(0, 0, 1)}
 
-def nut(c, axis, ang, af=5.5, t=2.4):
+def nut(c, axis, ang, af=5.5, t=2.4, tilt=0):
     R = af / 2 / math.cos(math.radians(30))
     pts = [V(R * math.cos(math.radians(60 * k + ang)), R * math.sin(math.radians(60 * k + ang)), -t / 2) for k in range(7)]
     n = Part.Face(Part.makePolygon(pts)).extrude(V(0, 0, t))
@@ -21,18 +21,20 @@ def nut(c, axis, ang, af=5.5, t=2.4):
         n.rotate(V(0, 0, 0), V(0, 1, 0), 90)
     elif axis == "y":
         n.rotate(V(0, 0, 0), V(1, 0, 0), 90)
+    if tilt:
+        n.rotate(V(0, 0, 0), V(0, 1, 0), tilt)
     n.translate(c)
     return n
 
-def check(tag, part, c, axis, ins, travel=14):
+def check(tag, part, c, axis, ins, travel=14, tilt=0):
     """nut on the screw axis at c (axis = thread direction), ins = direction it is pushed in from"""
-    vols = [(part.common(nut(c, axis, a)).Volume, a) for a in range(0, 60, 5)]
+    vols = [(part.common(nut(c, axis, a, tilt=tilt)).Volume, a) for a in range(0, 60, 5)]
     vmin, abest = min(vols)
     spins = max(vols)[0] < 0.01
     path = 0.0
     if vmin < 0.01:
         d = V(*ins); d.normalize()
-        path = max(part.common(nut(c + d * (-k * 0.5), axis, abest)).Volume for k in range(1, int(travel * 2)))
+        path = max(part.common(nut(c + d * (-k * 0.5), axis, abest, tilt=tilt)).Volume for k in range(1, int(travel * 2)))
     ok = vmin < 0.01 and path < 0.01 and not spins
     print("NUT %-34s seat %s  way in %s  held %s   %s" % (
         tag, "ok" if vmin < 0.01 else "BLOCKED %.1f mm3" % vmin,
@@ -54,13 +56,16 @@ for k in range(3):
     check("J1 hub flange %d" % k, hub, V(tq.hub_scr_r.Value * math.cos(a), tq.hub_scr_r.Value * math.sin(a), hz), "z",
           (0, 0, 1), travel=8)
 
-# forearm and wrist fork: grub nut slots (thread along z, pushed in along y from the open face)
-for tag, part, h, p in (("forearm elbow grub +y", "Forearm", "FA_Grub0_H", "FA_Grub0_N"), ("forearm elbow grub -y", "Forearm", "FA_Grub1_H", "FA_Grub1_N"), ("wrist fork grub", "WristFork", "FK_Grub_H", "FK_Grub_N")):
+# forearm and wrist fork: grub nut slots (thread along z, or leaning tilt deg towards +x; pushed in along y from the open face)
+for tag, part, h, p, tilt in (("forearm elbow grub +y", "Forearm", "FA_Grub0_H", "FA_Grub0_N", 0),
+                              ("forearm elbow grub -y", "Forearm", "FA_Grub1_H", "FA_Grub1_N", 0),
+                              ("wrist fork grub -y", "WristFork", "FK_Grub0_H", "FK_Grub0_N", 0),
+                              ("wrist fork grub +y (leans 20)", "WristFork", "FK_Grub1_H", "FK_Grub1_N", 20)):
     c, pb = axis_point(fa, h, p)
     sh = fa.getObject(part).Shape
     opn = 1 if abs(pb.YMax - c.y) > abs(pb.YMin - c.y) else -1
     print("    %s: slot x %.2f wide, z %.2f thick, y %.2f..%.2f, screw axis y %.2f" % (tag, pb.XLength, pb.ZLength, pb.YMin, pb.YMax, c.y))
-    check(tag, sh, c, "z", (0, -opn, 0))
+    check(tag, sh, c, "z", (0, -opn, 0), tilt=tilt)
 # tool flanges
 for tag, part, h, p, ax in (("flange_z grub", "FlangeZ", "FZ_Grub", "FZ_Nut", "x"), ("flange_y grub", "FlangeY", "FY_Grub", "FY_Nut", "x")):
     c, pb = axis_point(tl, h, p)

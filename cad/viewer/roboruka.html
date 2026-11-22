@@ -330,9 +330,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const rodU = part('rod_up', M.rod, 'Верхня тяга вирівнювання (друк)'); sh.add(rodU);
 
   const fork = new THREE.Group(); sh.add(fork);
-  fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн. Вісь гвинт M3 вдавлює у V-паз'));
+  fork.add(part('wrist_fork', M.print2, 'Вилка кисті (друк): завжди горизонтальна, 4×M3 під кронштейн. Вісь два гвинти M3 (по одному в бобишці біля кожної щоки, правий нахилений на 20° вперед) вдавлюють у V-паз'));
   fork.add(part('pin_d', M.shaft, 'Палець D, вилка кисті / верхня тяга: гвинт M4×25 зовні тяги без шайби, самоконтрна гайка втоплена в стовпчик'));
-  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×34: лінійний вал 8 мм або болт M8×40; затиснута у вилці, крутиться в 608ZZ (або 609Z з втулкою)'));
+  fork.add(part('wrist_axle', M.shaft, 'Вісь кисті Ø8×40: лінійний вал 8 мм; затиснута у вилці двома гвинтами, крутиться в 608ZZ (або 609Z з втулкою)'));
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
   const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));
   const flZ = new THREE.Group(); flZ.position.x = g.zx; brZ.add(flZ);

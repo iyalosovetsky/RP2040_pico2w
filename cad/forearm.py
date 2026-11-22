@@ -15,9 +15,10 @@ Builds cad/forearm.FCStd plus print files laid flat:
   elbow_plate.stl   - solid triangle on the elbow axle, 7 thick, keeps its orientation; a 608 in its hub
   elbow_washer.stl  - print 2: fills the 1.5 mm between the forearm and each plate's bearing
   wrist_fork.stl    - fork on the wrist axle, keeps its orientation; its bottom bridge
-                      (4x M3 inserts) takes the Z or Y tool bracket. Its grub pushes the axle
-                      into a V too, all through both cheeks and the clamp boss
-Bought: elbow axle D8 x 46.5 and wrist axle D8 x 34 - cut from an 8 mm linear rod. The elbow axle
+                      (4x M3 inserts) takes the Z or Y tool bracket. Two grubs, one in a boss
+                      outside each cheek, push the axle into a V that runs through both
+                      cheeks and both bosses; the +y grub leans 20 deg forward, clear of the post
+Bought: elbow axle D8 x 46.5 and wrist axle D8 x 40 - cut from an 8 mm linear rod. The elbow axle
 is a plain pin: the forearm's grubs are all that holds it lengthways. A bolt with a nut does not fit
 there - the upper levelling rod passes 4.5 mm from the axis at J3 = -71.5, right past the +y end
 (a bolt's head would fit on the -y end, but an M8x55's thread starts inside the J2 plate's bearing).
@@ -192,9 +193,10 @@ def cut(name, b, tools):
     return o
 
 
-def grub_up(name, x, y, z0, z1, face_y):
+def grub_up(name, x, y, z0, z1, face_y, tilt=0):
     """M3 grub along +Z at (x, y) from the bore (z0) out through the hub (z1). The nut drops
-    into a closed slot that opens only on the end face at face_y - nothing cut through the wall."""
+    into a closed slot that opens only on the end face at face_y - nothing cut through the wall.
+    tilt (deg) leans the grub and its slot about the Y axis through the origin, the top towards +X."""
     hole = box(name + "_H", f"{x} - {P}grub_d / 2", f"{x} + {P}grub_d / 2",
                f"{y} - {P}grub_d / 2", f"{y} + {P}grub_d / 2", z0, z1)
     zn = f"({z0}) + 2 mm"
@@ -203,6 +205,11 @@ def grub_up(name, x, y, z0, z1, face_y):
     lo, hi = ((f"{y} - {P}nut_w / 2 - 0.5 mm", f"{face_y} + 1 mm") if not face_y.startswith("-")
               else (f"{face_y} - 1 mm", f"{y} + {P}nut_w / 2 + 0.5 mm"))
     nut = box(name + "_N", f"{x} - {P}nut_w / 2", f"{x} + {P}nut_w / 2", lo, hi, zn, f"{zn} + {P}nut_t")
+    if tilt:
+        for o, bx, bz in ((hole, f"{x} - {P}grub_d / 2", z0), (nut, f"{x} - {P}nut_w / 2", zn)):
+            o.Placement.Rotation = App.Rotation(App.Vector(0, 1, 0), tilt)
+            expr(o, ".Placement.Base.x", f"({bx}) * cos({tilt} deg) + ({bz}) * sin({tilt} deg)")
+            expr(o, ".Placement.Base.z", f"({bz}) * cos({tilt} deg) - ({bx}) * sin({tilt} deg)")
     return [hole, nut]
 
 
@@ -367,17 +374,24 @@ fk_parts += [
     gusset("FK_Gusset", App.Rotation(App.Vector(1, 0, 0), 90), (f"{P}fk_post_r", f"{P}fk_in + {P}fk_t", "0 mm"),
            f"{P}fk_gus_x", f"{P}lev_w - {P}fk_post_r", f"{P}fk_t"),
     cyl_y("FK_ClampBoss", "11 mm", f"-{P}fk_in - {P}fk_t - 6 mm", f"-{P}fk_in - {P}fk_t + 0.01 mm"),
+    # the cheeks are 5 thick, too thin for an M3 nut: each grub gets a boss outside its cheek
+    cyl_y("FK_ClampBossP", "11 mm", f"{P}fk_in + {P}fk_t - 0.01 mm", f"{P}fk_in + {P}fk_t + 6 mm"),
 ]
 fk_tools = [
     # the same V-seat as the forearm's: the grub is near one end, and in a round bore the axle
     # could pivot on its tip, with only the far cheek's clearance to stop it
     v_bore("FK_Bore", f"{P}axle_d / 2 + {P}axle_clr", f"{P}axle_d / 2 + {P}axle_clr + {P}v_room",
-           f"-{P}fk_in - {P}fk_t - 7 mm", f"{P}fk_in + {P}fk_t + 1 mm"),
+           f"-{P}fk_in - {P}fk_t - 7 mm", f"{P}fk_in + {P}fk_t + 7 mm"),
     cyl_y("FK_PostPin", f"{P}pin_d / 2", f"{P}fk_in - 1 mm", f"{P}up_y0 + 1 mm", z=f"{P}lev_w"),
     # the forearm passes 1 mm from the post's inner end: the nyloc nut sits inside it
     hex_y("FK_PostNut", f"{P}m4_nut_w", f"{P}fk_in - 1 mm", f"{P}fk_in + {P}m4_nyl_h", z=f"{P}lev_w"),
-] + grub_up("FK_Grub", "0 mm", f"-{P}fk_in - {P}fk_t - 3 mm", f"{P}axle_d / 2 - 0.5 mm", "12 mm",
-            f"-{P}fk_in - {P}fk_t - 6 mm")
+] + grub_up("FK_Grub0", "0 mm", f"-{P}fk_in - {P}fk_t - 3 mm", f"{P}axle_d / 2 - 0.5 mm", "12 mm",
+            f"-{P}fk_in - {P}fk_t - 6 mm") \
+  + grub_up("FK_Grub1", "0 mm", f"{P}fk_in + {P}fk_t + 3 mm", f"{P}axle_d / 2 - 0.5 mm", "12 mm",
+            f"{P}fk_in + {P}fk_t + 6 mm", tilt=20)
+# one grub per end, so the axle cannot rock on either. The +y one leans 20 deg forward: straight
+# up, the post above it would leave no room for the key. 20 deg off the V's middle still loads
+# both flanks (about 0.9 and 0.4 of the push)
 for k, (x, y) in enumerate(((10, 7), (10, -7), (34, 7), (34, -7))):
     fk_tools.append(cyl_z(f"FK_Insert{k}", f"{P}ins_d / 2", f"-{P}fk_drop - 1 mm", f"-{P}fk_drop + {P}fk_bridge_t + 1 mm",
                           f"{x} mm", f"{y} mm"))
@@ -386,9 +400,9 @@ wrist_fork.Label = "Wrist fork (print), tool brackets bolt under it"
 
 # ------------------------------------------------------------- axles ---
 elbow_axle = cyl_y("ElbowAxle", f"{P}axle_d / 2", "-18 mm", f"{P}pl_y0 + {P}pl_t")
-wrist_axle = cyl_y("WristAxle", f"{P}axle_d / 2", "-20 mm", "14 mm")
+wrist_axle = cyl_y("WristAxle", f"{P}axle_d / 2", "-20 mm", "20 mm")
 elbow_axle.Label, wrist_axle.Label = ("Elbow axle D8x46.5: 8 mm linear rod, held by the forearm's grub",
-                                      "Wrist axle D8x34: 8 mm linear rod or M8x40 bolt shank")
+                                      "Wrist axle D8x40: 8 mm linear rod, held by the fork's two grubs")
 sl_o = cyl_y("Sleeve_O", f"{P}b_bore / 2 - 0.02 mm", "0 mm", f"{P}b609_w")
 sl_i = cyl_y("Sleeve_I", f"{P}axle_d / 2 + 0.05 mm", "-1 mm", f"{P}b609_w + 1 mm")
 sleeve = cut("AxleSleeve", sl_o, sl_i)
