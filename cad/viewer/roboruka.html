@@ -35,7 +35,7 @@ header p { margin: 0; color: var(--muted); }
 .view { position: relative; box-sizing: border-box; height: 100%; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--scene); }
 .view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .views { position: absolute; left: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
-.tip { position: absolute; pointer-events: none; padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+.tip { position: absolute; pointer-events: none; padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; line-height: 1.35; max-width: min(440px, 70%); }
 .nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--muted); }
 .hint { position: absolute; left: 10px; bottom: 8px; font-size: 12px; color: var(--muted); }
 button { font: 500 14px var(--font-ui); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px; cursor: pointer; }
@@ -69,6 +69,20 @@ ul.parts i { width: 12px; height: 12px; border-radius: 3px; display: inline-bloc
 ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
 .ax[hidden] { display: none; }
 #railbtn { display: none; }
+.grps { display: flex; flex-direction: column; gap: 3px; }
+.grp { display: grid; grid-template-columns: 12px minmax(0, 1fr) 92px 34px; align-items: center; gap: 6px; font-size: 14px; }
+.grp i, .selg i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25); }
+.grp button { all: unset; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 4px; }
+.grp button:hover { text-decoration: underline; }
+.grp button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.grp button small { color: var(--muted); font-size: 12px; }
+.grp input, .selr input { width: 100%; accent-color: var(--accent); margin: 0; }
+.grp output, .selr output { font-family: var(--font-mono); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.selbox { border: 1px solid var(--accent); border-radius: 8px; padding: 7px 9px; display: flex; flex-direction: column; gap: 5px; }
+.selbox[hidden] { display: none; }
+.selg { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+.seld { font-size: 13px; line-height: 1.35; }
+.selr { display: grid; grid-template-columns: auto minmax(0, 1fr) 34px; align-items: center; gap: 8px; font-size: 13px; }
 /* phones: the page is one screen, the view fills it and the rail floats over its right side */
 @media (max-width: 860px) {
   body { height: 100svh; padding-block: 10px; }
@@ -83,6 +97,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     overscroll-behavior: contain; padding: 46px 6px 6px; box-sizing: border-box; gap: 8px;
     background: color-mix(in srgb, var(--bg) 88%, transparent); border-left: 1px solid var(--line); border-radius: 0 10px 10px 0; }
   .rail .sec { padding: 10px 11px; gap: 8px; }
+  .grp { grid-template-columns: 12px minmax(0, 1fr) 70px 34px; }
   .wrap.shut .rail { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
@@ -101,11 +116,10 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <button data-v="side">Збоку</button>
       <button data-v="front">Спереду</button>
       <button data-v="top">Зверху</button>
-      <button id="xray" aria-pressed="false">Рентген: підшипники й осі</button>
       <button id="demo">Демо-цикл</button>
     </div>
     <div class="tip" id="tip" hidden></div>
-    <div class="hint">Ліва кнопка: обертати · права: зсув · колесо: масштаб · наведи на деталь</div>
+    <div class="hint">Ліва кнопка: обертати · права: зсув · колесо: масштаб · клік: виділити деталь · Shift+колесо: прозорість · правий клік: непрозора</div>
   </div>
 
   <button id="railbtn" aria-controls="rail" aria-expanded="true">Сховати ✕</button>
@@ -133,6 +147,22 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <div class="row" role="group" aria-label="Орієнтація J4">
         <button data-ax="z" class="on">J4 вертикально (Z)</button>
         <button data-ax="y">J4 поперек руки (Y), нахил</button>
+      </div>
+    </section>
+
+    <section class="sec" aria-labelledby="h-xr">
+      <h2 id="h-xr">Рентген</h2>
+      <p class="small">Клік по деталі виділяє її, і вона видна крізь усе інше. Ще клік (або Esc, або клік у порожнє місце) знімає виділення, прозорість лишається. Shift + колесо: прозорість виділеної деталі або тієї, що під курсором. Правий клік: деталь знову непрозора.</p>
+      <div class="selbox" id="selbox" hidden>
+        <div class="selg"><i id="selc"></i><span id="selgn"></span></div>
+        <div class="seld" id="seld"></div>
+        <div class="selr"><label for="selop">Непрозорість</label><input type="range" id="selop" min="0" max="100" step="5" value="100"><output id="selo"></output></div>
+      </div>
+      <div class="grps" id="grps" role="group" aria-label="Групи деталей"></div>
+      <p class="small">Назва групи: перемкнути між примарною (15%) і непрозорою. 0% ховає групу зовсім.</p>
+      <div class="row">
+        <button id="grpcol" aria-pressed="false">Кольори груп</button>
+        <button id="xrreset">Усе непрозоре</button>
       </div>
     </section>
 
@@ -220,12 +250,13 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const camera = new THREE.PerspectiveCamera(32, 1, 5, 6000);
   const controls = new THREE.OrbitControls(camera, cv);
   controls.enableDamping = true; controls.dampingFactor = 0.12;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a949c, 0.75));
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x8a949c, 0.75); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 0.75);
   sun.position.set(300, 600, 250); sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -400, right: 400, top: 400, bottom: -400, near: 10, far: 1500 });
   scene.add(sun);
+  hemi.layers.enable(1); sun.layers.enable(1);   // layer 1: the selected part, drawn again on top (see loop)
 
   const mat = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6, metalness: 0.05 }, o || {}));
   const M = {
@@ -262,13 +293,46 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const EDGES = {};
   function edges(name) { return EDGES[name] || (EDGES[name] = new THREE.EdgesGeometry(geo(name), 25)); }
   function withEdges(mesh, name) { mesh.add(new THREE.LineSegments(edges(name), EDGE)); return mesh; }
-  function tag(o, label) { o.traverse(m => { if (m.isMesh) { m.userData.name = label; m.castShadow = m.receiveShadow = true; } }); return o; }
-  function part(name, material, label) { return tag(withEdges(new THREE.Mesh(geo(name), material), name), label); }
+  // x-ray groups: every tagged part belongs to one; the swatch colour is also the "colour by group" colour
+  const GROUPS = [
+    ['screw', 'Гвинти, гайки', 0xf2c14e], ['bearing', 'Підшипники', 0x7f77dd], ['base', 'База й турель', 0x5b7c96],
+    ['lever', 'Важелі й тяги', 0x3fa34d], ['spacer', 'Прокладки, проставки', 0xe07a5f], ['shaft', 'Вали', 0x2bb3c0],
+    ['motor', 'Мотори', 0x2b3137], ['elec', 'Електроніка', 0xb02e8a], ['limit', 'Ендостопи', 0xd9481c],
+    ['tool', 'Кисть та інструмент', 0x9a7b45]
+  ].map(([k, n, c]) => ({ k, n, c }));
+  const GROUP_OF = {
+    base_housing: 'base', j1_keeper: 'base', turret_body: 'base', j1_hub: 'base',
+    bearing_51211: 'bearing', ua_bush6803: 'bearing', b609_elbow: 'bearing', b609_wrist: 'bearing', b609_eplate: 'bearing',
+    j1_hub_screws: 'screw', pin_a: 'screw', pin_b: 'screw', pin_c: 'screw', pin_d: 'screw', pin_e: 'screw', pin_f: 'screw',
+    elbow_axle: 'shaft', wrist_axle: 'shaft',
+    ua_j2: 'lever', ua_j2_cap: 'lever', ua_j3: 'lever', crank: 'lever', crank_cap: 'lever', forearm: 'lever',
+    elbow_plate: 'lever', rod_drive: 'lever', rod_low: 'lever', rod_up: 'lever', wrist_fork: 'lever',
+    ua_spacers: 'spacer', elbow_washers: 'spacer',
+    skr_plate: 'elec', skr_pico: 'elec',
+    limit_collar: 'limit', endstop_j1: 'limit', slider_j1: 'limit', cover_j1: 'limit', limit_plate: 'limit',
+    limit_flag: 'limit', endstops: 'limit', sliders: 'limit', covers: 'limit'
+  };
+  // a "unit" is what one click selects: every mesh tagged together (a PG27 is body + gearbox + shaft).
+  // Each mesh gets its own material copy and each unit its own edge material, so opacity is per part.
+  const UNITS = [];
+  function tag(o, label, gk) {
+    const u = { label, g: gk || 'tool', op: 1, meshes: [], lines: [], edge: EDGE.clone() };
+    o.traverse(m => {
+      const old = m.userData.unit;
+      if (old) { old.meshes = old.meshes.filter(x => x !== m); old.lines = old.lines.filter(x => x !== m); }
+      if (m.isMesh) {
+        m.userData.name = label; m.userData.unit = u; m.castShadow = m.receiveShadow = true;
+        m.material = m.material.clone(); m.userData.base = m.material.color.getHex(); u.meshes.push(m);
+      } else if (m.isLineSegments) { m.userData.unit = u; m.material = u.edge; m.raycast = () => {}; u.lines.push(m); }
+    });
+    UNITS.push(u); return o;
+  }
+  function part(name, material, label) { return tag(withEdges(new THREE.Mesh(geo(name), material), name), label, GROUP_OF[name]); }
   function cadMesh(name, material) { return withEdges(new THREE.Mesh(geo(name), material), name); }
   function grp(...kids) { const g0 = new THREE.Group(); kids.forEach(k => g0.add(k)); return g0; }
   function placed(obj, m16) { obj.applyMatrix4(new THREE.Matrix4().set(...m16)); return obj; }
   function pg27(label, m16) {
-    return placed(tag(grp(cadMesh('pg27_body', M.body), cadMesh('pg27_gear', M.gear), cadMesh('pg27_shaft', M.shaft)), label), m16);
+    return placed(tag(grp(cadMesh('pg27_body', M.body), cadMesh('pg27_gear', M.gear), cadMesh('pg27_shaft', M.shaft)), label, 'motor'), m16);
   }
   // simple bought-part shapes, axis along FreeCAD Y (three's cylinder axis = local Y)
   function cylY(r, h, m) { return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), m); }
@@ -340,11 +404,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   // bracket Z: J4 vertical, the flange (and tool) turns about the J4 axis
   const brZ = grp(part('bracket_z', M.print2, 'Кронштейн Z (друк): J4 вертикально'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4z));
   const flZ = new THREE.Group(); flZ.position.x = g.zx; brZ.add(flZ);
-  flZ.add(tag(at(cadMesh('flange_z', M.crank), -g.zx, 0, 0), 'Фланець Z (друк): D-маточина + плита 50×50'));
+  flZ.add(tag(at(cadMesh('flange_z', M.crank), -g.zx, 0, 0), 'Фланець Z (друк): D-маточина + плита 50×50', 'tool'));
   // bracket Y: J4 across the arm, the flange (and tool) tilts about the J4 axis
   const brY = grp(part('bracket_y', M.print2, 'Кронштейн Y (друк): J4 поперек руки, нахил інструмента'), pg27('J4 — 17HS15-1684S-PG27', CAD.motors.J4y));
   const flY = new THREE.Group(); flY.position.set(g.yx, 0, g.yz); brY.add(flY);
-  flY.add(tag(at(cadMesh('flange_y', M.crank), -g.yx, 0, -g.yz), 'Фланець Y (друк): D-маточина + плита 50×50'));
+  flY.add(tag(at(cadMesh('flange_y', M.crank), -g.yx, 0, -g.yz), 'Фланець Y (друк): D-маточина + плита 50×50', 'tool'));
   fork.add(brZ, brY);
 
   // tools: clamps from the CAD, tool bodies as simple shapes (not in the CAD); clamp frame = tool axis Z
@@ -508,30 +572,118 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => goView(b.dataset.v)));
   camera.position.set(...VIEWS.iso[0]); controls.target.set(...VIEWS.iso[1]);
 
-  // ---- hover names ----
+  // ---- x-ray: per-part opacity, groups, a selected part drawn on top of everything ----
+  const units = UNITS.filter(u => u.meshes.length);
+  const GK = {}; GROUPS.forEach(gr => { gr.units = units.filter(u => u.g === gr.k); GK[gr.k] = gr; });
+  let sel = null, hover = null, byGroup = false;
+  const SEL_EMI = 0x5a2208, SEL_EDGE = 0xff7a3d;
+  function applyOp(u) {
+    const op = u.op, tr = op < 0.999;
+    u.meshes.forEach(m => {
+      const mt = m.material;
+      if (mt.transparent !== tr) { mt.transparent = tr; mt.needsUpdate = true; }
+      mt.opacity = op; mt.depthWrite = !tr; m.visible = op > 0.001; m.castShadow = op > 0.5;
+    });
+    u.edge.opacity = 0.85 * (0.15 + 0.85 * op);
+  }
+  function setOp(u, op) { u.op = Math.min(1, Math.max(0, op)); applyOp(u); refreshUI(); }
+  function select(u) {
+    if (sel) {
+      sel.meshes.forEach(m => { m.material.emissive.setHex(0); m.layers.set(0); });
+      sel.lines.forEach(l => l.layers.set(0)); sel.edge.color.setHex(0x15181b);
+    }
+    sel = u || null;
+    if (sel) {
+      // only on layer 1: skipped by the normal pass, drawn after it over a cleared depth buffer
+      sel.meshes.forEach(m => { m.material.emissive.setHex(SEL_EMI); m.layers.set(1); });
+      sel.lines.forEach(l => l.layers.set(1)); sel.edge.color.setHex(SEL_EDGE);
+    }
+    refreshUI();
+  }
+  function paint() {
+    units.forEach(u => u.meshes.forEach(m => m.material.color.setHex(byGroup ? GK[u.g].c : m.userData.base)));
+  }
+  const pct = v => Math.round(v * 100) + '%';
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const grpsEl = el('grps');
+  GROUPS.forEach(gr => {
+    const row = document.createElement('div'); row.className = 'grp';
+    row.innerHTML = `<i style="background:${hex(gr.c)}"></i><button type="button" title="Примарна / непрозора">${gr.n} <small>${gr.units.length}</small></button>` +
+      `<input type="range" min="0" max="100" step="5" value="100" aria-label="Непрозорість: ${gr.n}"><output></output>`;
+    const [btn, inp, out] = [row.querySelector('button'), row.querySelector('input'), row.querySelector('output')];
+    inp.addEventListener('input', () => { gr.units.forEach(u => { u.op = inp.value / 100; applyOp(u); }); refreshUI(); });
+    btn.addEventListener('click', () => {
+      const ghost = gr.units.some(u => u.op > 0.5) ? 0.15 : 1;
+      gr.units.forEach(u => { u.op = ghost; applyOp(u); }); refreshUI();
+    });
+    Object.assign(gr, { inp, out }); grpsEl.appendChild(row);
+  });
+  function refreshUI() {
+    GROUPS.forEach(gr => {
+      const ops = gr.units.map(u => u.op), same = ops.every(v => Math.abs(v - ops[0]) < 0.001);
+      gr.out.textContent = same ? pct(ops[0]) : 'різн.';
+      if (same) gr.inp.value = Math.round(ops[0] * 100);
+    });
+    el('selbox').hidden = !sel;
+    if (sel) {
+      const gr = GK[sel.g];
+      el('selc').style.background = hex(gr.c); el('selgn').textContent = gr.n;
+      el('seld').textContent = sel.label; el('selop').value = Math.round(sel.op * 100); el('selo').textContent = pct(sel.op);
+    }
+  }
+  el('selop').addEventListener('input', () => { if (sel) setOp(sel, el('selop').value / 100); });
+  el('grpcol').addEventListener('click', () => {
+    byGroup = !byGroup; el('grpcol').classList.toggle('on', byGroup); el('grpcol').setAttribute('aria-pressed', byGroup); paint();
+  });
+  el('xrreset').addEventListener('click', () => { units.forEach(u => { u.op = 1; applyOp(u); }); select(null); });
+  refreshUI();
+
+  // ---- picking: hover names, click to select, right click to make solid, shift+wheel for opacity ----
   const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = el('tip');
-  cv.addEventListener('pointermove', ev => {
+  ray.layers.enableAll();   // the selected part lives on layer 1
+  const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+  function pick(ev) {
     const r = cv.getBoundingClientRect();
     mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(mouse, camera);
-    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.name && h.object.visible);
-    if (hit) {
-      tip.textContent = hit.object.userData.name; tip.hidden = false;
+    const hits = ray.intersectObject(root, true).filter(h => h.object.isMesh && h.object.userData.unit && shown(h.object));
+    if (!hits.length) return null;
+    // the selected part is drawn on top, so it wins wherever it is on the ray; otherwise
+    // see through ghosted parts to the first solid-ish one behind them
+    if (sel && hits.some(h => h.object.userData.unit === sel)) return sel;
+    return (hits.find(h => h.object.userData.unit.op > 0.35) || hits[0]).object.userData.unit;
+  }
+  function showTip(ev) {
+    const r = cv.getBoundingClientRect();
+    if (hover) {
+      tip.textContent = hover.label + (hover.op < 0.999 ? ` · ${pct(hover.op)}` : ''); tip.hidden = false;
       const x = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 6);
       tip.style.left = Math.max(6, x) + 'px'; tip.style.top = (ev.clientY - r.top + 14) + 'px';
     } else tip.hidden = true;
+  }
+  cv.addEventListener('pointermove', ev => { hover = pick(ev); showTip(ev); });
+  cv.addEventListener('pointerleave', () => { hover = null; tip.hidden = true; });
+  let down = null;
+  cv.addEventListener('pointerdown', ev => { down = { x: ev.clientX, y: ev.clientY, b: ev.button }; });
+  cv.addEventListener('pointerup', ev => {
+    const d = down; down = null;
+    if (!d || d.b !== ev.button || Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 5) return;   // a drag is the orbit controls'
+    const u = pick(ev);
+    if (d.b === 0) select(u && u !== sel ? u : null);
+    else if (d.b === 2 && u) setOp(u, 1);
+    hover = u; showTip(ev);
   });
-  cv.addEventListener('pointerleave', () => { tip.hidden = true; });
-
-  // ---- x-ray: printed parts translucent, bought parts (motors, bearings, axles) solid ----
-  const printed = [M.print, M.print2, M.turret, M.base, M.rod, M.crank, M.keeper, M.finger, M.servo];
-  el('xray').addEventListener('click', () => {
-    const on = el('xray').getAttribute('aria-pressed') !== 'true';
-    el('xray').setAttribute('aria-pressed', on);
-    el('xray').classList.toggle('on', on);
-    printed.forEach(m => { m.transparent = on; m.opacity = on ? 0.18 : 1; m.depthWrite = !on; m.needsUpdate = true; });
-    [M.b609, M.thrust].forEach(m => { m.emissive.setHex(on ? 0x2a1f6e : 0x000000); });
-  });
+  // capture on the view so this runs before the orbit controls' own wheel zoom on the canvas
+  view.addEventListener('wheel', ev => {
+    if (!ev.shiftKey || ev.target !== cv) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const u = sel || hover; if (!u) return;
+    const dd = ev.deltaY || ev.deltaX;   // some systems turn shift+wheel into a horizontal scroll
+    if (!dd) return;
+    setOp(u, Math.max(0.05, Math.round((u.op + (dd > 0 ? -0.1 : 0.1)) * 20) / 20));   // the wheel never hides a part, the sliders can
+    showTip(ev);
+  }, { capture: true, passive: false });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sel) select(null); });
 
   // ---- copy ----
   el('copy').addEventListener('click', () => {
@@ -561,6 +713,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   new ResizeObserver(resize).observe(view); resize();
+  renderer.autoClear = false;   // the scene background still clears the first pass (three.js forces it for a colour background)
 
   placeJ4(); clampJ3(); syncInputs(); pose();
   function loop(now) {
@@ -572,7 +725,14 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       if (u >= 1) fly = null;
     }
     controls.update();
-    renderer.render(scene, camera);
+    camera.layers.set(0); renderer.render(scene, camera);
+    if (sel) {
+      // the selected part again, over everything: same frame, depth cleared, no background clear, shadow map reused
+      renderer.clearDepth();
+      const bg = scene.background; scene.background = null; renderer.shadowMap.autoUpdate = false;
+      camera.layers.set(1); renderer.render(scene, camera);
+      scene.background = bg; renderer.shadowMap.autoUpdate = true;
+    }
   }
   requestAnimationFrame(loop);
 })();

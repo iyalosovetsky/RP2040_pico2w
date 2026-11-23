@@ -10,6 +10,12 @@ module are simple stand-ins - they are not in the CAD. three.js r128 (MIT) is ve
 xdg-open cad/viewer/roboruka.html
 ```
 
+X-ray: a click selects a part and draws it again over everything (a second render pass on
+layer 1 after clearing depth), shift+wheel sets that part's opacity, a right click makes a
+part solid again. The rail's "Рентген" section has the selected part's description and one
+opacity slider per group. A new part gets its group from `GROUP_OF` in the page (CAD part
+name -> group key); anything not listed lands in "Кисть та інструмент".
+
 After changing any `cad/*.py` model, rebuild its `.FCStd` and then refresh the meshes:
 
 ```bash
