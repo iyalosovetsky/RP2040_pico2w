@@ -128,6 +128,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <h2 id="h-mot">Двигуни</h2>
       <div class="row">
         <button id="home">Парковка</button>
+        <button id="homing">Хомінг</button>
       </div>
       <div class="ax"><b>J1</b><label for="j1">Основа, поворот</label><output id="o1"></output>
         <input type="range" id="j1" min="-170" max="170" step="1" value="20"></div>
@@ -174,6 +175,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
         <span>Інструмент Y</span><span id="ty"></span>
         <span>Інструмент Z (від столу)</span><span id="tz"></span>
         <span>Кут між ланками</span><span id="rel"></span>
+        <span>Кінцевики</span><span id="lims"></span>
       </div>
       <div class="tq"><span>J2</span><div class="bar"><i id="b2"></i><em></em></div><output id="t2"></output></div>
       <div class="tq"><span>J3</span><div class="bar"><i id="b3"></i><em></em></div><output id="t3"></output></div>
@@ -181,6 +183,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <code class="g" id="gc"></code>
       <div class="row"><button id="copy">Копіювати G-code</button></div>
       <p class="small">X = J1, Y = J2, Z = J3 (абсолютний кут), A = J4, у градусах. M102 / M103 відкривають і закривають захват.</p>
+      <p class="small">Хомінг як у прошивці: спершу J2 і J3 разом у бік +, потім J1; кожен суглоб швидко (10°/с) до кінцевика, назад на 3°, повільно (1°/с) до кінцевика ще раз і знову назад на 3°. Кут, на якому коромисло клацає мікрик, пораховано з CAD.</p>
     </section>
 
     <section class="sec" aria-labelledby="h-parts">
@@ -310,8 +313,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     ua_spacers: 'spacer', elbow_washers: 'spacer',
     skr_plate: 'elec', skr_pico: 'elec',
     limit_collar: 'limit', endstop_j1: 'limit', slider_j1: 'limit', cover_j1: 'limit', limit_plate: 'limit',
-    limit_flag: 'limit', endstops: 'limit', sliders: 'limit', covers: 'limit'
+    limit_flag: 'limit', endstops: 'limit', slider_j2: 'limit', slider_j3: 'limit', covers: 'limit',
+    lever_j1: 'limit', lever_j2: 'limit', lever_j3: 'limit'
   };
+  // selected: orange glow; a clicked limit switch's rocker and lever: green, like the board's LED
+  function glow(u) { const c = sel === u ? 0x5a2208 : u.pressed ? 0x1f8a00 : 0; u.meshes.forEach(m => m.material.emissive.setHex(c)); }
   // a "unit" is what one click selects: every mesh tagged together (a PG27 is body + gearbox + shaft).
   // Each mesh gets its own material copy and each unit its own edge material, so opacity is per part.
   const UNITS = [];
@@ -327,7 +333,10 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     });
     UNITS.push(u); return o;
   }
-  function part(name, material, label) { return tag(withEdges(new THREE.Mesh(geo(name), material), name), label, GROUP_OF[name]); }
+  function part(name, material, label) {
+    const o = tag(withEdges(new THREE.Mesh(geo(name), material), name), label, GROUP_OF[name]);
+    o.userData.unit.key = name; return o;
+  }
   function cadMesh(name, material) { return withEdges(new THREE.Mesh(geo(name), material), name); }
   function grp(...kids) { const g0 = new THREE.Group(); kids.forEach(k => g0.add(k)); return g0; }
   function placed(obj, m16) { obj.applyMatrix4(new THREE.Matrix4().set(...m16)); return obj; }
@@ -344,13 +353,44 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   function box(x, y, z, m) { return new THREE.Mesh(new THREE.BoxGeometry(x, y, z), m); }
   function at(o, x, y, z) { o.position.set(x, y, z); return o; }
 
+  // ---- limit switches: the rocker turns on its pin, the switch lever follows its rib ----
+  // parts.js has the rocker at rest and the lever as it lies on it, in the frame the board lives in
+  // (world for J1, turret for J2/J3), the pin axis and the lever hinge in that frame, and a table of the
+  // rocker's angle against the joint angle near each trip point, worked out from the CAD fingers.
+  function pivotGroup(obj, p) {
+    const g0 = new THREE.Group(); g0.position.copy(p); obj.position.sub(p); g0.add(obj); return g0;
+  }
+  function switchParts(tag, frame, rocker) {
+    const L = CAD.limits[tag], ax = new THREE.Vector3(...L.axis);
+    const rg = pivotGroup(rocker, new THREE.Vector3(...L.pivot));
+    const lever = part('lever_' + tag.toLowerCase(), M.gear, `Важіль мікрика ${tag}: на ньому лежить ребро коромисла; мікрик клацає, коли палець зайшов на носик і повернув коромисло на ${L.click.toFixed(1)}° від квадрата`);
+    const lg = pivotGroup(lever, new THREE.Vector3(...L.hinge));
+    frame.add(rg, lg);
+    return { tag, L, ax, rg, lg, units: [rocker.userData.unit, lever.userData.unit], on: false };
+  }
+  // the lever's angle about its hinge (board frame, deg) with the rocker turned a deg out, as cad/limits.py lays it
+  function leverPhi(L, a) {
+    const r = a * Math.PI / 180, [px, py] = L.lever.pivot, [hx, hy] = L.lever.hinge;
+    const dx = L.xc - px, dy = L.lever.pressed - py;
+    const rx = px + dx * Math.cos(r) - dy * Math.sin(r), ry = py + dx * Math.sin(r) + dy * Math.cos(r);
+    return Math.atan2(ry - 0.15 - hy, rx - hx) * 180 / Math.PI;
+  }
+  function rockerAng(L, ja) {
+    for (const sg of L.segs) {
+      const u = (ja - sg.a0) / sg.step, n = sg.rk.length;
+      if (u >= 0 && u <= n - 1) { const i = Math.min(n - 2, Math.floor(u)), f = u - i; return sg.rk[i] + (sg.rk[i + 1] - sg.rk[i]) * f; }
+    }
+    return L.rest;
+  }
+
   const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root);
   root.add(part('base_housing', M.base, 'Корпус основи (друк, cad/base.FCStd)'));
   root.add(part('bearing_51211', M.thrust, 'Упорний підшипник 51211 (55×90×25)'));
   root.add(part('j1_keeper', M.keeper, 'Утримувач J1 (друк, 2 половинки, 4×M3×10): губа над диском маточини, турель не перекидається'));
   root.add(part('limit_collar', M.keeper, 'Хомут основи (друк, 2 половини, 4×M3×20 + гайки): спереду кінцевик J1, ззаду бобишка під пластину SKR Pico; поворотом хомута задається середина ходу J1'));
   root.add(part('endstop_j1', M.pcb, 'Кінцевик J1: плата стоїть на хомуті, важіль угору; прапорець турелі натискає його через коромисло на ±171.5°'));
-  root.add(part('slider_j1', M.crank, 'Коромисло J1 (друк, limit_rocker.stl): лежить уздовж краю плати на штирі кришки, носик-V угору; прапорець з будь-якого боку заїжджає на носик, коромисло повертається і ребром тисне середину важеля. Біля кінця важеля з гачком нічого не стоїть'));
+  const SW = {};   // the three limit switches: rocker and lever turn, see swPose()
+  SW.J1 = switchParts('J1', root, part('slider_j1', M.crank, 'Коромисло J1 (друк, limit_rocker.stl): лежить уздовж краю плати на штирі кришки, носик-V угору; прапорець з будь-якого боку заїжджає на носик, коромисло повертається і ребром тисне середину важеля. Біля кінця важеля з гачком нічого не стоїть'));
   root.add(part('cover_j1', M.keeper, 'Кришка кінцевика J1 (друк, limit_cover.stl): пласка, на гвинті M3×16 в отворі 17 плати, бобишка стоїть на платі; знизу штир-вісь коромисла (заходить у паз хомута) і упор, що тримає коромисло у спокої'));
   root.add(part('skr_plate', M.print2, 'Пластина плати SKR Pico (друк): на бобишці хомута основи, 2×M3×12 у гайки; 4 стійки під M2.5×8'));
   root.add(part('skr_pico', M.skr, 'BTT SKR Pico V1.0, 85×56, з клемами 13 мм над платою: роз\'єми двигунів угору, кінцевики вниз, USB-C і живлення праворуч, якщо дивитись ззаду'));
@@ -363,7 +403,9 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   turret.add(part('limit_plate', M.keeper, 'Кронштейн кінцевиків (друк): плати J2/J3, підлога під коромисла з пазами для штирів кришок і відросток назад під прапорець J1; лежить між щоками, тримається двома гвинтами маточини M3×25; плати на пазах, M3×8 і M3×16 (крізь кришку) у гайки в гніздах знизу кронштейна (їх закриває плита турелі)'));
   turret.add(part('limit_flag', M.crank, 'Прапорець J1 (друк): сідло на кінці відростка кронштейна, M3×12 у гайку; проходить за 6.7 мм над краєм плати на основі й натискає коромисло'));
   turret.add(part('endstops', M.pcb, 'Кінцевики J2 (ззаду) і J3 (спереду): плата 39.4×16.4 з мікриком; палець проходить за 6.7 мм від краю й важеля не торкається'));
-  turret.add(part('sliders', M.crank, 'Коромисла J2/J3 (друк, limit_rocker.stl і limit_rocker_j3.stl): лежать на підлозі кронштейна вздовж краю плати, обертаються на штирі кришки; палець з будь-якого боку заїжджає на носик-V, коромисло повертається і ребром тисне середину важеля, при перебігу палець просто ковзає по пласкій верхівці'));
+  const RK = ': лежить на підлозі кронштейна вздовж краю плати, обертається на штирі кришки; палець з будь-якого боку заїжджає на носик-V, коромисло повертається і ребром тисне середину важеля, при перебігу палець просто ковзає по пласкій верхівці';
+  SW.J2 = switchParts('J2', turret, part('slider_j2', M.crank, 'Коромисло J2 (друк, limit_rocker.stl)' + RK));
+  SW.J3 = switchParts('J3', turret, part('slider_j3', M.crank, 'Коромисло J3 (друк, limit_rocker_j3.stl, носик на 1.5 мм ближче до осі)' + RK));
   turret.add(part('covers', M.keeper, 'Кришки кінцевиків J2/J3 (друк, limit_cover.stl): пласкі, над коромислом, тримаються гвинтом плати M3×16 в отворі 17; знизу штир-вісь коромисла (у паз кронштейна) і упор коромисла'));
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
@@ -482,6 +524,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     rodU.position.set(E[0], 0, E[1] + LW); rodU.rotation.y = -a3;
     flZ.rotation.z = j4axis === 'z' ? rad(st.j4) : 0;
     flY.rotation.y = j4axis === 'y' ? -rad(st.j4) : 0;
+    swPose();
     const open = 4 + st.jg / 100 * 17;
     fL.position.set(0, open + 3, -FLANGE_UNDER - 69); fR.position.set(0, -open - 3, -FLANGE_UNDER - 69);
 
@@ -499,6 +542,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     el('ty').textContent = (r * Math.sin(yaw) + s * Math.cos(yaw)).toFixed(0) + ' мм';
     el('tz').textContent = h.toFixed(0) + ' мм';
     el('rel').textContent = (180 + st.j3 - st.j2).toFixed(0) + '°';
+    el('lims').innerHTML = ['J1', 'J2', 'J3'].map(t => SW[t].on ? `<b style="color:var(--ok)">${t} ●</b>` : `${t} ○`).join(' ');
     const m2k = LK * L2, m3k = LK * L3 + 0.05;
     // the tool's offset from the wrist goes into the levelling rods; J2/J3 see its weight at the wrist
     const t2 = Math.abs(G * (m2k * L2 / 2 + (m3k + MM + T.m + 0.04) * L2) * Math.cos(a2) / 1000);
@@ -513,6 +557,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     if (h < 5) { sEl.textContent = 'Інструмент нижче столу'; sEl.style.color = 'var(--bad)'; }
     else if (atLimit) { sEl.textContent = 'Межа: кут між ланками 30…140°'; sEl.style.color = 'var(--warn)'; }
     else { sEl.textContent = 'OK'; sEl.style.color = 'var(--ok)'; }
+    if (phase) { sEl.textContent = phase; sEl.style.color = 'var(--accent)'; }
     const tcmd = tool === 'grip' ? (st.jg > 50 ? '  M102' : '  M103') : '';
     el('gc').textContent = `G1 X${st.j1.toFixed(1)} Y${st.j2.toFixed(1)} Z${st.j3.toFixed(1)} A${st.j4.toFixed(1)} F900${tcmd}`;
     el('o1').textContent = st.j1.toFixed(0) + '°'; el('o2').textContent = st.j2.toFixed(0) + '°';
@@ -520,6 +565,22 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     el('og').textContent = st.jg.toFixed(0) + '%';
   }
 
+  // joint angle -> rocker angle (CAD table) -> rocker and lever turned, switch clicked or not
+  const JOINT = { J1: 'j1', J2: 'j2', J3: 'j3' };
+  function swOn(t) {
+    let ja = st[JOINT[t]];
+    if (t === 'J1') ja = ((ja + 180) % 360 + 360) % 360 - 180;
+    const L = SW[t].L, a = rockerAng(L, ja);
+    return { a, on: a <= L.click + 1e-6 };
+  }
+  function swPose() {
+    Object.values(SW).forEach(w => {
+      const { a, on } = swOn(w.tag), L = w.L;
+      w.rg.quaternion.setFromAxisAngle(w.ax, rad(a - L.rest));
+      w.lg.quaternion.setFromAxisAngle(w.ax, rad(leverPhi(L, a) - leverPhi(L, L.rest)));
+      if (on !== w.on) { w.on = on; w.units.forEach(u => { u.pressed = on; glow(u); }); }
+    });
+  }
   function syncInputs() { ids.forEach(id => { el(id).value = Math.round(st[id]); }); }
 
   ids.forEach(id => el(id).addEventListener('input', () => {
@@ -543,16 +604,93 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     [25, 92, -28, 0, 8], [-40, 92, -28, 90, 8], [-40, 60, -60, 90, 8], [-40, 60, -60, 90, 80],
     [-40, 96, -22, 90, 80], [0, 100, -20, 0, 80]
   ];
-  let demo = false, t0 = 0;
+  // the demo: homing as the firmware does it, a move to the first keyframe, then the pick-and-place loop
+  let demo = null, t0 = 0, phase = '', lastT = 0;
   const SEG = 1400;
-  function stopDemo() { if (demo) { demo = false; el('demo').classList.remove('on'); el('demo').textContent = 'Демо-цикл'; } }
-  el('demo').addEventListener('click', () => {
-    if (demo) { stopDemo(); return; }
-    demo = true; t0 = performance.now(); el('demo').classList.add('on'); el('demo').textContent = 'Зупинити';
-  });
+  function stopDemo() {
+    if (!demo) return;
+    demo = null; phase = ''; homing = null; move = null; homeXray(false);
+    ['demo', 'homing'].forEach(k => el(k).classList.remove('on'));
+    el('demo').textContent = 'Демо-цикл'; el('homing').textContent = 'Хомінг';
+    pose();
+  }
+  function startDemo(kind) {
+    stopDemo(); demo = kind; lastT = 0;
+    el(kind).classList.add('on'); el(kind).textContent = 'Зупинити';
+    startHoming();
+  }
+  el('demo').addEventListener('click', () => { if (demo === 'demo') stopDemo(); else startDemo('demo'); });
+  el('homing').addEventListener('click', () => { if (demo === 'homing') stopDemo(); else startDemo('homing'); });
   el('home').addEventListener('click', () => { stopDemo(); Object.assign(st, { j1: 0, j2: 100, j3: -20, j4: 0, jg: 70 }); syncInputs(); pose(); });
+
+  // ---- homing, as CMakeLists.txt sets it up: $44 = J2 + J3, $45 = J1, all towards +;
+  // seek 600 deg/min, pull-off 3 deg (at the seek rate), locate 60 deg/min, pull-off again ----
+  const HR = { seek: 10, feed: 1, pull: 3 };
+  const CYCLES = [['j2', 'j3'], ['j1']], SW_OF = { j1: 'J1', j2: 'J2', j3: 'J3' };
+  const PHASES = [['seek', 'швидко до кінцевика'], ['pull', 'назад на 3°'], ['locate', 'повільно до кінцевика'], ['pull', 'назад на 3°']];
+  let homing = null;
+  // while homing, everything but the switches goes see-through so the rockers can be watched; the
+  // viewer's own x-ray settings come back afterwards
+  const HOME_XRAY = { motor: 0.12, base: 0.2, lever: 0.25, spacer: 0.2, bearing: 0.25, screw: 0.25, shaft: 0.25, elec: 0.25, tool: 0.2 };
+  // the covers sit over the rockers; the cheeks with the fingers stay a little more solid
+  const HOME_XRAY_PART = { covers: 0.2, cover_j1: 0.2, limit_plate: 0.35, limit_collar: 0.35, ua_j2: 0.5, crank: 0.5 };
+  let savedOps = null;
+  function homeXray(on) {
+    if (on && !savedOps) {
+      savedOps = units.map(u => u.op);
+      units.forEach(u => {
+        const v = HOME_XRAY_PART[u.key] ?? HOME_XRAY[u.g];
+        if (v !== undefined) { u.op = Math.min(u.op, v); applyOp(u); }
+      });
+    } else if (!on && savedOps) {
+      units.forEach((u, i) => { u.op = savedOps[i]; applyOp(u); }); savedOps = null;
+    }
+    refreshUI();
+  }
+  function startHoming() { homing = { c: 0, p: -1 }; homeXray(true); nextPhase(); }
+  function nextPhase() {
+    const h = homing;
+    if (++h.p === PHASES.length) { h.p = 0; h.c++; }
+    if (h.c === CYCLES.length) { homing = null; homed(); return; }
+    if (h.p === 0) camTo(h.c === 0 ? 'j23' : 'j1');
+    h.axes = CYCLES[h.c].map(id => ({ id, from: st[id], done: false }));
+    const names = CYCLES[h.c].map(id => id.toUpperCase()).join(' + ');
+    phase = `Хомінг ${names}: ${PHASES[h.p][1]}`;
+  }
+  function stepHoming(dt) {
+    const h = homing, kind = PHASES[h.p][0], approach = kind !== 'pull';
+    const rate = kind === 'locate' ? HR.feed : HR.seek;
+    h.axes.forEach(a => {
+      if (a.done) return;
+      if (approach) {
+        st[a.id] += rate * dt;
+        if (swOn(SW_OF[a.id]).on) a.done = true;                        // the switch stops this joint alone
+      } else {
+        st[a.id] -= rate * dt;
+        if (a.from - st[a.id] >= HR.pull) { st[a.id] = a.from - HR.pull; a.done = true; }
+      }
+    });
+    syncInputs(); pose();
+    if (h.axes.every(a => a.done)) nextPhase();
+  }
+  let move = null;
+  function homed() {
+    phase = 'Хомінг завершено: нуль машини на точках спрацювання, мінус 3° відводу';
+    camTo('iso'); homeXray(false);
+    if (demo === 'homing') { const d = demo; setTimeout(() => { if (demo === d) stopDemo(); }, 2500); return; }
+    move = { from: ids.map(id => st[id]), s: null };   // to the first keyframe, then the loop
+  }
   function stepDemo(now) {
-    // rAF's frame time can be a little earlier than performance.now() taken in the click handler
+    const dt = lastT ? Math.min(0.1, (now - lastT) / 1000) : 0; lastT = now;
+    if (homing) { stepHoming(dt); return; }
+    if (move) {
+      if (move.s === null) move.s = now;
+      const u = Math.min(1, (now - move.s) / 2500), e = u * u * (3 - 2 * u);
+      ids.forEach((id, k) => { st[id] = move.from[k] + (KF[0][k] - move.from[k]) * e; });
+      if (u >= 1) { move = null; phase = ''; t0 = now; }
+      syncInputs(); pose(); return;
+    }
+    if (demo !== 'demo') return;
     const n = KF.length - 1, tt = (Math.max(0, now - t0) / SEG) % n, i = Math.min(n - 1, Math.floor(tt)), u = tt - i, e = u * u * (3 - 2 * u);
     ids.forEach((id, k) => { st[id] = KF[i][k] + (KF[i + 1][k] - KF[i][k]) * e; });
     syncInputs(); pose();
@@ -570,13 +708,24 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) fly.s -= 1e6;
   }
   document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => goView(b.dataset.v)));
+  // close-ups on the switches during homing: aimed at the boards' pins, from outside the turret
+  function camTo(k) {
+    if (k === 'iso') { goView('iso'); return; }
+    root.updateMatrixWorld(true);
+    const t = new THREE.Vector3(), w = k === 'j1' ? [SW.J1] : [SW.J2, SW.J3];
+    w.forEach(x => t.add(x.rg.getWorldPosition(new THREE.Vector3()))); t.divideScalar(w.length);
+    const out = k === 'j1' ? new THREE.Vector3(1, 0.45, 0.3) : new THREE.Vector3(0.35, 1, -0.45);
+    if (k !== 'j1') out.applyAxisAngle(new THREE.Vector3(0, 1, 0), rad(st.j1));
+    const p = t.clone().add(out.normalize().multiplyScalar(k === 'j1' ? 230 : 280));
+    fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: p, t1: t, s: performance.now() };
+  }
   camera.position.set(...VIEWS.iso[0]); controls.target.set(...VIEWS.iso[1]);
 
   // ---- x-ray: per-part opacity, groups, a selected part drawn on top of everything ----
   const units = UNITS.filter(u => u.meshes.length);
   const GK = {}; GROUPS.forEach(gr => { gr.units = units.filter(u => u.g === gr.k); GK[gr.k] = gr; });
   let sel = null, hover = null, byGroup = false;
-  const SEL_EMI = 0x5a2208, SEL_EDGE = 0xff7a3d;
+  const SEL_EDGE = 0xff7a3d;
   function applyOp(u) {
     const op = u.op, tr = op < 0.999;
     u.meshes.forEach(m => {
@@ -588,15 +737,14 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   }
   function setOp(u, op) { u.op = Math.min(1, Math.max(0, op)); applyOp(u); refreshUI(); }
   function select(u) {
-    if (sel) {
-      sel.meshes.forEach(m => { m.material.emissive.setHex(0); m.layers.set(0); });
-      sel.lines.forEach(l => l.layers.set(0)); sel.edge.color.setHex(0x15181b);
-    }
+    const old = sel;
+    if (old) { old.meshes.forEach(m => m.layers.set(0)); old.lines.forEach(l => l.layers.set(0)); old.edge.color.setHex(0x15181b); }
     sel = u || null;
+    if (old) glow(old);
     if (sel) {
       // only on layer 1: skipped by the normal pass, drawn after it over a cleared depth buffer
-      sel.meshes.forEach(m => { m.material.emissive.setHex(SEL_EMI); m.layers.set(1); });
-      sel.lines.forEach(l => l.layers.set(1)); sel.edge.color.setHex(SEL_EDGE);
+      sel.meshes.forEach(m => m.layers.set(1));
+      sel.lines.forEach(l => l.layers.set(1)); sel.edge.color.setHex(SEL_EDGE); glow(sel);
     }
     refreshUI();
   }
