@@ -1,5 +1,5 @@
 """
-check_nuts.py - puts an M3 nut (5.5 across flats, 2.4 thick) on the screw axis of every nut pocket
+check_nuts.py - puts an M3 nut (5.5 across flats, 2.4 thick; M2: 4.0 x 1.6 for the limit switches) on the screw axis of every nut pocket
 and reports whether it fits there, whether it can get there from the pocket's opening, and whether
 the pocket stops it turning. Run after the stage scripts:
     <FreeCAD.AppImage> freecadcmd cad/check_nuts.py
@@ -26,15 +26,16 @@ def nut(c, axis, ang, af=5.5, t=2.4, tilt=0):
     n.translate(c)
     return n
 
-def check(tag, part, c, axis, ins, travel=14, tilt=0):
+def check(tag, part, c, axis, ins, travel=14, tilt=0, af=5.5, t=2.4):
     """nut on the screw axis at c (axis = thread direction), ins = direction it is pushed in from"""
-    vols = [(part.common(nut(c, axis, a, tilt=tilt)).Volume, a) for a in range(0, 60, 5)]
+    mk = lambda c, axis, a, tilt=0: nut(c, axis, a, af, t, tilt)   # noqa: E731
+    vols = [(part.common(mk(c, axis, a, tilt=tilt)).Volume, a) for a in range(0, 60, 5)]
     vmin, abest = min(vols)
     spins = max(vols)[0] < 0.01
     path = 0.0
     if vmin < 0.01:
         d = V(*ins); d.normalize()
-        path = max(part.common(nut(c + d * (-k * 0.5), axis, abest, tilt=tilt)).Volume for k in range(1, int(travel * 2)))
+        path = max(part.common(mk(c + d * (-k * 0.5), axis, abest, tilt=tilt)).Volume for k in range(1, int(travel * 2)))
     ok = vmin < 0.01 and path < 0.01 and not spins
     print("NUT %-34s seat %s  way in %s  held %s   %s" % (
         tag, "ok" if vmin < 0.01 else "BLOCKED %.1f mm3" % vmin,
@@ -87,24 +88,26 @@ for k in range(1):
 tp = docs["turret"].getObject("Params"); bp = docs["base"].getObject("Params")
 TOP, SH_Z = tp.plate_top.Value, tp.shoulder_z.Value
 HR, BODY_H = bp.body_od.Value / 2, bp.body_h.Value
-X_END = ES.TIP_END + ES.BOARD_L
-Y2, Y3 = ES.J2_FACE - ES.STANDOFF, ES.J3_FACE + ES.STANDOFF
+M2 = dict(af=ES.M2_NUT_AF, t=ES.M2_NUT_T)
+X0 = -(ES.ROLLER_XR + ES.ROLLER_X)
+Y2, Y3 = ES.J2_FACE - ES.PRESS_TOP, ES.J3_FACE + ES.PRESS_TOP
 MIR = Y2 + Y3
 plate = lim.getObject("LimitPlate").Shape
-zc = TOP + 3.4 - 1.2     # pockets open underneath, the nut pulled up to the top
-for hx, hy in ES.HOLES:
-    for adj in (ES.ADJ[0], 0, ES.ADJ[1]):
-        x, y = hx - X_END, Y2 - (hy + adj)
-        check("limit_plate J2 hole %g adj %+g" % (hx, adj), plate, V(x, y, zc), "z", (0, 0, 1), travel=5)
-        check("limit_plate J3 hole %g adj %+g" % (hx, adj), plate, V(-x + ES.J3_SHIFT, MIR - y, zc), "z", (0, 0, 1), travel=5)
+zc = TOP + 2.0 - ES.M2_NUT_T / 2     # slots open underneath, the nut pulled up to the roof
+for hx, hy in ES.SW_HOLES:
+    for adj in (-ES.ADJ, 0, ES.ADJ):
+        x, y = hx + X0, Y2 + hy + adj
+        check("limit_plate J2 hole %g adj %+g" % (hx, adj), plate, V(x, y, zc), "z", (0, 0, 1), travel=3, **M2)
+        check("limit_plate J3 hole %g adj %+g" % (hx, adj), plate, V(-x, MIR - y, zc), "z", (0, 0, 1), travel=3, **M2)
 FX = -(ES.J1_FLAG_R[0] + ES.J1_FLAG_R[1]) / 2
 check("limit_plate flag nut (under arm)", plate, V(FX, 0, TOP + 1.4), "z", (0, 0, 1))
 cf, cr = lim.getObject("LimitCollarFront").Shape, lim.getObject("LimitCollarRear").Shape
-SEAT_X = ES.J1_PCB_X - ES.BOARD_T
-Y0 = ES.J1_HINGE_Y - ES.LEV_HINGE_X
-for hx, hy in ES.HOLES:
-    for adj in (ES.ADJ[0], 0, ES.ADJ[1]):
-        check("collar front hole %g adj %+g" % (hx, adj), cf, V(SEAT_X - 2.0 - 2.9 / 2, Y0 + hx, ES.J1_EDGE - hy - adj), "x", (0, 0, -1))
+WALL = ES.M2_LEN - ES.SW_T - ES.M2_NUT_T
+Y0 = -ES.ROLLER_X + ES.J1_ROLLER_OFF
+for hx, hy in ES.SW_HOLES:
+    for adj in (-ES.ADJ, 0, ES.ADJ):
+        check("collar front hole %g adj %+g" % (hx, adj), cf, V(ES.J1_SEAT_X - WALL - ES.M2_NUT_T / 2, Y0 + hx, ES.J1_EDGE + hy + adj),
+              "x", (0, 0, -1), **M2)
 CZ1 = BODY_H - 1.0; CZ0 = CZ1 - ES.J1_COLLAR_H
 for sg in (1, -1):
     for z in ES.J1_COLLAR_SCR_Z:

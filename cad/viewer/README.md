@@ -17,10 +17,10 @@ opacity slider per group. A new part gets its group from `GROUP_OF` in the page 
 name -> group key); anything not listed lands in "Кисть та інструмент".
 
 Homing ("Хомінг", and the start of "Демо-цикл") runs the firmware's cycle from `CMakeLists.txt`:
-J2 + J3 towards +, then J1; seek, 3 deg pull-off, slow locate, pull-off. The limit-switch rockers
-and levers turn with the joints: `export_parts.py` works out, from the CAD fingers and rockers, the
-rocker's angle against the joint angle near each trip point (`limits` in `parts.js`), and the switch
-counts as clicked when that angle is at or below the click angle from `endstop_dims.py`.
+J2 + J3 towards +, then J1; seek, 3 deg pull-off, slow locate, pull-off. The limit switches'
+roller levers turn with the joints: `export_parts.py` works out, from the CAD cams and levers, each
+lever's angle against the joint angle near each trip point (`limits` in `parts.js`), and the switch
+counts as clicked when the roller is at or below its click height from `endstop_dims.py`.
 
 After changing any `cad/*.py` model, rebuild its `.FCStd` and then refresh the meshes:
 

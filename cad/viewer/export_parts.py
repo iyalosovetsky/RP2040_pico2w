@@ -68,10 +68,10 @@ def elbow_washers():
     return Part.makeCompound([a, b])
 
 
-# --- limit switches: the rocker and the switch lever move, the rest of the board doesn't ---
-# EndstopJ* in limits.FCStd is a compound (pcb, switch, lever, connector); the lever is child 2.
+# --- limit switches: the lever with its roller moves, the body doesn't ---
+# EndstopJ* in limits.FCStd is a compound (body, terminals, lever standing free); the lever is child 2.
 def board(tag):
-    return Part.makeCompound([c for i, c in enumerate(shp("limits", "Endstop" + tag).childShapes()) if i != 2])
+    return Part.makeCompound(shp("limits", "Endstop" + tag).childShapes()[:2])
 
 
 def lever(tag):
@@ -79,29 +79,18 @@ def lever(tag):
 
 
 SH_Z = D["turret"].getObject("Params").shoulder_z.Value
-PCB_TOP = SH_Z - ES.PCB_DEPTH
-X_END = ES.TIP_END + ES.BOARD_L
-Y2, Y3 = ES.J2_FACE - ES.STANDOFF, ES.J3_FACE + ES.STANDOFF
-Y0_J1 = ES.J1_HINGE_Y - ES.LEV_HINGE_X
-# board frame (x along the board, y out of the lever edge, z up from the PCB) -> the frame the board lives in
-# (the turret's for J2/J3, the world's for J1), as cad/limits.py places them; board z is the pin axis
+Z_SEAT = SH_Z - ES.ROLLER_DEPTH - ES.SW_T / 2
+X0 = -(ES.ROLLER_XR + ES.ROLLER_X)
+Y2, Y3 = ES.J2_FACE - ES.PRESS_TOP, ES.J3_FACE + ES.PRESS_TOP
+Y0_J1 = -ES.ROLLER_X + ES.J1_ROLLER_OFF
+# switch frame (x along the body, y out of the lever face, z its thickness) -> the frame the switch lives in
+# (the turret's for J2/J3, the world's for J1), as cad/limits.py places them; switch z is the hinge axis
 TO_FRAME = {
-    "J2": (lambda b: V(b.x - X_END, b.y + Y2, b.z + PCB_TOP), V(0, 0, 1)),
-    "J3": (lambda b: V(-b.x + X_END + ES.J3_SHIFT, -b.y + Y3, b.z + PCB_TOP), V(0, 0, 1)),
-    "J1": (lambda b: V(b.z + ES.J1_PCB_X, b.x + Y0_J1, b.y + ES.J1_EDGE), V(1, 0, 0)),
+    "J2": (lambda b: V(b.x + X0, b.y + Y2, b.z + Z_SEAT), V(0, 0, 1)),
+    "J3": (lambda b: V(-b.x - X0, -b.y + Y3, b.z + Z_SEAT), V(0, 0, 1)),
+    "J1": (lambda b: V(b.z + ES.J1_SEAT_X, b.x + Y0_J1, b.y + ES.J1_EDGE), V(1, 0, 0)),
 }
-XC = {"J1": ES.SL_XC, "J2": ES.SL_XC, "J3": ES.SL_XC + ES.J3_SHIFT}
-
-
-def mover(tag):
-    """what presses this board's rocker, posed at joint angle ang, cut down to the region around the rocker"""
-    if tag == "J1":
-        s = Part.makeCompound([shp("limits", "LimitFlag")])
-        return lambda ang: _rot(s, V(0, 0, 0), V(0, 0, 1), ang)
-    names = (["UpperArmJ2", "UpperArmJ2Cap", "UpperArmJ3"] if tag == "J2" else ["J3Crank", "J3CrankCap"])
-    s = compound("upper_arm", names)
-    off = 0 if tag == "J2" else 180
-    return lambda ang: _rot(s, V(0, 0, 0), V(0, 1, 0), -(ang + off)).translated(V(0, 0, SH_Z))
+FREE = ES.lever_turn(ES.FREE_TOP)      # the lever's angle standing free, from where it lies on a cam's flat
 
 
 def _rot(s, c, ax, ang):
@@ -110,40 +99,46 @@ def _rot(s, c, ax, ang):
     return r
 
 
-def rocker_table(tag, trips):
-    """rocker angle (deg out from square) against the joint angle near each trip point: the finger turns the rocker
-    in as far as it has to, so the rocker sits at the largest angle up to its rest that the finger doesn't overlap"""
+def mover(tag):
+    """what works this switch, posed at joint angle ang"""
+    if tag == "J1":
+        s = Part.makeCompound([shp("limits", "LimitFlag")])
+        return lambda ang: _rot(s, V(0, 0, 0), V(0, 0, 1), ang)
+    s = compound("upper_arm", ["UpperArmJ2"] if tag == "J2" else ["J3Crank"])
+    off = 0 if tag == "J2" else 180
+    return lambda ang: _rot(s, V(0, 0, 0), V(0, 1, 0), -(ang + off)).translated(V(0, 0, SH_Z))
+
+
+def lever_table(tag, spans):
+    """the lever's angle (deg, from standing free; negative = pushed in) against the joint angle near each trip
+    point: the cam pushes the roller in as far as it has to, so the lever sits at the largest angle up to free
+    that the cam doesn't overlap"""
     to, ax = TO_FRAME[tag]
-    piv = to(V(ES.SL_PIVOT[0], ES.SL_PIVOT[1], 0))
-    rest = shp("limits", "Slider" + tag)
-    bb = rest.BoundBox
+    hinge = to(V(ES.LEV_HINGE[0], ES.LEV_HINGE[1], 0))
+    free = lever(tag)
+    bb = free.BoundBox
     win = Part.makeBox(bb.XLength + 30, bb.YLength + 30, bb.ZLength + 30, V(bb.XMin - 15, bb.YMin - 15, bb.ZMin - 15))
     pose = mover(tag)
+    low = ES.lever_turn(ES.PRESS_TOP - 0.3) - FREE
     segs = []
-    for lo, hi in trips:
-        step, angs, rk = 0.25, [], []
-        n = int(round((hi - lo) / step))
-        for i in range(n + 1):
-            ja = lo + i * step
-            fing = pose(ja).common(win)
-            hit = lambda a: fing.Volume > 0 and _rot(rest, piv, ax, a - ES.SL_REST_ANG).common(fing).Volume > 0.0005
-            if not hit(ES.SL_REST_ANG):
-                a = ES.SL_REST_ANG
-            elif hit(0.0):
+    for lo, hi in spans:
+        step, lv = 0.5, []
+        for i in range(int(round((hi - lo) / step)) + 1):
+            cam = pose(lo + i * step).common(win)
+            hit = lambda a: cam.Volume > 0 and _rot(free, hinge, ax, a).common(cam).Volume > 0.0005   # noqa: E731
+            if not hit(0.0):
                 a = 0.0
+            elif hit(low):
+                a = low
             else:
-                a0, a1 = 0.0, ES.SL_REST_ANG          # a0 clear, a1 hit
+                a0, a1 = low, 0.0          # a0 clear, a1 hit
                 for _ in range(10):
                     m = (a0 + a1) / 2
                     a0, a1 = (a0, m) if hit(m) else (m, a1)
                 a = a0
-            angs.append(ja)
-            rk.append(round(a, 3))
-        segs.append({"a0": lo, "step": step, "rk": rk})
-    return {"pivot": list(piv), "axis": list(ax), "hinge": list(to(V(ES.LEV_HINGE_X, ES.LEV_HINGE_OUT, 0))),
-            "rest": ES.SL_REST_ANG, "click": ES.sl_click_ang(XC[tag]), "xc": XC[tag],
-            "lever": {"pivot": list(ES.SL_PIVOT), "pressed": ES.SL_PRESSED, "hinge": [ES.LEV_HINGE_X, ES.LEV_HINGE_OUT]},
-            "segs": segs}
+            lv.append(round(a, 3))
+        segs.append({"a0": lo, "step": step, "lv": lv})
+    return {"hinge": list(hinge), "axis": list(ax), "free": FREE, "click": ES.lever_turn(ES.OP_TOP), "segs": segs}
 
 
 parts = {
@@ -153,9 +148,7 @@ parts = {
     "j1_keeper": shp("base", "J1Keeper"),
     "limit_collar": compound("limits", ["LimitCollarFront", "LimitCollarRear"]),
     "endstop_j1": board("J1"),
-    "slider_j1": shp("limits", "SliderJ1"),
     "lever_j1": lever("J1"),
-    "cover_j1": shp("limits", "CoverJ1"),
     "skr_plate": shp("electronics", "SkrPlate"),
     "skr_pico": shp("electronics", "SkrPico"),
     # PG27, one mesh reused for all four joints (its own frame: gearbox face at 0, shaft +Z)
@@ -169,11 +162,8 @@ parts = {
     "limit_plate": shp("limits", "LimitPlate"),
     "limit_flag": shp("limits", "LimitFlag"),
     "endstops": Part.makeCompound([board("J2"), board("J3")]),
-    "slider_j2": shp("limits", "SliderJ2"),
-    "slider_j3": shp("limits", "SliderJ3"),
     "lever_j2": lever("J2"),
     "lever_j3": lever("J3"),
-    "covers": compound("limits", ["CoverJ2", "CoverJ3"]),
     # upper arm frame (origin on the shoulder axis, X along the link)
     "ua_j2": shp("upper_arm", "UpperArmJ2"),
     "ua_j2_cap": shp("upper_arm", "UpperArmJ2Cap"),
@@ -234,18 +224,19 @@ motors = {
     "J4z": mat(D["tools"].getObject("J4_Motor_Z").Placement),
     "J4y": mat(D["tools"].getObject("J4_Motor_Y").Placement),
 }
-# trip points the fingers were made for, widened: the finger's chamfer puts the real ones 2.5-3 deg further out
+# each trip point with the cam's whole run onto the roller before it and a little overshoot after
 limits = {
-    "J1": rocker_table("J1", [(-ES.J1_LIM[1] - 6, -ES.J1_LIM[1] + 10), (ES.J1_LIM[1] - 10, ES.J1_LIM[1] + 6)]),
-    "J2": rocker_table("J2", [(ES.J2_LIM[0] - 6, ES.J2_LIM[0] + 10), (ES.J2_LIM[1] - 10, ES.J2_LIM[1] + 6)]),
-    "J3": rocker_table("J3", [(ES.J3_LIM[0] - 6, ES.J3_LIM[0] + 10), (ES.J3_LIM[1] - 10, ES.J3_LIM[1] + 6)]),
+    "J1": lever_table("J1", [(-179.5, -163.5), (163.5, 179.5)]),
+    "J2": lever_table("J2", [(ES.J2_LIM[0] - 8, ES.J2_LIM[0] + 13), (ES.J2_LIM[1] - 13, ES.J2_LIM[1] + 8)]),
+    "J3": lever_table("J3", [(ES.J3_LIM[0] - 8, ES.J3_LIM[0] + 13), (ES.J3_LIM[1] - 13, ES.J3_LIM[1] + 8)]),
 }
-for t, L in limits.items():
+for t, Lm in limits.items():
     trips = []
-    for sg in L["segs"]:
-        on = [sg["a0"] + i * sg["step"] for i, a in enumerate(sg["rk"]) if a <= L["click"]]
+    for sg in Lm["segs"]:
+        on = [sg["a0"] + i * sg["step"] for i, a in enumerate(sg["lv"]) if Lm["free"] + a <= Lm["click"]]
         trips.append((min(on), max(on)) if on else None)
-    print("LIMIT", t, "pivot", [round(c, 2) for c in L["pivot"]], "pressed", trips)
+    print("LIMIT", t, "hinge", [round(c, 2) for c in Lm["hinge"]], "pressed", trips,
+          "deepest", round(min(min(sg["lv"]) for sg in Lm["segs"]) + Lm["free"], 2), "deg from the flat")
 out = {"geom": geom, "motors": motors, "limits": limits, "parts": {k: mesh(v) for k, v in parts.items()}}
 path = os.path.join(HERE, "parts.js")
 with open(path, "w") as fh:

@@ -183,7 +183,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
       <code class="g" id="gc"></code>
       <div class="row"><button id="copy">Копіювати G-code</button></div>
       <p class="small">X = J1, Y = J2, Z = J3 (абсолютний кут), A = J4, у градусах. M102 / M103 відкривають і закривають захват.</p>
-      <p class="small">Хомінг як у прошивці: спершу J2 і J3 разом у бік +, потім J1; кожен суглоб швидко (10°/с) до кінцевика, назад на 3°, повільно (1°/с) до кінцевика ще раз і знову назад на 3°. Кут, на якому коромисло клацає мікрик, пораховано з CAD.</p>
+      <p class="small">Хомінг як у прошивці: спершу J2 і J3 разом у бік +, потім J1; кожен суглоб швидко (10°/с) до кінцевика, назад на 3°, повільно (1°/с) до кінцевика ще раз і знову назад на 3°. Як кулачок утискає ролик мікрика на кожному куті, пораховано з CAD.</p>
     </section>
 
     <section class="sec" aria-labelledby="h-parts">
@@ -312,11 +312,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     elbow_plate: 'lever', rod_drive: 'lever', rod_low: 'lever', rod_up: 'lever', wrist_fork: 'lever',
     ua_spacers: 'spacer', elbow_washers: 'spacer',
     skr_plate: 'elec', skr_pico: 'elec',
-    limit_collar: 'limit', endstop_j1: 'limit', slider_j1: 'limit', cover_j1: 'limit', limit_plate: 'limit',
-    limit_flag: 'limit', endstops: 'limit', slider_j2: 'limit', slider_j3: 'limit', covers: 'limit',
+    limit_collar: 'limit', endstop_j1: 'limit', limit_plate: 'limit',
+    limit_flag: 'limit', endstops: 'limit',
     lever_j1: 'limit', lever_j2: 'limit', lever_j3: 'limit'
   };
-  // selected: orange glow; a clicked limit switch's rocker and lever: green, like the board's LED
+  // selected: orange glow; a clicked limit switch's lever and roller: green
   function glow(u) { const c = sel === u ? 0x5a2208 : u.pressed ? 0x1f8a00 : 0; u.meshes.forEach(m => m.material.emissive.setHex(c)); }
   // a "unit" is what one click selects: every mesh tagged together (a PG27 is body + gearbox + shaft).
   // Each mesh gets its own material copy and each unit its own edge material, so opacity is per part.
@@ -353,45 +353,37 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   function box(x, y, z, m) { return new THREE.Mesh(new THREE.BoxGeometry(x, y, z), m); }
   function at(o, x, y, z) { o.position.set(x, y, z); return o; }
 
-  // ---- limit switches: the rocker turns on its pin, the switch lever follows its rib ----
-  // parts.js has the rocker at rest and the lever as it lies on it, in the frame the board lives in
-  // (world for J1, turret for J2/J3), the pin axis and the lever hinge in that frame, and a table of the
-  // rocker's angle against the joint angle near each trip point, worked out from the CAD fingers.
+  // ---- limit switches: the lever with its roller turns on its hinge ----
+  // parts.js has the lever standing free, in the frame the switch lives in (world for J1, turret for J2/J3),
+  // its hinge and axis in that frame, and a table of the lever's angle (from free) against the joint angle
+  // near each trip point, worked out from the CAD cams.
   function pivotGroup(obj, p) {
     const g0 = new THREE.Group(); g0.position.copy(p); obj.position.sub(p); g0.add(obj); return g0;
   }
-  function switchParts(tag, frame, rocker) {
+  function switchParts(tag, frame) {
     const L = CAD.limits[tag], ax = new THREE.Vector3(...L.axis);
-    const rg = pivotGroup(rocker, new THREE.Vector3(...L.pivot));
-    const lever = part('lever_' + tag.toLowerCase(), M.gear, `Важіль мікрика ${tag}: на ньому лежить ребро коромисла; мікрик клацає, коли палець зайшов на носик і повернув коромисло на ${L.click.toFixed(1)}° від квадрата`);
+    const lever = part('lever_' + tag.toLowerCase(), M.gear, `Важіль мікрика ${tag} з роликом: кулачок накочується на ролик зі скосу 45° і втискає важіль; мікрик клацає за ${(L.free - L.click).toFixed(0)}° повороту важеля, на пласкій частині кулачка важіль утиснутий ще на 0.6 мм далі`);
     const lg = pivotGroup(lever, new THREE.Vector3(...L.hinge));
-    frame.add(rg, lg);
-    return { tag, L, ax, rg, lg, units: [rocker.userData.unit, lever.userData.unit], on: false };
+    frame.add(lg);
+    return { tag, L, ax, lg, units: [lever.userData.unit], on: false };
   }
-  // the lever's angle about its hinge (board frame, deg) with the rocker turned a deg out, as cad/limits.py lays it
-  function leverPhi(L, a) {
-    const r = a * Math.PI / 180, [px, py] = L.lever.pivot, [hx, hy] = L.lever.hinge;
-    const dx = L.xc - px, dy = L.lever.pressed - py;
-    const rx = px + dx * Math.cos(r) - dy * Math.sin(r), ry = py + dx * Math.sin(r) + dy * Math.cos(r);
-    return Math.atan2(ry - 0.15 - hy, rx - hx) * 180 / Math.PI;
-  }
-  function rockerAng(L, ja) {
+  function leverAng(L, ja) {
     for (const sg of L.segs) {
-      const u = (ja - sg.a0) / sg.step, n = sg.rk.length;
-      if (u >= 0 && u <= n - 1) { const i = Math.min(n - 2, Math.floor(u)), f = u - i; return sg.rk[i] + (sg.rk[i + 1] - sg.rk[i]) * f; }
+      const u = (ja - sg.a0) / sg.step, n = sg.lv.length;
+      if (u >= 0 && u <= n - 1) { const i = Math.min(n - 2, Math.floor(u)), f = u - i; return sg.lv[i] + (sg.lv[i + 1] - sg.lv[i]) * f; }
     }
-    return L.rest;
+    return 0;
   }
 
   const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root);
   root.add(part('base_housing', M.base, 'Корпус основи (друк, cad/base.FCStd)'));
   root.add(part('bearing_51211', M.thrust, 'Упорний підшипник 51211 (55×90×25)'));
   root.add(part('j1_keeper', M.keeper, 'Утримувач J1 (друк, 2 половинки, 4×M3×10): губа над диском маточини, турель не перекидається'));
-  root.add(part('limit_collar', M.keeper, 'Хомут основи (друк, 2 половини, 4×M3×20 + гайки): спереду кінцевик J1, ззаду бобишка під пластину SKR Pico; поворотом хомута задається середина ходу J1'));
-  root.add(part('endstop_j1', M.pcb, 'Кінцевик J1: плата стоїть на хомуті, важіль угору; прапорець турелі натискає його через коромисло на ±171.5°'));
-  const SW = {};   // the three limit switches: rocker and lever turn, see swPose()
-  SW.J1 = switchParts('J1', root, part('slider_j1', M.crank, 'Коромисло J1 (друк, limit_rocker.stl): лежить уздовж краю плати на штирі кришки, носик-V угору; прапорець з будь-якого боку заїжджає на носик, коромисло повертається і ребром тисне середину важеля. Біля кінця важеля з гачком нічого не стоїть'));
-  root.add(part('cover_j1', M.keeper, 'Кришка кінцевика J1 (друк, limit_cover.stl): пласка, на гвинті M3×16 в отворі 17 плати, бобишка стоїть на платі; знизу штир-вісь коромисла (заходить у паз хомута) і упор, що тримає коромисло у спокої'));
+  root.add(part('limit_collar', M.keeper, 'Хомут основи (друк, 2 половини, 4×M3×20 + гайки): спереду стояк під мікрик J1 (пази й канали під гайки M2), ззаду бобишка під пластину SKR Pico; поворотом хомута задається середина ходу J1'));
+  root.add(part('endstop_j1', M.servo, 'Кінцевик J1: мікрик KW11-3Z з роликом стоїть на стояку хомута, ролик угорі; 2×M2×12 у гайки в каналах стояка, пази дають ±1.5 мм по висоті. Прапорець турелі накочується на ролик з будь-якого боку: ±171°'));
+  const SW = {};   // the three limit switches: the lever turns, see swPose()
+  SW.J1 = switchParts('J1', root);
+
   root.add(part('skr_plate', M.print2, 'Пластина плати SKR Pico (друк): на бобишці хомута основи, 2×M3×12 у гайки; 4 стійки під M2.5×8'));
   root.add(part('skr_pico', M.skr, 'BTT SKR Pico V1.0, 85×56, з клемами 13 мм над платою: роз\'єми двигунів угору, кінцевики вниз, USB-C і живлення праворуч, якщо дивитись ззаду'));
   root.add(pg27('J1 — 17HS15-1684S-PG27, поворот основи', CAD.motors.J1));
@@ -400,27 +392,27 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   turret.add(part('turret_body', M.turret, 'Турель (друк): щоки J2/J3, вушко з пальцем нижньої тяги'));
   turret.add(part('j1_hub', M.crank, 'Маточина J1 (друк): диск знизу під губою утримувача, 3×M3×20 зверху крізь турель у гайки в гніздах знизу фланця (гайку затягує гвинтом у тісне гніздо ще на столі); люфт вала вибирає гвинт-фіксатор M3×6 у закладній гайці, що тисне на лиску (затягнути до підшипника, висоту задає шаблон 5.6 мм)'));
   turret.add(part('j1_hub_screws', M.body, 'Гвинти J1: 3×M3×20 (маточина; два передні з кронштейном кінцевиків — M3×25)'));
-  turret.add(part('limit_plate', M.keeper, 'Кронштейн кінцевиків (друк): плати J2/J3, підлога під коромисла з пазами для штирів кришок і відросток назад під прапорець J1; лежить між щоками, тримається двома гвинтами маточини M3×25; плати на пазах, M3×8 і M3×16 (крізь кришку) у гайки в гніздах знизу кронштейна (їх закриває плита турелі)'));
-  turret.add(part('limit_flag', M.crank, 'Прапорець J1 (друк): сідло на кінці відростка кронштейна, M3×12 у гайку; проходить за 6.7 мм над краєм плати на основі й натискає коромисло'));
-  turret.add(part('endstops', M.pcb, 'Кінцевики J2 (ззаду) і J3 (спереду): плата 39.4×16.4 з мікриком; палець проходить за 6.7 мм від краю й важеля не торкається'));
-  const RK = ': лежить на підлозі кронштейна вздовж краю плати, обертається на штирі кришки; палець з будь-якого боку заїжджає на носик-V, коромисло повертається і ребром тисне середину важеля, при перебігу палець просто ковзає по пласкій верхівці';
-  SW.J2 = switchParts('J2', turret, part('slider_j2', M.crank, 'Коромисло J2 (друк, limit_rocker.stl)' + RK));
-  SW.J3 = switchParts('J3', turret, part('slider_j3', M.crank, 'Коромисло J3 (друк, limit_rocker_j3.stl, носик на 1.5 мм ближче до осі)' + RK));
-  turret.add(part('covers', M.keeper, 'Кришки кінцевиків J2/J3 (друк, limit_cover.stl): пласкі, над коромислом, тримаються гвинтом плати M3×16 в отворі 17; знизу штир-вісь коромисла (у паз кронштейна) і упор коромисла'));
+  turret.add(part('limit_plate', M.keeper, 'Кронштейн кінцевиків (друк): два сидіння під мікрики J2 (ззаду) і J3 (спереду) з упором під торець, пазами під M2 і гніздами гайок M2 знизу (їх закриває плита турелі), відросток назад під прапорець J1; лежить між щоками, тримається двома гвинтами маточини M3×25, їхні голівки сидять у колодязях у сидіннях'));
+  turret.add(part('limit_flag', M.crank, 'Прапорець J1 (друк): сідло на кінці відростка кронштейна, M3×12 у гайку; низ — кулачок: пласка частина 16 мм і два скоси 45° по 6 мм, ролик закочується з будь-якого боку'));
+  turret.add(part('endstops', M.servo, 'Кінцевики J2 (ззаду) і J3 (спереду): мікрики KW11-3Z з роликом лежать плиском на сидіннях кронштейна, важелем до своєї щоки; 2×M2×12 у гайки знизу, пази дають ±1.5 мм до кулачка'));
+
+  SW.J2 = switchParts('J2', turret);
+  SW.J3 = switchParts('J3', turret);
+
   turret.add(pg27('J2 — 17HS15-1684S-PG27, плече', CAD.motors.J2));
   turret.add(pg27('J3 — 17HS15-1684S-PG27, передпліччя через кривошип', CAD.motors.J3));
   const sh = new THREE.Group(); sh.position.z = D1; turret.add(sh);
   sh.add(part('pin_a', M.shaft, 'Палець A, вухо турелі / нижня тяга: гвинт M4×25 з потайною голівкою зсередини тяги, самоконтрна гайка зовні щоки'));
 
   const upper = new THREE.Group(); sh.add(upper);
-  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): сідло охоплює вал J2 знизу відкритим отвором, гніздо 608ZZ; два пальці кінцевика J2 (спрацювання на 33.5° і 151.5°)'));
+  upper.add(part('ua_j2', M.print, 'Щока плеча J2 (друк): сідло охоплює вал J2 знизу відкритим отвором, гніздо 608ZZ; два кулачки кінцевика J2 на всю товщину, зі скосами 45° (спрацювання на 33.5° і 151.5°)'));
   upper.add(part('ua_j2_cap', M.crank, 'Кришка маточини J2: пласка пластина 25×9 (друк 6.5 мм або сталь 3 мм / алюміній 4 мм), лежить на лисці вала, 2×M3 у гайки сідла'));
   upper.add(part('ua_j3', M.print, 'Щока плеча J3 (друк): гніздо 6803 на шийці кривошипа Ø17, гніздо 608ZZ ліктя'));
   upper.add(part('ua_spacers', M.print2, 'Поперечини плеча (друк, 3 шт.): перша, біля плеча, без ребер; дві інші з ребрами в пазах (заходять, якщо злегка розвести пластини). По 4×M3×12 у гайки'));
   upper.add(part('ua_bush6803', M.b609, 'Підшипник 6803 (17×26×5) у щоці плеча J3; до його приїзду — друкована втулка того ж розміру'));
   upper.add(part('b609_elbow', M.b609, '608ZZ ×2 (8×22×7) — лікоть, у щоках плеча; у них крутиться вісь ліктя'));
   const crank = new THREE.Group(); sh.add(crank);
-  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): сідло охоплює вал J3, шийка Ø17 під 6803 щоки плеча; обидва пальці кінцевика J3 (−71.5° і +36.5°)'));
+  crank.add(part('crank', M.crank, 'Кривошип J3 (друк): сідло охоплює вал J3, шийка Ø17 під 6803 щоки плеча; обидва кулачки кінцевика J3 зі скосами 45° (−71.5° і +36.5°)'));
   crank.add(part('crank_cap', M.keeper, 'Кришка кривошипа: та сама пласка пластина 25×9, що й на J2; лежить на лисці вала, 2×M3 у гайки сідла'));
   crank.add(part('pin_e', M.shaft, 'Палець E, кривошип / тяга приводу: гвинт M4×8 з потайною голівкою зсередини тяги, звичайна гайка втоплена в кривошип (на фіксатор різьби)'));
 
@@ -565,19 +557,18 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     el('og').textContent = st.jg.toFixed(0) + '%';
   }
 
-  // joint angle -> rocker angle (CAD table) -> rocker and lever turned, switch clicked or not
+  // joint angle -> lever angle (CAD table) -> lever turned, switch clicked or not
   const JOINT = { J1: 'j1', J2: 'j2', J3: 'j3' };
   function swOn(t) {
     let ja = st[JOINT[t]];
     if (t === 'J1') ja = ((ja + 180) % 360 + 360) % 360 - 180;
-    const L = SW[t].L, a = rockerAng(L, ja);
-    return { a, on: a <= L.click + 1e-6 };
+    const L = SW[t].L, a = leverAng(L, ja);
+    return { a, on: L.free + a <= L.click + 1e-6 };
   }
   function swPose() {
     Object.values(SW).forEach(w => {
-      const { a, on } = swOn(w.tag), L = w.L;
-      w.rg.quaternion.setFromAxisAngle(w.ax, rad(a - L.rest));
-      w.lg.quaternion.setFromAxisAngle(w.ax, rad(leverPhi(L, a) - leverPhi(L, L.rest)));
+      const { a, on } = swOn(w.tag);
+      w.lg.quaternion.setFromAxisAngle(w.ax, rad(a));
       if (on !== w.on) { w.on = on; w.units.forEach(u => { u.pressed = on; glow(u); }); }
     });
   }
@@ -629,11 +620,11 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
   const CYCLES = [['j2', 'j3'], ['j1']], SW_OF = { j1: 'J1', j2: 'J2', j3: 'J3' };
   const PHASES = [['seek', 'швидко до кінцевика'], ['pull', 'назад на 3°'], ['locate', 'повільно до кінцевика'], ['pull', 'назад на 3°']];
   let homing = null;
-  // while homing, everything but the switches goes see-through so the rockers can be watched; the
+  // while homing, everything but the switches goes see-through so the rollers can be watched; the
   // viewer's own x-ray settings come back afterwards
   const HOME_XRAY = { motor: 0.12, base: 0.2, lever: 0.25, spacer: 0.2, bearing: 0.25, screw: 0.25, shaft: 0.25, elec: 0.25, tool: 0.2 };
-  // the covers sit over the rockers; the cheeks with the fingers stay a little more solid
-  const HOME_XRAY_PART = { covers: 0.2, cover_j1: 0.2, limit_plate: 0.35, limit_collar: 0.35, ua_j2: 0.5, crank: 0.5 };
+  // the parts that carry the cams stay a little more solid
+  const HOME_XRAY_PART = { limit_plate: 0.35, limit_collar: 0.35, ua_j2: 0.5, crank: 0.5 };
   let savedOps = null;
   function homeXray(on) {
     if (on && !savedOps) {
@@ -713,7 +704,7 @@ ul.parts small { color: var(--muted); font-size: 12.5px; display: block; }
     if (k === 'iso') { goView('iso'); return; }
     root.updateMatrixWorld(true);
     const t = new THREE.Vector3(), w = k === 'j1' ? [SW.J1] : [SW.J2, SW.J3];
-    w.forEach(x => t.add(x.rg.getWorldPosition(new THREE.Vector3()))); t.divideScalar(w.length);
+    w.forEach(x => t.add(x.lg.getWorldPosition(new THREE.Vector3()))); t.divideScalar(w.length);
     const out = k === 'j1' ? new THREE.Vector3(1, 0.45, 0.3) : new THREE.Vector3(0.35, 1, -0.45);
     if (k !== 'j1') out.applyAxisAngle(new THREE.Vector3(0, 1, 0), rad(st.j1));
     const p = t.clone().add(out.normalize().multiplyScalar(k === 'j1' ? 230 : 280));

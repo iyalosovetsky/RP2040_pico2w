@@ -3,13 +3,13 @@ upper_arm.py - parametric FreeCAD model of the upper arm (J2) and the J3 crank.
 
 Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
   upper_arm_j2.stl     - J2-side plate: saddle that wraps the J2 shaft, elbow 609Z seat, two limit
-                         switch fingers. Print inner face down.
+                         switch cams. Print inner face down (the cams' bevels are 45 deg undersides).
   upper_arm_j3.stl     - J3-side plate, 6803 seat on the crank's journal + elbow 609Z seat
   upper_arm_tie.stl    - print 2 (ties 2 and 3): blocks across the gap between the plates; two ribs on
                          each face sit in two grooves in each plate, 2x M3x12 per plate into nuts
   upper_arm_tie1.stl   - print 1: tie 1, by the shoulder - the same block with no ribs
   j3_crank.stl         - crank: saddle that wraps the J3 shaft, round D17 journal for the J3-side
-                         plate's 6803, 40 mm arm, both limit switch fingers. Print outer face down,
+                         plate's 6803, 40 mm arm, both limit switch cams. Print outer face down,
                          with support under the journal's lower part (it hangs over the cap's slot).
   hub_cap.stl          - print 2 (or cut 2 from 3 mm steel / 4 mm aluminium): flat 25 x 9 plate with
                          two 3.4 holes 17 apart. One under each saddle, on the shaft's flat; 2x M3x16
@@ -18,8 +18,8 @@ Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
                          sheet. Put its corner fences on a corner of the sheet, drill the two holes
                          (3.4) through it, draw along its two free edges, cut along the lines.
                          With 2 mm steel the screws are M3x12 or M3x14 (M3x16 bottoms out).
-Limit switches (endstop_dims.py, limits.py): the J2-side plate and the crank carry two fingers each
-that sweep past a switch board lying under the shoulder - one finger per end of travel.
+Limit switches (endstop_dims.py, limits.py): the J2-side plate and the crank carry two cams each
+that run over the roller of a microswitch lying under the shoulder - one cam per end of travel.
 Needs turret.FCStd (and through it base.FCStd, pg27.FCStd) in the same folder.
 
 Run headless:
@@ -197,15 +197,17 @@ def cut(name, b, tools):
     return o
 
 
-def finger(name, ang, r0, y0, y1, face_y):
-    """Limit switch finger: a radial bar at ang (deg, in the part's frame) from r0 out to
-    ES.FINGER_R, between y0 and y1; the face at face_y works the switch lever and has its
-    two long edges chamfered so it rides onto the lever from either end."""
-    w, c = ES.FINGER_W / 2, ES.FINGER_CH
-    back, sg = (y1, 1) if face_y == y0 else (y0, -1)
-    prof = [(-w, face_y + sg * c), (-w + c, face_y), (w - c, face_y), (w, face_y + sg * c), (w, back), (-w, back)]
+def cam(name, ang, r0, face_y, back, bevel):
+    """Limit switch cam: a bar along the radius at ang (deg, in the part's frame) from r0 out to
+    ES.CAM_R, from its working face at face_y back to `back`. The working face is a flat
+    ES.CAM_FLAT wide along the cam's path; both flanks are bevelled 45 deg from it for `bevel`
+    of height, which is more than the free roller stands above the flat - so the roller meets a
+    bevel, never a wall, from either side."""
+    a, sg = ES.CAM_FLAT / 2, (1 if back > face_y else -1)
+    w = a + bevel
+    prof = [(-w, face_y + sg * bevel), (-a, face_y), (a, face_y), (w, face_y + sg * bevel), (w, back), (-w, back)]
     pts = [App.Vector(r0, y, t) for t, y in prof]
-    s = Part.Face(Part.makePolygon(pts + pts[:1])).extrude(App.Vector(ES.FINGER_R - r0, 0, 0))
+    s = Part.Face(Part.makePolygon(pts + pts[:1])).extrude(App.Vector(ES.CAM_R - r0, 0, 0))
     s.rotate(App.Vector(0, 0, 0), App.Vector(0, 1, 0), -ang)
     o = doc.addObject("Part::Feature", name)
     o.Shape = s
@@ -255,10 +257,10 @@ hy0, hy1 = f"{P}pl_in + {P}pl_t", f"{P}j2_hub_out"
 FLAT = f"({P}shaft_d / 2 - {P}flat_depth)"                # the shaft's flat, from its axis
 hub2 = box("HubJ2", f"2 * {P}sad_hw", f"({hy1}) - ({hy0}) + 0.01 mm", f"{P}hub_top + {P}sad_low",
            f"-{P}sad_hw", f"({hy0}) - 0.01 mm", f"-{P}sad_low")
-# limit switch fingers on the shoulder end, in the inner 3 mm of the plate: thin enough to pass
-# inside the head of the M4 pin that holds the lower levelling rod to the turret's ear
-lim2 = [finger(f"LimFingerJ2_{k}", a, 15, ES.J2_FACE, ES.J2_FACE + ES.J2_FINGER_T, ES.J2_FACE)
-        for k, a in enumerate(ES.J2_FINGERS)]
+# limit switch cams on the shoulder end: 0.5 mm thinner than the plate, so they pass 1 mm from the lower
+# levelling rod (y 16.5) and 1.2 mm inside the head of the M4 pin that holds it to the turret's ear
+lim2 = [cam(f"LimCamJ2_{k}", a, 15, ES.J2_FACE, ES.J2_FACE + ES.J2_CAM_T, ES.J2_BEVEL)
+        for k, a in enumerate(ES.J2_CAMS)]
 j2_solid = fuse("J2Solid", [pj2, hub2, elb2] + lim2)
 # the bore runs 1.5 mm into the plate as a closed pocket for the shaft's tip
 j2_tools = [cyl_y("BoreJ2", f"{P}shaft_d / 2 + {P}d_clr", f"({hy0}) - 1.5 mm", f"({hy1}) + 1 mm")]
@@ -381,7 +383,7 @@ cr_ring = cyl_y("CrankRing", f"{P}cr_boss_r", f"-{P}cr_y0", f"-{P}cr_y0 + 5 mm")
 # hub: the same saddle + flat plate as on J2, the plate under the root (crank frame -Z). There it stays
 # in the upper half over the whole J3 range, clear of the limit switch under the shoulder. The plate
 # sits in a notch: the arm's lower edge is cut back to the saddle on one side, and on the other an ear
-# hangs down past the plate's end - that ear carries the low-limit finger. The journal and its
+# hangs down past the plate's end - that ear carries the low-limit cam. The journal and its
 # collar are full circles, so their lower part hangs over the plate's place when the crank prints
 # outer face down: that spot needs support. (Cut flat there it printed without, but the 6803 held
 # the journal over 210 deg only, and the ends of that arc face just 15 deg off the flat's direction -
@@ -393,10 +395,10 @@ EAR_X = f"-{P}hub_hw - 4.5 mm"
 cr_ear = [box("CrankEar_U", "4.6 mm", f"({y3b}) - ({y3a}) - 0.5 mm", f"{P}sad_low + 3 mm", EAR_X, y3a, f"-{P}sad_low"),
           box("CrankEar_L", "4.2 mm", f"({y3b}) - ({y3a}) - 0.5 mm", f"{FLAT} + {P}cap_t - {P}sad_low + 0.01 mm",
               EAR_X, y3a, f"-{FLAT} - {P}cap_t")]
-# limit switch fingers in the crank arm's plane (the drive rod runs inside it): the high-limit one
-# on the saddle, the low-limit one on the ear
-lim3 = [finger("LimFingerJ3_0", ES.J3_FINGERS[0], 15.4, ES.J3_FACE - ES.J3_FINGER_T, ES.J3_FACE, ES.J3_FACE),
-        finger("LimFingerJ3_1", ES.J3_FINGERS[1], 10, ES.J3_FACE - ES.J3_FINGER_T, ES.J3_FACE, ES.J3_FACE)]
+# limit switch cams in the crank arm's plane (the drive rod runs inside it): the high-limit one
+# on the saddle, the low-limit one on the ear (it starts outside the cap plate's place)
+lim3 = [cam("LimCamJ3_0", ES.J3_CAMS[0], 15.4, ES.J3_FACE, ES.J3_FACE - ES.J3_CAM_T, ES.J3_BEVEL),
+        cam("LimCamJ3_1", ES.J3_CAMS[1], 10, ES.J3_FACE, ES.J3_FACE - ES.J3_CAM_T, ES.J3_BEVEL)]
 cr_solid = fuse("CrankSolid", [cr_hub, cr_collar, cr_arm, cr_tip, cr_ring, cr_blk] + cr_ear + lim3)
 yc3 = f"({y3a}) + {P}cap_w / 2"
 cr_tools = [cyl_y("BoreJ3", f"{P}shaft_d / 2 + {P}d_clr", f"({y3a}) - 1 mm", f"({y3b}) + 1.5 mm"),
