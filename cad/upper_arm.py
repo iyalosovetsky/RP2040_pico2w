@@ -3,7 +3,8 @@ upper_arm.py - parametric FreeCAD model of the upper arm (J2) and the J3 crank.
 
 Builds cad/upper_arm.FCStd plus print files (already laid flat for printing):
   upper_arm_j2.stl     - J2-side plate: saddle that wraps the J2 shaft, elbow 609Z seat, two limit
-                         switch cams. Print inner face down (the cams' bevels are 45 deg undersides).
+                         switch cams, three open hooks for the cable bundle on its lower edge
+                         (cable_dims.py). Print inner face down (the cams' bevels are 45 deg undersides).
   upper_arm_j3.stl     - J3-side plate, 6803 seat on the crank's journal + elbow 609Z seat
   upper_arm_tie.stl    - print 2 (ties 2 and 3): blocks across the gap between the plates; two ribs on
                          each face sit in two grooves in each plate, 2x M3x12 per plate into nuts
@@ -51,7 +52,8 @@ import Mesh
 out = os.path.abspath(next(a for a in sys.argv if a.endswith(".FCStd")))
 here = os.path.dirname(out)
 sys.path.insert(0, here)
-import endstop_dims as ES  # noqa: E402
+import endstop_dims as ES
+import cable_dims as CB  # noqa: E402
 
 for f in ("pg27", "base", "turret"):
     App.openDocument(os.path.join(here, f + ".FCStd"))
@@ -197,6 +199,28 @@ def cut(name, b, tools):
     return o
 
 
+def cable_hook(name, x, sgn, y0, pl_r, ang=None):
+    """Open hook for the cable bundle on the plate's lower edge (cable_dims.py): a post down from the edge, a
+    foot along it and a lip back up that leaves CB.HOOK_GAP to the edge as the way in. In the plate's plane, so
+    it prints flat with the plate. x = middle of the pocket along the link, sgn = +1 if it opens towards +x.
+    With ang it is built under the shoulder axis instead and turned to that direction on the plate's round end."""
+    t, w, h, g = CB.HOOK_T, CB.HOOK_W, CB.HOOK_H, CB.HOOK_GAP
+    z0 = -pl_r
+    if ang is not None:
+        g -= 1.7                                    # the round end's edge is that much higher over the lip
+    root = z0 + (6.0 if ang is not None else 2.0)   # into the plate (deeper under the round end, whose edge curves away)
+    prof = [(0, root), (t, root), (t, z0 - h), (t + w, z0 - h), (t + w, z0 - g), (2 * t + w, z0 - g),
+            (2 * t + w, z0 - h - t), (0, z0 - h - t)]
+    xm = 0.0 if ang is not None else x
+    pts = [App.Vector(xm + sgn * (u - t - w / 2), y0, z) for u, z in prof]
+    s = Part.Face(Part.makePolygon(pts + pts[:1])).extrude(App.Vector(0, CB.HOOK_Y, 0))
+    if ang is not None:
+        s.rotate(App.Vector(0, 0, 0), App.Vector(0, 1, 0), -(ang - 270.0))
+    o = doc.addObject("Part::Feature", name)
+    o.Shape = s
+    return o
+
+
 def cam(name, ang, r0, face_y, back, bevel):
     """Limit switch cam: a bar along the radius at ang (deg, in the part's frame) from r0 out to
     ES.CAM_R, from its working face at face_y back to `back`. The working face is a flat
@@ -261,7 +285,11 @@ hub2 = box("HubJ2", f"2 * {P}sad_hw", f"({hy1}) - ({hy0}) + 0.01 mm", f"{P}hub_t
 # levelling rod (y 16.5) and 1.2 mm inside the head of the M4 pin that holds it to the turret's ear
 lim2 = [cam(f"LimCamJ2_{k}", a, 15, ES.J2_FACE, ES.J2_FACE + ES.J2_CAM_T, ES.J2_BEVEL)
         for k, a in enumerate(ES.J2_CAMS)]
-j2_solid = fuse("J2Solid", [pj2, hub2, elb2] + lim2)
+# hooks for the cable bundle along the lower edge (cable_dims.py); the one by the shoulder opens forwards
+PL_IN, PL_R = 9.0, 18.0     # = pl_in, pl_r
+hooks2 = [cable_hook(f"CableHookJ2_{k}", x, sg, PL_IN, PL_R) for k, (x, sg) in enumerate(CB.HOOKS)]
+hooks2.append(cable_hook("CableHookJ2_S", 0, 1, PL_IN, PL_R, CB.HOOK_SHOULDER))
+j2_solid = fuse("J2Solid", [pj2, hub2, elb2] + lim2 + hooks2)
 # the bore runs 1.5 mm into the plate as a closed pocket for the shaft's tip
 j2_tools = [cyl_y("BoreJ2", f"{P}shaft_d / 2 + {P}d_clr", f"({hy0}) - 1.5 mm", f"({hy1}) + 1 mm")]
 yc2 = f"({hy1}) - {P}cap_w / 2"

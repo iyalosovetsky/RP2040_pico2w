@@ -5,8 +5,9 @@ that carries the third on the base, the J1 flag - plus the checks that the cams 
 
 Builds cad/limits.FCStd and the print files
   limit_plate.stl/.step  - bracket on the turret plate between the cheeks: a seat for the J2 switch
-                           behind the J1 axis and one for the J3 switch in front, and an arm out over
-                           the plate's rear edge for the J1 flag. Print flat, no supports.
+                           behind the J1 axis and one for the J3 switch in front, an arm out over
+                           the plate's rear edge for the J1 flag, and a rail along the J2-side cheek
+                           for the cable bundle (cable_dims.py). Print flat, no supports.
   limit_flag.stl/.step   - J1 flag: a saddle that slides onto the end of that arm, M3x12 + nut; its
                            underside is the J1 cam (flat + two 45 deg bevels). Print on its outer face.
   limit_collar_front.stl - half collar round the base housing with the riser the J1 switch stands on,
@@ -61,6 +62,7 @@ out = os.path.abspath(next(a for a in sys.argv if a.endswith(".FCStd")))
 here = os.path.dirname(out)
 sys.path.insert(0, here)
 import endstop_dims as ES  # noqa: E402
+import cable_dims as CB  # noqa: E402
 
 for f in ("pg27", "base", "turret", "upper_arm"):
     App.openDocument(os.path.join(here, f + ".FCStd"))
@@ -220,6 +222,16 @@ ARM_W, BOSS_T = 10.0, 5.0
 solids += [box(-FR1, X0 - 2.8 + 0.01, -ARM_W / 2, ARM_W / 2, z0, z1), box(-FR1, -FR0, -ARM_W / 2, ARM_W / 2, z0, z0 + BOSS_T)]
 FX = -(FR0 + FR1) / 2
 cuts += [cyl(1.7, FX, 0, z0 - 1, z0 + BOSS_T + 1), box(FX - 2.85, FX + 2.85, -3.3, 3.3, z0 - 1, z0 + 2.8)]
+# cable rail along the J2-side cheek (cable_dims.py): the bundle from the upper arm lands on the front tie block,
+# lies along the cheek behind a fence that keeps it out from under the J2 cams, and leaves the turret from the
+# rear tie block, which hangs over the turret plate's rear edge. A zip tie goes through each block's slot.
+(ry0, ry1), (rx0, rx1) = CB.RAIL_Y, CB.RAIL_X
+solids += [box(rx0, -20 + 0.01, ry0, ry1, z0, z1), box(20 - 0.01, rx1, ry0, ry1, z0, z1),
+           box(-CB.FENCE_X, CB.FENCE_X, ry0, ry0 + CB.FENCE_T, z0, z1 + CB.FENCE_H)]
+for xb in (rx0, rx1 - CB.TIE_L):
+    solids.append(box(xb, xb + CB.TIE_L, ry0, ry1, z0, z1 + CB.TIE_H))
+    cuts.append(box(xb + (CB.TIE_L - CB.TIE_SLOT[0]) / 2, xb + (CB.TIE_L + CB.TIE_SLOT[0]) / 2, ry0 - 1, ry1 + 1,
+                    z1, z1 + CB.TIE_SLOT[1]))
 plate = solids[0].fuse(solids[1:]).removeSplitter()
 plate = plate.cut(cuts[0].fuse(cuts[1:])).removeSplitter()
 lp = show("LimitPlate", plate, "Limit switch bracket (print)")
